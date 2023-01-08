@@ -100,8 +100,11 @@ def loads(buf: str, *,
     if annotation_hooks is not None:
         for anno, construct_func in annotation_hooks:
             if isinstance(anno, str) and not _pyjxc.is_valid_identifier(anno):
-                # If the annotation is a string that isn't a plain identifier, it's not going to work,
-                # because strings are treated as a single token. Split the string into tokens first.
+                # If the annotation is a string that isn't a plain identifier, it's not going to work, because
+                # _pyjxc.Parser.set_annotation_constructor treats strings as single token.
+                # Split the string into tokens first.
+                # This has the (intended) side effect of ignoring whitespace in annotation tokens,
+                # so the annotations "list<f32, 8>" and "list< f32 , 8 >" are equal.
                 anno = list(lex_annotation(anno))
             parser.set_annotation_constructor(anno, construct_func)
 

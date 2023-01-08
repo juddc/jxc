@@ -12,6 +12,7 @@ __pycache__
 *.vcxproj.filters
 *.sln
 *.egg-info
+_pyjxc*.so
 /dist
 /src_pyjxc/out
 /venv

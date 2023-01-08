@@ -6,9 +6,7 @@ import enum
 import typing
 import dataclasses
 
-import _pyjxc
 from _pyjxc import Serializer, SerializerSettings, StringQuoteMode, Encoder, FloatLiteralType
-
 from .util import get_class_path
 
 

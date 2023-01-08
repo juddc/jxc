@@ -25,7 +25,7 @@ if __name__ == "__main__":
         'JXC_VERSION_PATCH': None,
     }
 
-    for def_name, def_value in find_defines('./include/jxc/jxc_core.h'):
+    for def_name, def_value in find_defines('./jxc/include/jxc/jxc_core.h'):
         if def_name in version:
             version[def_name] = def_value
         if all(v is not None for v in version.values()):

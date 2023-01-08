@@ -1,21 +1,21 @@
 import sys
-import os
+import subprocess
+from setuptools import setup
 
-# try importing the system pybind11 first if available, otherwise fall back on the bundled copy
+# see if there is a system pybind11 install available
 try:
-    import pybind11
+    import pybind11 as _
 except ImportError:
+    # no system pybind11 install available, fall back on the bundled copy
     sys.path.insert(0, "./subprojects/pybind11")
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
-from setuptools import setup
-import subprocess
 
 __version__ = subprocess.check_output(['python', './tools/version.py']).decode('utf-8').strip()
 
 ext_modules = [
     Pybind11Extension("_pyjxc",
-        cxx_std=20,
+        cxx_std=17,
         sources=[
             # JXC core library
             "jxc/src/jxc_core.cpp",
@@ -32,7 +32,7 @@ ext_modules = [
             "bindings/python/src/jxc_python.cpp",
         ],
         include_dirs=[
-            "include",
+            "jxc/include",
             "bindings/python/src",
             "subprojects/fast_float/include",
             "subprojects/unordered_dense/include",
@@ -40,7 +40,7 @@ ext_modules = [
         define_macros = [
             ('JXC_DEBUG', 0),
             ('JXC_ENABLE_RELEASE_ASSERTS', 1),
-            ('JXC_ENABLE_DEBUG_ASSERTS', 1),
+            ('JXC_ENABLE_DEBUG_ASSERTS', 1),  # NB. These are only active when JXC_DEBUG == 1
             ('JXC_ENABLE_DEBUG_ALLOCATOR', 0),
             ('JXC_ENABLE_JUMP_BLOCK_PROFILER', 0),
         ],
@@ -76,8 +76,8 @@ setup(
     ext_modules=ext_modules,
     packages=['_pyjxc', 'jxc'],
     package_dir={
-        '_pyjxc': 'bindings/python/_pyjxc',
-        'jxc': 'bindings/python/jxc',
+        '_pyjxc': './bindings/python/_pyjxc',
+        'jxc': './bindings/python/jxc',
     },
     package_data={
         '_pyjxc': ['py.typed', '__init__.pyi'],
