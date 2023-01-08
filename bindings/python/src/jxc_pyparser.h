@@ -163,7 +163,7 @@ private:
     std::optional<ValueConstructor> get_construct_from_suffix(std::string_view suffix);
 
 public:
-    PyParser(py::str pybuf,
+    PyParser(py::object buf,
         ExpressionParseMode default_expr_parse_mode,
         bool ignore_unknown_annotations,
         bool ignore_unknown_number_suffixes);

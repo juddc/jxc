@@ -127,11 +127,21 @@
 #define JXC_ENUMSTR(ENUMTYPE, NAME) ENUMTYPE::NAME: return #NAME
 #endif
 
-#ifndef JXC_COUNT_LEADING_ZEROS
+#if !defined(JXC_COUNT_LEADING_ZEROS_U32)
 #if defined(__GNUC__) || defined(__clang__)
-#define JXC_COUNT_LEADING_ZEROS(VAL) __builtin_clz(VAL)
+#define JXC_COUNT_LEADING_ZEROS_U32(VAL) __builtin_clz(VAL)
+#elif JXC_CPP20
+#define JXC_COUNT_LEADING_ZEROS_U32(VAL) std::countl_zero<uint32_t>(VAL)
+#elif defined(_MSC_VER)
+JXC_FORCEINLINE int32_t _jxc_internal_msvc_count_leading_zeros(uint32_t value)
+{
+    unsigned long index;
+    _BitScanReverse(&index, value);
+    return (int32_t)(31 ^ index);
+}
+#define JXC_COUNT_LEADING_ZEROS_U32(VAL) _jxc_internal_msvc_count_leading_zeros(VAL)
 #else
-#define JXC_COUNT_LEADING_ZEROS(VAL) std::countl_zero<uint32_t>(VAL)
+#error JXC_COUNT_LEADING_ZEROS_U32 not implemented for this compiler or platform
 #endif
 #endif
 

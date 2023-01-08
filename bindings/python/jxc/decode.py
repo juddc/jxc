@@ -83,7 +83,7 @@ ValueConstructor = (None | ValueConstructorCallable
     | tuple[ValueConstructorCallable, ClassConstructMode, ExpressionParseMode])
 
 
-def loads(buf: str, *,
+def loads(buf: str | bytes, *,
         decode_inline=False,
         decode_enum=False,
         decode_dataclass=False,

@@ -1,6 +1,8 @@
 #include "jxc/jxc_util.h"
 #include "jxc/jxc_lexer.h"
 #include <sstream>
+#include <fstream>
+#include <filesystem>
 
 
 namespace jxc
@@ -25,16 +27,27 @@ std::string_view detail::get_base_filename(const char* file)
 }
 
 
-size_t detail::string_replace_all(std::string& inout, std::string_view what, std::string_view with)
+std::optional<std::string> detail::read_file_to_string(const std::string& file_path, std::string* out_error)
 {
-    size_t count{};
-    for (std::string::size_type pos{};
-        inout.npos != (pos = inout.find(what.data(), pos, what.length()));
-        pos += with.length(), ++count)
+    namespace fs = std::filesystem;
+
+    if (fs::exists(file_path))
     {
-        inout.replace(pos, what.length(), with.data(), with.length());
+        std::ifstream fp(file_path, std::ios::in);
+        std::ostringstream ss;
+        ss << fp.rdbuf();
+        if (out_error != nullptr)
+        {
+            out_error->clear();
+        }
+        return ss.str();
     }
-    return count;
+
+    if (out_error != nullptr)
+    {
+        *out_error = jxc::format("File does not exist {}", debug_string_repr(file_path));
+    }
+    return std::nullopt;
 }
 
 
@@ -329,7 +342,7 @@ int32_t num_codepoint_bytes(uint32_t codepoint)
 uint32_t decode(const char* buf, size_t buf_len, size_t& inout_index)
 {
     // Count # of leading 1 bits.
-    int32_t k = buf[inout_index] ? JXC_COUNT_LEADING_ZEROS(~(buf[inout_index] << 24)) : 0;
+    int32_t k = buf[inout_index] ? JXC_COUNT_LEADING_ZEROS_U32(~(buf[inout_index] << 24)) : 0;
     // All 1's with k leading 0's.
     int32_t mask = (1 << (8 - k)) - 1;
     int32_t value = buf[inout_index] & mask;

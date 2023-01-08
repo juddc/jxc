@@ -482,7 +482,7 @@ PYBIND11_MODULE(_pyjxc, m)
     ;
 
     py::class_<PyParser>(m, "Parser")
-        .def(py::init<py::str, ExpressionParseMode, bool, bool>(),
+        .def(py::init<py::object, ExpressionParseMode, bool, bool>(),
             py::arg("buf"),
             py::kw_only{},
             py::arg("default_expr_parse_mode") = ExpressionParseMode::ValueList,

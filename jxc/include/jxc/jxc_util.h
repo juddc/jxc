@@ -7,6 +7,7 @@
 #include <variant>
 #include <chrono>
 #include <array>
+#include <optional>
 
 #include "jxc/jxc_core.h"
 #include "jxc/jxc_string.h"
@@ -22,7 +23,7 @@ JXC_BEGIN_NAMESPACE(detail)
 // Intended for shortening the __FILE__ macro for use in error messages.
 std::string_view get_base_filename(const char* file);
 
-size_t string_replace_all(std::string& inout, std::string_view what, std::string_view with);
+std::optional<std::string> read_file_to_string(const std::string& file_path, std::string* out_error = nullptr);
 
 std::string debug_string_repr(std::string_view value, char quote_char = '"');
 

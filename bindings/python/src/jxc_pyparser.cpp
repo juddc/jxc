@@ -1,4 +1,5 @@
 #include "jxc_pyparser.h"
+#include "jxc/jxc_util.h"
 
 
 #define JXC_PYTHON_PARSE_ERROR(PY_ERR_TYPE, ERRINFO) do { \
@@ -123,8 +124,12 @@ py::object ValueConstructor::construct(py::object value, const Element& ele, Err
 }
 
 
-PyParser::PyParser(py::str pybuf, ExpressionParseMode default_expr_parse_mode, bool ignore_unknown_annotations, bool ignore_unknown_number_suffixes)
-    : buf(py::cast<std::string>(pybuf))
+PyParser::PyParser(
+    py::object data,
+    ExpressionParseMode default_expr_parse_mode,
+    bool ignore_unknown_annotations,
+    bool ignore_unknown_number_suffixes)
+    : buf(py::cast<std::string>(data))
     , parser(buf)
     , default_expr_parse_mode(default_expr_parse_mode)
     , ignore_unknown_annotations(ignore_unknown_annotations)
