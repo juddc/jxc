@@ -132,18 +132,18 @@ string_types: [
     # There are several builtin string types:
 
     # Raw strings - multiline strings with no escape-code processing. Note that the parentheses are required.
-    R"()", # empty
-    R'()',
-    R'(single line raw string)',
+    r"()", # empty
+    r'()',
+    r'(single line raw string)',
 
-    R"(first line
+    r"(first line
     second line
     this is a multi-line raw string that allows anything at all
     (except a close-paren followed by a quote char, which ends the string)
     fourth line)"
 
     # Can accept a character sequence as a heredoc
-    R"CUSTOM_DELIMITER(first line
+    r"CUSTOM_DELIMITER(first line
     second line
     this is a multi-line raw string that allows anything at all
     fourth line)CUSTOM_DELIMITER"
@@ -151,13 +151,13 @@ string_types: [
     # The delimiter character sequence can be anything you want, but similar to Markdown, IDEs can apply
     # syntax-highlighting for snippets of other languages if they want to. This is very useful for
     # config files with embedded scripting logic.
-    R'python(
+    r'python(
         import os
         if __name__ == "__main__":
             print(os.curdir)
     )python'
 
-    R"cpp(
+    r"cpp(
         int add(int a, int b)
         {
             return a + b;
@@ -198,7 +198,7 @@ string_types: [
     custom_string "abcdef"
     custom_string bx"05ff"
     date "1998-03-11T17:14:12.456Z"
-    regex R'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
+    regex r'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
 
     # this is NOT VALID syntax, as `str` would be treated as an invalid builtin string prefix instead of an annotation.
     #custom_string"abcdef"
@@ -295,7 +295,7 @@ webserver_config_example: {
         index: ['index.html', 'index.htm', 'index.php']
 
         default_type: 'application/octet-stream'
-        log_format.main: R"fmt(
+        log_format.main: r"fmt(
             $remote_addr - $remote_user [$time_local]  $status
             "$request" $body_bytes_sent "$http_referer"
             "$http_user_agent" "$http_x_forwarded_for"
@@ -309,7 +309,7 @@ webserver_config_example: {
             server_name: ['domain1.com', 'www.domain1.com']
             access_log: format<main> 'logs/domain1.access.log'
             root: 'html'
-            location: pattern<R'(~ \.php$)'> {
+            location: pattern<r'(~ \.php$)'> {
                 fastcgi_pass: '127.0.0.1:1025'
             }
         }
@@ -447,7 +447,7 @@ python311_pkgbuild: {
         cd "${srcdir}/Python-${pkgver}"
 
         set(CFLAGS="${CFLAGS} -fno-semantic-interposition")
-        exec R'sh(
+        exec r'sh(
             ./configure --prefix=/usr
                 --enable-shared
                 --with-computed-gotos
@@ -505,7 +505,7 @@ renderer: Renderer {
         near_clip: 0.1f, far_clip: -1.0f,                    # two values on one line
     }
 
-    camera_handler: R"python(
+    camera_handler: r"python(
         import os, sys
         # this is a multi-line string
         value = '''
