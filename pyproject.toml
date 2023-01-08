@@ -1,0 +1,21 @@
+[project]
+name = "jxc"
+version = "0.8.0"
+authors = [
+    { name="Judd Cohen", email="jcohen@juddnet.com" },
+]
+description = "JXC parsing and serialization library"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "pybind11>=2.7.0",
+]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,17 @@
+/build
+/obj
+/.vscode
+/.idea
+*.make
+Makefile
+*.pyc
+__pycache__
+.vs
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters
+*.sln
+*.egg-info
+/dist
+/src_pyjxc/out
+/venv

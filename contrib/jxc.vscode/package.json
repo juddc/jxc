@@ -1,0 +1,43 @@
+{
+    "name": "jxc",
+    "displayName": "JXC",
+    "description": "Official JXC language support extension",
+    "version": "1.0.0",
+    "publisher": "juddc",
+    "engines": {
+        "vscode": "^1.73.0"
+    },
+    "categories": [
+        "Programming Languages",
+        "Other"
+    ],
+    "keywords": [
+        "jxc",
+        "juddc",
+        "json",
+        "yml",
+        "yaml",
+        "ini",
+        "cfg",
+        "csv",
+        "toml",
+        "config"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "jxc",
+            "extensions": [".jxc"],
+            "configuration": "language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "jxc",
+            "scopeName": "source.jxc",
+            "path": "jxc.tmLanguage.json",
+            "embeddedLanguages": {
+                "meta.embedded.inline.python": "python",
+                "meta.embedded.inline.html": "html",
+                "meta.embedded.inline.css": "css"
+            }
+        }]
+    }
+}

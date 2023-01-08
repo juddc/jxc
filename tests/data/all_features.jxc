@@ -1,0 +1,520 @@
+#
+# JXC format test file
+#
+# - Hash-style single-line comments only
+# - Can be parsed either as a single value, or with the document wrapped in an implicit document (less boilerplate for config files)
+# - Superset of JSON (any JSON file can be parsed correctly with a JXC parser)
+# - In arrays and objects, commas and newlines are both valid separators. Trailing commas are allowed.
+{
+
+basic_value_types: [
+    # null
+    null,
+    # bools
+    true, false,
+    # integers
+    0, 1, 2, 3, 4, -10, -11, -12,
+    # floats
+    0.0, 3.141, -5.233, 123.456,
+    # strings
+    "", '', "abc", 'def', "\tzzzzzzz1234\n",
+    # byte strings
+    bx'', bx"00ff", bx"( 00 ff )", b64"anhjIGZvcm1hdA==", b64"( anhjIGZ vcm1hdA== )",
+    # arrays
+    [], [1,2,3], [null, 3.141, true],
+    # objects
+    {}, {x: 0, y: 1, z: 2.2}, {"red": 127, "green": 63, "blue": 202},
+    # expressions
+    (), (1 + 1), (true | false), (x += y), (abc=def, qqq=(1 + 2 / 3 * 4), zzz~=5),
+]
+
+# "expression" is a special container value type that allows a series of tokens and non-container
+# values wrapped in parentheses.
+# The default parser simply converts them to an array of values (with identifiers treated as strings),
+# but they are most useful when parsed with a custom handler.
+# When writing a custom handler, it is highly recommended that you use annotations to select an
+# expression parser for any given expression.
+expression_values: [
+    # Expressions allow identifiers, non-container values (without annotations), and any of the following symbols which can be used as operators:
+    # `|`, `&`, `!`, `=`, `<`, `>`, `+`, `-`, `*`, `/`, `%`, `^`, `.`, `?`, '~'
+    # Note that these operator symbols can be combined in up to 4-character combinations to produce any needed operator.
+
+    # `+`, `-`, `*`, `/`, `%`, `^`, `|`, `&`, `!`, `=`, `<`, `>`, `~`, `?`, `.`, `(`, `)`, `,`
+    # Note that while the tokens used are not interpreted by JXC (they are just data for use by the host application),
+    # some tokens have specific parsing rules. These rules are in place because they are useful for nearly all use-cases,
+    # and having them be part of the specification means less error-handling for the host-application to be responsible for.
+    #   `(` and `)`: inner parentheses are checked for matching pairs
+    #   `,`: more than one in a row is not allowed
+    #   Note that angle brackets (`<` and `>`) are not checked for matching pairs to allow their use as less-than and greater-than symbols.
+
+    # empty expression
+    ()
+    (())
+
+    # supported inner values - all non-container value types without annotations
+    (1)
+    (3.141)
+    (25px)
+    ("abc")
+    (bx"00ff")
+    (true)
+    (false)
+    (null)
+
+    # simple examples
+    (1, 2, 3, 4)
+    (40px + 20%)
+
+    # with the default parser, this is equivalent to ['max', '(', 10, ',', 20, ')', '+', 3.141]
+    (max(10, 20) + 3.141)
+
+    # boolean-style expressions
+    (5 <= 4)
+    (5 < 3 || abc + 5 > 10 || qqq == null || false)
+    (true || false)
+    (true === false or true)
+
+    # math-style expressions
+    (5 - 3)
+    (5 - -3)
+    (1 + (2 * 3) // 4 % 5)
+    (arr[0] + arr[1])
+    calc(min(1, 2) <=> max<int<px>>(-10px, 20px); x <=y; --x)
+
+    # expressions as data
+    ref(Core.Voxel.Air)
+    asset(StaticMesh'/Game/CoreArt/Environment/Trees/TreeExperiment02.TreeExperiment02')
+    (FVoxel(14).With('Phase', 3))
+]
+
+annotations: [
+    # All values may have a leading annotation.
+    # This is generally the type of the following value, but there are lots of creative uses for annotations.
+
+    # Annotations must start with an identifier (or `!` followed by an identifier). They can be followed by
+    # pairs of `.` and another identifier. After the dotted identifier list, you can use angle brackets to
+    # add additional information (for example, an array type's inner value type).
+    # Inside the angle brackets you can put an expression. Like expressions, the contents of these angle brackets
+    # are interpreted by the host application and have no intrinsic meaning in JXC.
+
+    Vector3 { x: 0.12, y: -5.1, z: 2.23 }
+    Vector3 [ 0.12, -5.1, 2.23 ]
+    Rotation 45
+    Rotation { pitch: 12, yaw: 55, roll: 77 }
+    Rotation [ 12, 55, 77 ]
+    ObjectType null
+    ObjectType true
+    ObjectType {}
+    ObjectType { a: true, b: false }
+
+    # Annotations always start with an identifier, but can be a `.` separated list of identifiers.
+    # This dotted identifier can be optionally followed by an angle bracket pair.
+    # Inside those brackets you can put any valid expression.
+    Array<Math.Vector3<int32_t>> [ [0,1,2], [4,5,6] ]
+    Array<Math.Vector3<int32_t>> [ {x:0,y:1,z:2}, {x:4,y:5,z:6} ]
+    Array<Vector3> [ Vector3{ x: 0, y: 1, z: 2 }, Vector3{ x: 4, y: 5, z: 6 } ]
+    std.vector<int32_t> [ 1, 2, 3, 4, 5 ]
+    std.vector<double> [ 3.141, 0.0, -5.2, 11.22, 33.44, 55.66, 7.8, 9.0 ]
+    std.unordered_map<std.string, int64_t> { "abc": 123, "def": 456, }
+
+    # This example seems needlessly verbose as a datatype, but it's just an example of how expressive annotations
+    # can be if needed for a particular use case. Remember that these don't have to represent types!
+    Union<String | Int | Float | Boolean | List<Int | Float> | null> "abc"
+]
+
+more_annotation_examples: {
+    value1: !modifier1 "THIS IS A STRING"
+    value2: !modifier2 "This is also a string"
+    value3: typing.Union<str | (int & float) | bool> "logical operators for types"
+}
+
+string_types: [
+    # There are several builtin string types:
+
+    # Raw strings - multiline strings with no escape-code processing. Note that the parentheses are required.
+    R"()", # empty
+    R'()',
+    R'(single line raw string)',
+
+    R"(first line
+    second line
+    this is a multi-line raw string that allows anything at all
+    (except a close-paren followed by a quote char, which ends the string)
+    fourth line)"
+
+    # Can accept a character sequence as a heredoc
+    R"CUSTOM_DELIMITER(first line
+    second line
+    this is a multi-line raw string that allows anything at all
+    fourth line)CUSTOM_DELIMITER"
+
+    # The delimiter character sequence can be anything you want, but similar to Markdown, IDEs can apply
+    # syntax-highlighting for snippets of other languages if they want to. This is very useful for
+    # config files with embedded scripting logic.
+    R'python(
+        import os
+        if __name__ == "__main__":
+            print(os.curdir)
+    )python'
+
+    R"cpp(
+        int add(int a, int b)
+        {
+            return a + b;
+        }
+    )cpp"
+
+    # JXC supports binary data by encoding it as hex (generally useful for small values)
+    # or base64 (generally useful for larger values).
+
+    # Hex-encoded byte-strings (two-character hex pair per byte)
+    bx"6a7863"
+
+    # Base64-encoded byte strings
+    b64"anhjIGZvcm1hdA=="
+
+    # Both byte string formats support adding an inner set of parentheses, which allows linebreaks
+    # and whitespace that is ignored when decoding these values.
+    bx"( 6a 78 63 )"
+    b64"(
+        LV+SYQ94r4HjyDS+PyMBTGqnRwFIbLEXYaGhj8yQbAvpaHRLdvxNLvfyjXL
+        Y4bZGdMLHQjsU0yVxl3vsMkBoMVUJoFlnvlyxIX3mf/GQKZ5FShhynSq33v
+        rWohSHJloMWlyy1XeO+5IeZPFcYmTfnuVogC+q+CD2ZlriNzX5QHIhNVc+w
+        UVNJcvEZkA5TMX1OhapfX/wziKzlqcGP45OZGUMV6LL9S/ftWg/Nca0uWex
+        OkKwAcZzrJb2FBEwcrbKw+w2+KQpAuSD1pAWjXT5CeleZ7fH/wHCqYgvG5U
+        ruAMlK9AGyu3IAFA9fGbc2Nv6VK55PthsPpfuvdb32Eix9wL+Jr6Pu6RPkZ
+        5JVppXsDrc46dbN6EjNQMYbPPdkaWffo3v9DDPLdnyN12YNVyLVqQKSwUJM
+        Hty5YLCWFTGkpPz1bY8hIy/PoANB0uvfNG8WDAEEoiH+VKi73u1jDqJ6qlD
+        ThHTlxlq6M118f1IQkLsYPhZi2Z773+hXrSBjQnsKgwn/0v/djk08FgWX9Y
+        4Gw==
+    )"
+
+    # JXC does not support custom string prefixes to avoid conflicts with future format revisions.
+    # Instead you can simply use type annotations to associate a tag or type. This also allows you
+    # to combine annotations with builtin prefixes (eg. `custom_str bx"0102"`).
+    # Note that unlike container types, type annotations associated with single-value types MUST have
+    # whitespace separating it from the first character in the value (in this case the quote character)
+    # to avoid ambiguity.
+    custom_string "abcdef"
+    custom_string bx"05ff"
+    date "1998-03-11T17:14:12.456Z"
+    regex R'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
+
+    # this is NOT VALID syntax, as `str` would be treated as an invalid builtin string prefix instead of an annotation.
+    #custom_string"abcdef"
+]
+
+numeric_types: [
+    # The two base number types are integer and floating-point
+    123,
+    123.456,
+
+    # You can also specify integer values using binary, hex, or octal
+    0xff
+    0b01101100
+    0o777
+
+    # Both number types support custom suffixes to provide a unit or type.
+    # The unit value is limited to a short identifier, at most 16 characters. ([a-zA-Z_%][a-zA-Z0-9_%]{0,15}).
+    10px
+    25.1%
+    30mm
+    45deg
+    3.141_radians
+    15u8
+    15_i64
+    15.0f
+
+    # You can combine these suffixes with annotations if desired.
+    int32_t 10px
+    relative 20.234%
+    absolute 52px
+]
+
+object_keys: {
+    # Object keys can be in one of the following formats:
+
+    # Value-based keys (string, bool, null, and integer only)
+    "abc": 123
+    'def': true
+    "": "the empty string is valid as a key"
+    #bx"12ff": false    # byte strings (hex or base64) are not valid as keys
+    true: "bool key (true)"
+    false: "bool key (false)"
+    null: "null key"
+    1234: "integer key"
+    #123.456: false     # floating point values are not valid as keys
+
+    # Non-value keys, composed of identifiers and the symbols `$`, `*`, `.`, and `-`.
+    # Keys must start and end with an identifier, `*`, or `$` (they can not start or end with `.` or `-`)
+    # Whitespace is not allowed (use a string key if whitespace must be in the key)
+    # These can be interpreted however the host application wants, but by default these auto-convert to strings.
+    identifier: 0
+    identifier_with_underscore: 0
+    dotted.identifier: 0
+    a.b.c.d.e.f.g.h: 0
+    root.*: 0
+    *: 0
+    $: 0
+    #.: 0       # not valid
+    #-: 0       # not valid
+    *.abc.*.def.*: 0
+    dashed-identifier: 0
+    xfsroot.*: 'skip'
+    $key$: null
+}
+
+# simple example of how you could represent an INI or TOML file
+config_example: {
+    section1: {
+        key1: "value"
+        key2: 123
+    }
+
+    section2: {
+        key1: null
+        key2: [1, 2, 3, 4]
+    }
+}
+
+# loosely-adapted nginx example config
+webserver_config_example: {
+    user: 'www:www'
+    worker_processes: 5  # Default: 1
+    error_log: 'logs/error.log'
+    pid: 'logs/nginx.pid'
+    worker_rlimit_nofile: 8192
+    events: {
+        worker_connections: 4096  # Default: 1024
+    }
+    http: {
+        $include: 'conf/mime.types'
+        $include: '/etc/nginx/proxy.conf'
+        $include: '/etc/nginx/fastcgi.conf'
+
+        index: ['index.html', 'index.htm', 'index.php']
+
+        default_type: 'application/octet-stream'
+        log_format.main: R"fmt(
+            $remote_addr - $remote_user [$time_local]  $status
+            "$request" $body_bytes_sent "$http_referer"
+            "$http_user_agent" "$http_x_forwarded_for"
+        )fmt"
+        access_log: format<main> 'logs/access.log'
+        sendfile: true
+        tcp_nopush: true
+        server_names_hash_bucket_size: 128  # this seems to be required for some vhosts
+        server: {  # php/fastcgi
+            listen: 80
+            server_name: ['domain1.com', 'www.domain1.com']
+            access_log: format<main> 'logs/domain1.access.log'
+            root: 'html'
+            location: pattern<R'(~ \.php$)'> {
+                fastcgi_pass: '127.0.0.1:1025'
+            }
+        }
+
+        server: {  # simple reverse-proxy
+            listen: 80
+            server_name: ['domain2.com', 'www.domain2.com']
+            access_log: format<main> 'logs/domain2.access.log'
+
+            # serve static files
+            location: pattern<'~ ^/(images|javascript|js|css|flash|media|static)/'> {
+                root: '/var/www/virtual/big.server.com/htdocs'
+                expires: 30d
+            }
+
+            # pass requests for dynamic content to rails/turbogears/zope, et al
+            location: pattern<'/'> {
+                proxy_pass: 'http://127.0.0.1:8080'
+            }
+        }
+
+        upstream: name<'big_server_com'> {
+            server: weight<5> '127.0.0.3:8000'
+            server: weight<5> '127.0.0.3:8001'
+            server: '192.168.0.1:8000'
+            server: '192.168.0.1:8001'
+        }
+
+        server: {  # simple load balancing
+            listen: 80
+            server_name: 'big.server.com'
+            access_log: format<main> 'logs/big.server.access.log'
+            location: pattern<'/'> {
+                proxy_pass: 'http://big_server_com'
+            }
+        }
+    }
+}
+
+# loosely-adapted CSS syntax
+stylesheet_example: {
+    paragraph: attr<name='first', href='about:blank'> {
+        width: 90%
+        # `calc` is actually an annotation here, and the part in parentheses is the "expression" value type.
+        # You can combine these to simulate a function-style syntax.
+        height: calc(10% + 20px)
+        font-size: 1.5em
+        background-color: rgb[20, 50, 150]
+    }
+
+    # By default, objects are backed by a hashmap, which does not allow duplicate keys.
+    # JXC itself does not care about duplicate keys - how objects are stored is an implementation detail.
+    # If you use a custom container type for objects with a particular annotation, and that
+    # container type allows duplicate keys, that makes it possible to allow syntax like this.
+    paragraph: attr<name='second'> {
+        width: 90%
+        # using a type annotation with an empty expression is one way you could use an identifier instead of a string
+        # (identifiers can not be used as values, as that would create ambiguity when parsing)
+        height: auto()
+        font-size: 1.5em
+        background-color: rgb[20, 50, 150]
+        border-style: dashed(dash_length 2px, thickness 1px)
+    }
+
+    $toggle: {
+        var.accent-color: rgb[49, 49, 49]
+        var.indicator-width: 25%
+        position: 'relative'
+        min-width: 5vmin
+        min-height: min(30px, 5vmin)
+        box-shadow: (0 0 0.5vmin rgba(0, 0, 0, 0.4))
+        background: var(accent-color)
+        border-size: max(2px, 0.2vmin)
+        border-style: solid()
+        border-color: rgb[134, 134, 50]
+        border-radius: 10px
+        padding-left: 4px
+        padding-right: 4px
+    }
+
+    $with-border: classes.any<'calendar-month', 'calendar-week', 'calendar-day'> {
+        border-size: 1px
+        border-style: solid()
+        border-color: rgb[134, 134, 134]
+    }
+}
+
+# simple shell script
+shell_script: shell[
+    cd 're2c'
+    mkdir ('-p', 'out')
+    cd 'out'
+    cmake '..'
+    cmake ('--build', '.')
+    cp ('./re2c', '../../../tools/re2c')
+]
+
+# arch linux pkgbuild
+python311_pkgbuild: {
+    pkgname: 'python311'
+    pkgver: '3.11.0'
+    pkgrel: 1
+    _pybasever: '3.11'
+    _pymajver: 3
+    pkgdesc: "Major release 3.11 of the Python high-level programming language"
+    arch: ['i686', 'x86_64']
+    license: ['custom']
+    url: "https://www.python.org/"
+    depends: ['bzip2', 'expat', 'gdbm', 'libffi', 'libnsl', 'libxcrypt', 'openssl', 'zlib']
+    makedepends: ['bluez-libs', 'mpdecimal', 'gdb']
+    optdepends: ['sqlite', 'mpdecimal: for decimal', 'xz: for lzma', 'tk: for tkinter']
+    source: 'https://www.python.org/ftp/python/${pkgver}/Python-${pkgver}.tar.xz'
+    sha256sums: ['a57dc82d77358617ba65b9841cee1e3b441f386c3789ddc0676eca077f2951c3']
+    validpgpkeys: [
+        '0D96DF4D4110E5C43FBFB17F2D347EA6AA65421D'  # Ned Deily (Python release signing key) <nad@python.org>
+        'E3FF2839C048B25C084DEBE9B26995E310250568'  # Łukasz Langa (GPG langa.pl) <lukasz@langa.pl>
+    ]
+    provides: ["python=$pkgver"]
+
+    prepare: shell[
+        cd "${srcdir}/Python-${pkgver}"
+
+        # FS#23997
+        sed.ie ('s|^#.* /usr/local/bin/python|#!/usr/bin/python|' 'Lib/cgi.py')
+
+        # Ensure that we are using the system copy of various libraries (expat, zlib and libffi),
+        # rather than copies shipped in the tarball
+        rm.rf "Modules/expat"
+        rm.rf "Modules/zlib"
+        rm.rf "Modules/_ctypes/{darwin,libffi}*"
+        rm.rf "Modules/_decimal/libmpdec"
+    ]
+
+    build: shell[
+        cd "${srcdir}/Python-${pkgver}"
+
+        set(CFLAGS="${CFLAGS} -fno-semantic-interposition")
+        exec R'sh(
+            ./configure --prefix=/usr
+                --enable-shared
+                --with-computed-gotos
+                --with-lto
+                --enable-ipv6
+                --with-system-expat
+                --with-dbmliborder=gdbm:ndbm
+                --with-system-ffi
+                --with-system-libmpdec
+                --enable-loadable-sqlite-extensions
+                --without-ensurepip
+                --with-tzpath=/usr/share/zoneinfo
+        )sh'
+
+        make 'EXTRA_CFLAGS="$CFLAGS"'
+    ]
+
+    package: shell[
+        cd "${srcdir}/Python-${pkgver}"
+        # altinstall: /usr/bin/pythonX.Y but not /usr/bin/python or /usr/bin/pythonX
+        make ('DESTDIR="${pkgdir}"', 'altinstall', 'maninstall')
+
+        # Split tests
+        rm.r '"$pkgdir"/usr/lib/python*/{test,ctypes/test,distutils/tests,idlelib/idle_test,lib2to3/tests,tkinter/test,unittest/test}'
+
+        # Avoid conflicts with the main 'python' package.
+        rm.f "${pkgdir}/usr/lib/libpython${_pymajver}.so"
+        rm.f "${pkgdir}/usr/share/man/man1/python${_pymajver}.1"
+        rm.f "${pkgdir}/usr/share/man/man1/python${_pymajver}.1"
+
+        # Clean-up reference to build directory
+        sed.i ("s|$srcdir/Python-${pkgver}:||", "$pkgdir/usr/lib/python${_pybasever}/config-${_pybasever}-${CARCH}-linux-gnu/Makefile")
+
+        # Add useful scripts FS#46146
+        install.dm755 '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/{i18n,scripts}'
+        install.m755 ('Tools/i18n/{msgfmt,pygettext}.py', '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/i18n/')
+        install.m755 ('Tools/scripts/{README,*py}', '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/scripts/')
+
+        # License
+        install.Dm644 ('LICENSE', "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE")
+    ]
+}
+
+# game renderer config example
+renderer: Renderer {
+    renderer_type: 'Direct3D11'
+    use_fallback_camera: true                                # ignore this!!![][]{}{}  abc = def = 222
+    fallback_camera_movement_speed: 50.0mph                  # this is also a comment!
+    fallback_camera: CameraParams {
+        up_direction      : Vector3 [0.0, 0.0, 1.0],
+        forward_direction : Vector3 [1.0, 0.0, 0.0]
+        position          : Vector3 [-10.0, 2.0, 2.00000],   # another comment!'''''''''''
+        rotation          : Rotation [45.0001, 0.0, 0.0]
+        fov_y: 60.0f,                                        # testing inconsistent commas
+        near_clip: 0.1f, far_clip: -1.0f,                    # two values on one line
+    }
+
+    camera_handler: R"python(
+        import os, sys
+        # this is a multi-line string
+        value = '''
+            oh hai python multi-line string that looks similar to the inu one but should still be easily parsable
+        '''
+        if __name__ == "__main__":
+            for i in range(10):
+                print("neat", value)
+    )python"
+}
+
+}

@@ -1,0 +1,227 @@
+# SYNTAX TEST "Packages/User/JXC/JXC.sublime-syntax"
+[
+
+# null
+null
+
+# bool
+true
+false
+
+# numbers
+123
+-123
+123.456
+-123.456
+1.0E+2
+-1.0E+2
+0xFF
+0xff
+-0xaa
+0b110011
+0o777
+
+# numbers with unit/type suffixes
+# NB. hex values require the suffix to have a leading underscore to avoid ambiguity
+0xffaabb77_aaa
+-0xaa44cc_i32
++0b001100u64
+-0o777perm
+-123px
++444e+2_px
+123px
+123.456px
+-123px
+-123.456px
+
+# strings
+""
+''
+"abc"
+'abc'
+"abc\n\tdef"
+
+r"(abc)"
+r"(abc"'8905435&*'()'*)"
+
+r'heredoc(multi-line string data)heredoc'
+r'heredoc(
+    multi-line string data
+)heredoc'
+r"heredoc(multi-line string data)heredoc"
+r"heredoc(
+    multi-line string data
+)heredoc"
+
+r'html(
+<!doctype html>
+<html>
+<head>
+    <title>Neat</title>
+</head>
+<body>
+    <h1>Sup?</h1>
+</body>
+</html>
+)html'
+
+# byte strings
+bx''
+bx"00ff"
+bx"( 00 ff )"
+b64"anhjIGZvcm1hdA=="
+b64"( anhjIGZ vcm1hdA== )"
+b64"(
+    anhjIGZ
+    vcm1hdA==
+)"
+bx"ff1122bbff"
+bx"35346a762a28265950232a5448463b736468673b6c"
+bx"(
+    35346a762a28265950232a
+    5448463b736468673b6c0f
+)"
+
+b64"/xEiu/8="
+b64"(
+    LV+SYQ94r4HjyDS+PyMBTGqnRwFIbLEXYaGhj8yQbAvpaHRLdvxNLvfyjXL
+    Y4bZGdMLHQjsU0yVxl3vsMkBoMVUJoFlnvlyxIX3mf/GQKZ5FShhynSq33v
+    rWohSHJloMWlyy1XeO+5IeZPFcYmTfnuVogC+q+CD2ZlriNzX5QHIhNVc+w
+    UVNJcvEZkA5TMX1OhapfX/wziKzlqcGP45OZGUMV6LL9S/ftWg/Nca0uWex
+    OkKwAcZzrJb2FBEwcrbKw+w2+KQpAuSD1pAWjXT5CeleZ7fH/wHCqYgvG5U
+    ruAMlK9AGyu3IAFA9fGbc2Nv6VK55PthsPpfuvdb32Eix9wL+Jr6Pu6RPkZ
+    5JVppXsDrc46dbN6EjNQMYbPPdkaWffo3v9DDPLdnyN12YNVyLVqQKSwUJM
+    Hty5YLCWFTGkpPz1bY8hIy/PoANB0uvfNG8WDAEEoiH+VKi73u1jDqJ6qlD
+    ThHTlxlq6M118f1IQkLsYPhZi2Z773+hXrSBjQnsKgwn/0v/djk08FgWX9Y
+    4Gw==
+)"
+
+# arrays
+[]
+[[]]
+[1, 2, 3]
+[
+    [1, 2, 3],
+    'abc',
+    -0xff_i32,
+]
+[ x 5, y 10 ]
+
+# expressions
+()
+(())
+# supported inner values - all non-container value types without annotations
+(1)
+(3.141)
+(25px)
+("abc")
+(bx"00ff")
+(true)
+(false)
+(null)
+# expressions with operators
+(1, 2, 3, 4)
+(40px + 20%)
+(arr[0] + arr[2] - arr<3>)
+(math.max(10, 20) + 3.141) # with the default parser, this is equivalent to ['math', '.', 'max', '(', 10, ',', 20, ')', '+', 3.141]
+# boolean-style expressions
+(5 <= 4)
+(5 < 3 || abc + 5 > 10 || qqq == null || false)
+(true || false)
+(true === false or true)
+# math-style expressions
+(5 - 3)
+(5 - -3)
+(1 + (2 * 3) // 4 % 5)
+(arr[0] + arr[1])
+(min(1, 2) <=> max<int<px>>(-10px, 20px); x <=y; --x)
+(2*x^2 + 4*x^2 - 3)
+# expressions as data
+(Core.Voxel.Air)
+(StaticMesh'/Game/CoreArt/Environment/Trees/TreeExperiment02.TreeExperiment02')
+(FVoxel(14).With('Phase', 3))
+
+# objects
+{}
+{
+    x: 5
+    y: 'abc'
+    z: bx'1122ff'
+    q: [0, 50, 22]
+}
+{
+    x : 5
+    y: 'abc'
+    z: bx'1122ff'
+    w: [1, 2, 3]
+    true: '\tabc\n'
+    false: 5
+    abc: [1, 2, 3]
+    def: { x: 5, y: 10, z: 22 }
+    null: 111.2
+    123: 456
+    false: 0%
+    "\tabc\n": 222.2f32
+    'zzz'  :   null
+}
+
+# type annotations
+{
+    anno1: vec.vec<vec.int<1, 2, 3>, 'abc', vec.int>[1, 2, 3],
+    anno2: !vec.vec<vec.int<1px, 2px, 3px>, 'abc', vec.int>[1px, 2px, 3px],
+    w: !vec<int, int, int>[1, 2, 3]
+    q: rgb[0, 50, 22]
+    z: !color bx'1122ff'   # huh
+    z: color bx'1122ff'
+    qq: { x: !val 5, y: val 2, z: val 10 }
+    0xff11: tag(a=5)
+    0xff11: tag +5.2
+
+    values: [
+        Array<Math.Vector3<int32_t>> [ [0,1,2], [4,5,6] ]
+        Array<Math.Vector3<int32_t>> [ {x:0,y:1,z:2}, {x:4,y:5,z:6} ]
+        Array<Vector3> [ Vector3{ x: 0, y: 1, z: 2 }, Vector3{ x: 4, y: 5, z: 6 } ]
+        std.vector<int32_t> [ 1, 2, 3, 4, 5 ]
+        std.vector<double> [ 3.141, 0.0, -5.2, 11.22, 33.44, 55.66, 7.8, 9.0 ]
+        std.unordered_map<std.string, int64_t> { "abc": 123, "def": 456, }
+        Union<String | Int | Float | Bool | List<Int | Float> | null> "abc"
+    ]
+}
+
+# json document
+{
+    "name": "Example Color Scheme",
+    "variables":
+    {
+        "green": "hsla(153, 80%, 40%, 1)",
+        "black": "#111",
+        "white": "rgb(242, 242, 242)"
+    },
+    "globals":
+    {
+        "background": "var(black)",
+        "foreground": "var(white)",
+        "caret": "color(var(white) alpha(0.8))"
+    },
+    "rules":
+    [
+        {
+            "name": "Comment",
+            "scope": "comment",
+            "foreground": "color(var(black) blend(#fff 50%))"
+        },
+        {
+            "name": "String",
+            "scope": "string",
+            "foreground": "var(green)",
+        },
+        {
+            "name": "Number",
+            "scope": "constant.numeric",
+            "foreground": "#7F00FF",
+            "font_style": "italic",
+        }
+    ]
+}
+
+]

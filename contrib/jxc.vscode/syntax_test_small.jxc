@@ -1,0 +1,30 @@
+# comments
+{
+    constants: [
+        null, true, false
+    ]
+    integers: [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 111, 222, 1235, 463254,
+    ]
+    # more comments
+    hex_literals: [
+        0xff, 0x0011ffbb
+    ]
+    number_suffixes: [
+        42px
+        50.25%
+    ]
+    floats: [
+        123.456, 3.141, -3.141, 444.222
+    ]
+    strings: [
+        "abc"
+        'abc'
+        bx"0011ff"
+    ]
+    annotations: [
+        vec{ x: 2, y: 3, z: 4 }
+        vec3<int>[1, 2, 3]
+    ]
+
+}

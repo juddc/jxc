@@ -1,0 +1,905 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/syntax.html
+file_extensions:
+  - jxc
+
+scope: source.jxc
+
+variables:
+  hex_digit: '[0-9a-fA-F]+'
+  number_type_suffix: '([a-zA-Z_%][a-zA-Z0-9_%]{0,15})?'
+  hex_number_type_suffix: '(_[a-zA-Z_%][a-zA-Z0-9_%]{0,15})?'
+  number_prefix: '[\-\+]?'
+
+  constant_value: 'true|false|null'
+  number_start: '[\-\+0-9]'
+  string_start: '{{quote_s}}|{{quote_d}}'
+  string_raw_start: '{{str_prefix_raw}}{{quote_s}}|{{str_prefix_raw}}{{quote_d}}'
+  string_hex_start: '{{str_prefix_hex}}{{quote_s}}|{{str_prefix_hex}}{{quote_d}}'
+  string_base64_start: '{{str_prefix_base64}}{{quote_s}}|{{str_prefix_base64}}{{quote_d}}'
+
+  value_start: '{{constant_value}}|{{number_start}}|{{string_start}}|{{string_raw_start}}|{{string_hex_start}}|{{string_base64_start}}|\[|\(|\{'
+  
+  bin_digit: '[01]+'
+  oct_digit: '[0-7]+'
+  base64_digit: '[A-Za-z0-9+/=]+'
+  
+  integer: '[0-9]+'
+  frac: '\.[0-9]+'
+  exponent: '[eE][\-\+]?[0-9]+'
+  quote_s: \'
+  quote_d: \"
+  str_prefix_raw: 'r'
+  str_prefix_base64: 'b64'
+  str_prefix_hex: 'bx'
+  expr_combinable_operator: '[\|\&\!\=\+\-\*\/\%\^\?\~\<\>\;]'
+
+  identifier: '[a-zA-Z_$][a-zA-Z0-9_$]*'
+
+  object_key_ident_start_char: '[a-zA-Z_$*]'
+  object_key_identifier: '{{object_key_ident_start_char}}[a-zA-Z0-9_$*]*'
+  object_key_sep: '[\.\-]'
+  object_key: '{{object_key_identifier}}({{object_key_sep}}{{object_key_identifier}})*'
+
+
+contexts:
+  prototype:
+    - include: comment
+
+  main:
+    - include: toplevel_key_value_pair
+    - include: value
+
+  comment:
+    - meta_scope: meta.comment.jxc
+    - match: (#)(.*)(?=$\n?)
+      captures:
+        1: punctuation.definition.comment.jxc
+        2: comment.line.documentation.jxc
+
+  constant_null:
+    - meta_scope: meta.constant.jxc
+    - match: \bnull\b
+      scope: constant.language.null.jxc
+
+  constant_bool:
+    - meta_scope: meta.constant.jxc
+    - match: \b(?:false|true)\b
+      scope: constant.language.boolean.jxc
+
+  number_integer:
+    - meta_scope: meta.number.jxc
+
+    - match: '({{number_prefix}})(0x|0X)({{hex_digit}})({{hex_number_type_suffix}})'
+      captures:
+        0: constant.numeric.value.jxc
+        1: keyword.operator.arithmetic.jxc
+        2: constant.other.type.numeric.jxc
+        4: constant.other.type.numeric.jxc
+
+    - match: '({{number_prefix}})(0b|0B)({{bin_digit}})({{number_type_suffix}})'
+      captures:
+        0: constant.numeric.value.jxc
+        1: keyword.operator.arithmetic.jxc
+        2: constant.other.type.numeric.jxc
+        4: constant.other.type.numeric.jxc
+
+    - match: '({{number_prefix}})(0o|0O)({{oct_digit}})({{number_type_suffix}})'
+      captures:
+        0: constant.numeric.value.jxc
+        1: keyword.operator.arithmetic.jxc
+        2: constant.other.type.numeric.jxc
+        4: constant.other.type.numeric.jxc    
+
+    - match: '({{number_prefix}})({{integer}})({{number_type_suffix}})'
+      captures:
+        0: constant.numeric.value.jxc
+        1: keyword.operator.arithmetic.jxc
+        3: constant.other.type.numeric.jxc
+
+  number_float:
+    - meta_scope: meta.number.jxc
+
+    - match: '({{number_prefix}})({{integer}}{{frac}})({{exponent}})?{{number_type_suffix}}'
+      captures:
+        0: constant.numeric.jxc
+        3: keyword.operator.arithmetic.jxc
+        4: constant.other.type.numeric.jxc
+
+    - match: '({{number_prefix}})({{integer}})({{exponent}})({{number_type_suffix}})'
+      captures:
+        0: constant.numeric.jxc
+        3: constant.numeric.exponent.jxc
+        4: constant.other.type.numeric.jxc
+
+  string_single_line:
+    - meta_scope: meta.string.jxc
+    - match: \'
+      scope: punctuation.definition.string.begin.jxc
+      push:
+        - clear_scopes: 1
+        - meta_scope: meta.mapping.key.jxc string.quoted.single.jxc
+        - meta_include_prototype: false
+        - include: inside-string-single-quote
+    - match: \"
+      scope: punctuation.definition.string.begin.jxc
+      push:
+        - clear_scopes: 1
+        - meta_scope: meta.mapping.key.jxc string.quoted.double.jxc
+        - meta_include_prototype: false
+        - include: inside-string-double-quote
+
+  string_raw_single_line:
+    - meta_scope: meta.string_raw.jxc
+    - meta_include_prototype: false
+
+    - match: (r)(["'])(\()([^\n]*)(\))(\2)
+      captures:
+        1: storage.type.string.jxc
+        2: punctuation.definition.string.begin.jxc
+        3: punctuation.definition.string.begin.jxc
+        4: string.quoted.raw.jxc
+        5: punctuation.definition.string.end.jxc
+        6: punctuation.definition.string.end.jxc
+
+  string_raw_multi_line:
+    - meta_scope: meta.string_raw.jxc
+    - meta_include_prototype: false
+
+    # multi-line raw string
+    - match: (r)(['"])([^\(\)\\ ]{0,16})(\()
+      captures:
+        1: storage.type.string.jxc
+        2: punctuation.definition.string.begin.jxc
+        3: punctuation.definition.string.begin.jxc
+        4: punctuation.definition.string.begin.jxc
+      push:
+        - meta_scope: string.raw.multiline.jxc
+        - match: \)\3\2
+          scope: punctuation.definition.string.end.jxc
+          pop: true
+
+  string_raw:
+    - include: embedded_scripting_languages
+    - include: string_raw_single_line
+    - include: string_raw_multi_line
+
+  string_bytes_single_line:
+    - meta_scope: meta.byte_string.jxc
+      # single-line hex-encoded byte string
+    - match: (bx)([\"\'])([a-fA-F0-9]{2}*)(\2)
+      captures:
+        1: storage.type.string.jxc
+        2: punctuation.definition.string.begin.jxc
+        3: constant.numeric.integer.hexadecimal.jxc
+        4: punctuation.definition.string.end.jxc
+
+    # single-line base64-encoded byte string
+    - match: (b64)([\"\'])([a-zA-Z0-9\+\/]*)(\={0,2})(\2)
+      captures:
+        1: storage.type.string.jxc
+        2: punctuation.definition.string.begin.jxc
+        3: constant.numeric.integer.hexadecimal.jxc
+        4: constant.numeric.integer.hexadecimal.jxc
+        5: punctuation.definition.string.end.jxc
+
+  string_bytes_multi_line:
+    - meta_scope: meta.byte_string.jxc
+    # multi-line hex-encoded byte string
+    - match: (bx)([\"\'])\(
+      captures:
+        1: storage.type.string.jxc
+        2: punctuation.definition.string.begin.jxc
+      push:
+        - match: '[a-fA-F0-9]{2}'
+          scope: constant.numeric.integer.hexadecimal.jxc
+        - match: '[^a-fA-F0-9\s\)]'
+          scope: invalid.illegal.jxc
+        - match: \)\2
+          scope: punctuation.definition.string.end.jxc
+          pop: true
+
+    # multi-line base64-encoded byte string
+    - match: (b64)([\"\'])(\()
+      captures:
+        1: storage.type.string.jxc
+        2: punctuation.definition.string.begin.jxc
+        3: punctuation.definition.string.begin.jxc
+      push:
+        - match: '[a-zA-Z0-9\+\/]+'
+          scope: constant.numeric.integer.hexadecimal.jxc
+        - match: '\={0,2}'
+          scope: constant.numeric.integer.hexadecimal.jxc
+        - match: '[^a-zA-Z0-9\+\/\=\s\)]'
+          scope: invalid.illegal.jxc
+        - match: \)\2
+          scope: punctuation.definition.string.end.jxc
+          pop: true
+
+  inside-string-single-quote:
+    - meta_scope: string.quoted.single.jxc
+    - meta_include_prototype: false
+    - include: string-escape
+    - match: \'
+      scope: punctuation.definition.string.end.jxc
+      pop: true
+    - match: \n
+      scope: invalid.illegal.unclosed-string.jxc
+      pop: 1
+
+  inside-string-double-quote:
+    - meta_scope: string.quoted.double.jxc
+    - meta_include_prototype: false
+    - include: string-escape
+    - match: \"
+      scope: punctuation.definition.string.end.jxc
+      pop: true
+    - match: \n
+      scope: invalid.illegal.unclosed-string.jxc
+      pop: 1
+
+  string-escape:
+    - match: |-
+        (?x:                # turn on extended mode
+          \\                # a literal backslash
+          (?:               # ...followed by...
+            ["\\/bfnrt]     # one of these characters
+            |               # ...or...
+            u               # a u
+            [0-9a-fA-F]{4}  # and four hex digits
+          )
+        )
+      scope: constant.character.escape.jxc
+    - match: (?x:\\x(?:[0-9a-fA-F]{2}))  # 2-char 8-bit single byte escape
+      scope: constant.character.escape.jxc
+    - match: (?x:\\U(?:[0-9a-fA-F]{8}))  # 8-char 32-bit unicode escape
+      scope: constant.character.escape.jxc
+    - match: \\.
+      scope: invalid.illegal.unrecognized-string-escape.jxc
+
+  list:
+    - match: '\['
+      scope: punctuation.section.list.begin.jxc
+      push:
+        - meta_scope: meta.list.jxc
+        - match: '\]'
+          scope: punctuation.section.list.end.jxc
+          pop: 1
+        - match: ',|\n'
+          scope: punctuation.separator.list.jxc
+        - include: value
+
+  expr_operator:
+    - match: '{{expr_combinable_operator}}{1,3}'
+      scope: keyword.operator.jxc
+    - match: \.
+      scope: punctuation.accessor.dot.jxc
+    - match: \,
+      scope: punctuation.accessor.comma.jxc
+    - match: '\('
+      scope: punctuation.section.expr.begin.jxc
+      push:
+        - meta_scope: meta.expr.jxc
+        - match: '\)'
+          scope: punctuation.section.expr.end.jxc
+          pop: 1
+        - include: expr_value
+    - match: '\['
+      scope: punctuation.section.expr.begin.jxc
+      push:
+        - meta_scope: meta.expr.jxc
+        - match: '\]'
+          scope: punctuation.section.expr.end.jxc
+          pop: 1
+        - include: expr_value
+
+  expr_identifier:
+    - match: '[a-zA-Z_][a-zA-Z0-9_]*'
+      scope: entity.name.expression.identifier.jxc
+
+  expr:
+    - match: '\('
+      scope: punctuation.section.expr.begin.jxc
+      push:
+        - meta_include_prototype: false
+        - meta_scope: meta.expr.jxc
+        - match: '\)'
+          scope: punctuation.section.expr.end.jxc
+          pop: 1
+        - include: expr_value
+
+  expr_value:
+    - include: constant_null
+    - include: constant_bool
+    - include: number_integer
+    - include: number_float
+    - include: string_raw_single_line
+    - include: string_bytes_single_line
+    - include: string_single_line
+    - include: expr_operator
+    - include: expr_identifier
+
+  object_key:
+    - include: constant_null
+    - include: constant_bool
+    - include: number_integer
+    - include: string_single_line
+    - include: string_raw_single_line
+    - match: '{{object_key}}'
+      scope: string.identifier.jxc
+
+  # pop2:
+  #   - match: ''
+  #     pop: 2
+
+  object:
+    - match: \{
+      scope: punctuation.section.mapping.begin.jxc
+      push:
+        - meta_scope: meta.mapping.jxc
+        - match: \}
+          scope: punctuation.section.mapping.end.jxc
+          pop: 1
+        - include: object_key
+        - match: ':'
+          scope: punctuation.separator.key-value.jxc
+          push:
+            - match: ',|\s?(?=\})'
+              scope: invalid.illegal.expected-mapping-value.jxc
+              pop: 1
+            - match: ',|\n'
+              scope: constant.language.null.jxc
+              pop: 1
+            - match: (?=\S)
+              set:
+                - clear_scopes: 1
+                - meta_scope: meta.mapping.value.jxc
+                - include: value
+                - match: ''
+                  set:
+                    - match: ',|\n'
+                      scope: punctuation.separator.sequence.jxc
+                      pop: 1
+                    - match: \s*(?=\})
+                      pop: 1
+
+  annotation_inner:
+    - include: constant_null
+    - include: constant_bool
+    - include: string_bytes_single_line
+    - include: string_raw_single_line
+    - match: '{{identifier}}'
+      scope: variable.annotation.jxc
+    - match: '[!*?|&=]'
+      scope: keyword.operator.jxc
+    - match: '\.'
+      scope: punctuation.separator.annotation.jxc
+    - match: ','
+      scope: punctuation.separator.annotation.jxc
+    - include: number_float
+    - include: number_integer
+    - include: string_single_line
+    - match: \(
+      scope: punctuation.section.generic.begin.jxc
+      push:
+        - include: annotation_inner
+        - match: \)
+          scope: punctuation.section.generic.end.jxc
+          pop: 1
+    - match: '<'
+      scope: punctuation.section.generic.begin.jxc
+      push:
+        - include: annotation_inner
+        - match: '>'
+          scope: punctuation.section.generic.end.jxc
+          pop: 1
+
+  annotation:
+    - match: (?={{value_start}})
+      pop: true
+    - match: '(\!)?({{identifier}})(\.{{identifier}})?'
+      captures:
+        0: variable.annotation.jxc
+        1: keyword.operator.jxc
+      push:
+        - match: '<'
+          scope: punctuation.section.generic.begin.jxc
+          push:
+            - include: annotation_inner
+            - match: '>'
+              scope: punctuation.section.generic.end.jxc
+              pop: 1
+        - match: ''
+          pop: 1
+
+  value:
+    - match: (?=\!)
+      push: annotation
+    - match: (?!{{value_start}})(?={{identifier}})
+      push: annotation
+    - include: constant_null
+    - include: constant_bool
+    - include: number_float
+    - include: number_integer
+    - include: string_bytes_single_line
+    - include: string_bytes_multi_line
+    - include: string_raw
+    - include: string_single_line
+    - include: list
+    - include: expr
+    - include: object
+
+
+  # This is a bit of a hack to correctly format jxc documents and jxc values without needing to pick between two syntaxes.
+  # Could use some improvement but it does get the job done.
+  toplevel_key_value_pair:
+    - match: '({{object_key}})\w*(\:)'
+      captures:
+        0: string.identifier.jxc
+        3: punctuation.separator.key-value.jxc
+    - match: '({{quote_s}}(.*){{quote_s}})\w*(\:)'
+      captures:
+        0: string.identifier.jxc
+        3: punctuation.separator.key-value.jxc
+    - match: '({{quote_d}}(.*){{quote_d}})\w*(\:)'
+      captures:
+        0: string.identifier.jxc
+        3: punctuation.separator.key-value.jxc
+    - match: '(true|false|null)\w*(\:)'
+      captures:
+        0: string.identifier.jxc
+        3: punctuation.separator.key-value.jxc
+    - match: '([-+]?(0[bBxXoO])?[0-9](\.[0-9]+)?)\w*(\:)'
+      captures:
+        0: string.identifier.jxc
+        4: punctuation.separator.key-value.jxc
+    - include: value
+
+
+
+  embedded_scripting_languages:
+    - match: r([\'\"])(clojure|clj)\(
+      captures:
+        0: meta.code-fence.definition.begin.clojure.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.clojure 
+      embed_scope: markup.raw.code-fence.clojure.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.clojure.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(c|clang)\(
+      captures:
+        0: meta.code-fence.definition.begin.c.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.c
+      embed_scope: markup.raw.code-fence.c.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.c.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(cpp)\(
+      captures:
+        0: meta.code-fence.definition.begin.c++.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.c++
+      embed_scope: markup.raw.code-fence.c++.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.c++.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(csharp|cs)\(
+      captures:
+        0: meta.code-fence.definition.begin.csharp.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.cs
+      embed_scope: markup.raw.code-fence.csharp.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.csharp.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(css)\(
+      captures:
+        0: meta.code-fence.definition.begin.css.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.css
+      embed_scope: markup.raw.code-fence.css.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.css.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(diff|patch)\(
+      captures:
+        0: meta.code-fence.definition.begin.diff.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.diff
+      embed_scope: markup.raw.code-fence.diff.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.diff.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(erlang|escript)\(
+      captures:
+        0: meta.code-fence.definition.begin.erlang.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.erlang
+      embed_scope: markup.raw.code-fence.erlang.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.erlang.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(graphviz)\(
+      captures:
+        0: meta.code-fence.definition.begin.graphviz.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.dot
+      embed_scope: markup.raw.code-fence.graphviz.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.graphviz.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(go|golang)\(
+      captures:
+        0: meta.code-fence.definition.begin.go.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.go
+      embed_scope: markup.raw.code-fence.go.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.go.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(haskell)\(
+      captures:
+        0: meta.code-fence.definition.begin.haskell.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.haskell
+      embed_scope: markup.raw.code-fence.haskell.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.haskell.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(html_php)\(
+      captures:
+        0: meta.code-fence.definition.begin.html-php.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:embedding.php
+      embed_scope: markup.raw.code-fence.html-php.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.html-php.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(html)\(
+      captures:
+        0: meta.code-fence.definition.begin.html.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:text.html.basic
+      embed_scope: markup.raw.code-fence.html.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.html.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(java)\(
+      captures:
+        0: meta.code-fence.definition.begin.java.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.java
+      embed_scope: markup.raw.code-fence.java.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.java.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(javascript|js)\(
+      captures:
+        0: meta.code-fence.definition.begin.javascript.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.js
+      embed_scope: markup.raw.code-fence.javascript.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.javascript.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(jsonc?)\(
+      captures:
+        0: meta.code-fence.definition.begin.json.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.json
+      embed_scope: markup.raw.code-fence.json.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.json.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(jspx?)\(
+      captures:
+        0: meta.code-fence.definition.begin.jsp.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:text.html.jsp
+      embed_scope: markup.raw.code-fence.jsp.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.jsp.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(jsx)\(
+      captures:
+        0: meta.code-fence.definition.begin.jsx.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.jsx
+      embed_scope: markup.raw.code-fence.jsx.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.jsx.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(lisp)\(
+      captures:
+        0: meta.code-fence.definition.begin.lisp.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.lisp
+      embed_scope: markup.raw.code-fence.lisp.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.lisp.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(lua)\(
+      captures:
+        0: meta.code-fence.definition.begin.lua.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.lua
+      embed_scope: markup.raw.code-fence.lua.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.lua.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(matlab)\(
+      captures:
+        0: meta.code-fence.definition.begin.matlab.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.matlab
+      embed_scope: markup.raw.code-fence.matlab.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.matlab.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(objc|obj_c|objectivec|objective_c)\(
+      captures:
+        0: meta.code-fence.definition.begin.objc.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.objc
+      embed_scope: markup.raw.code-fence.objc.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.objc.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(objcpp|obj_cpp|objectivecpp|objective_cpp)\(
+      captures:
+        0: meta.code-fence.definition.begin.objc++.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.objc++
+      embed_scope: markup.raw.code-fence.objc++.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.objc++.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(ocaml)\(
+      captures:
+        0: meta.code-fence.definition.begin.ocaml.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.ocaml
+      embed_scope: markup.raw.code-fence.ocaml.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.ocaml.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(perl)\(
+      captures:
+        0: meta.code-fence.definition.begin.perl.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.perl
+      embed_scope: markup.raw.code-fence.perl.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.perl.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(php)\(
+      captures:
+        0: meta.code-fence.definition.begin.php.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.php
+      embed_scope: markup.raw.code-fence.php.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.php.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(python|py)\(
+      captures:
+        0: meta.code-fence.definition.begin.python.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.python
+      embed_scope: markup.raw.code-fence.python.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.python.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(regexp?)\(
+      captures:
+        0: meta.code-fence.definition.begin.regexp.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.regexp
+      embed_scope: markup.raw.code-fence.regexp.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.regexp.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(rscript|r|splus)\(
+      captures:
+        0: meta.code-fence.definition.begin.r.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.r
+      embed_scope: markup.raw.code-fence.r.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.r.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(ruby|rb|rbx)\(
+      captures:
+        0: meta.code-fence.definition.begin.ruby.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.ruby
+      embed_scope: markup.raw.code-fence.ruby.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.ruby.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(rust|rs)\(
+      captures:
+        0: meta.code-fence.definition.begin.rust.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.rust
+      embed_scope: markup.raw.code-fence.rust.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.rust.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(scala)\(
+      captures:
+        0: meta.code-fence.definition.begin.scala.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.scala
+      embed_scope: markup.raw.code-fence.scala.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.scala.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(shell|sh|bash|zsh)\(
+      captures:
+        0: meta.code-fence.definition.begin.shell-script.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.shell.bash
+      embed_scope: markup.raw.code-fence.shell-script.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.shell-script.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(sql)\(
+      captures:
+        0: meta.code-fence.definition.begin.sql.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.sql
+      embed_scope: markup.raw.code-fence.sql.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.sql.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(tsx)\(
+      captures:
+        0: meta.code-fence.definition.begin.tsx.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.tsx
+      embed_scope: markup.raw.code-fence.tsx.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.tsx.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(typescript|ts)\(
+      captures:
+        0: meta.code-fence.definition.begin.typescript.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.ts
+      embed_scope: markup.raw.code-fence.typescript.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.typescript.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(xml)\(
+      captures:
+        0: meta.code-fence.definition.begin.xml.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:text.xml
+      embed_scope: markup.raw.code-fence.xml.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.xml.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
+    - match: r([\'\"])(yaml)\(
+      captures:
+        0: meta.code-fence.definition.begin.yaml.jxc
+        2: punctuation.definition.raw.code-fence.begin.jxc
+        5: constant.other.language-name.jxc
+      embed: scope:source.yaml
+      embed_scope: markup.raw.code-fence.yaml.jxc
+      escape: \)\2\1
+      escape_captures:
+        0: meta.code-fence.definition.end.yaml.jxc
+        1: punctuation.definition.raw.code-fence.end.jxc
+
