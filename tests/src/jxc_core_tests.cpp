@@ -1,33 +1,6 @@
 #include "jxc_core_tests.h"
 
 
-template<typename LhsT, typename RhsT>
-testing::AssertionResult test_elements_equal(const LhsT& lhs, const RhsT& rhs)
-{
-    static_assert(std::is_same_v<LhsT, jxc::Element> || std::is_same_v<LhsT, jxc::OwnedElement>);
-    static_assert(std::is_same_v<RhsT, jxc::Element> || std::is_same_v<RhsT, jxc::OwnedElement>);
-    if (lhs == rhs)
-    {
-        return testing::AssertionSuccess();
-    }
-
-    if (lhs.type != rhs.type)
-    {
-        return testing::AssertionFailure() << "Element type mismatch: " << jxc::element_type_to_string(lhs.type) << " != " << jxc::element_type_to_string(rhs.type);
-    }
-    else if (lhs.token.type != rhs.token.type)
-    {
-        return testing::AssertionFailure() << "Element token type mismatch: " << jxc::token_type_to_string(lhs.token.type) << " != " << jxc::token_type_to_string(rhs.token.type);
-    }
-    else if (jxc::token_type_has_value(lhs.token.type) && lhs.token.value != rhs.token.value)
-    {
-        return testing::AssertionFailure() << "Element token value mismatch: " << jxc::detail::debug_string_repr(lhs.token.value.as_view()) << " != " << jxc::detail::debug_string_repr(rhs.token.value.as_view());
-    }
-
-    return testing::AssertionFailure() << lhs.to_repr() << " != " << rhs.to_repr();
-}
-
-
 struct TestJumpParser
 {
     std::string jxc_string;
@@ -59,21 +32,27 @@ struct TestJumpParser
             return testing::AssertionFailure() << "Parsing already done";
         }
 
+        auto make_parse_error = [this]()
+        {
+            ErrorInfo err = parser->get_error();
+            return testing::AssertionFailure() << "Error parsing " << detail::debug_string_repr(jxc_string, '`')
+                << ": " << err.to_string(jxc_string);
+        };
+
         if (parser->next())
         {
-            ++element_index;
-
-            const Element& parsed_element = parser->value();
-            if (parsed_element.type == ElementType::Invalid && parser->has_error())
+            // if next() returns true, there should not be an error
+            if (parser->has_error())
             {
-                done = true;
-                return testing::AssertionFailure() << "Parse error: " << parser->get_error().to_string(jxc_string);
+                return testing::AssertionFailure() << "JumpParser returned true but also has an error: "
+                    << parser->get_error().to_string(jxc_string);
             }
 
+            ++element_index;
+            const Element& parsed_element = parser->value();
             auto result = test_elements_equal(parsed_element, expected_element);
             if (!result)
             {
-                done = true;
                 return result;
             }
             else
@@ -83,22 +62,15 @@ struct TestJumpParser
         }
         else
         {
+            done = true;
+
             if (parser->has_error())
             {
-                done = true;
-                return testing::AssertionFailure() << "Parse error: " << parser->get_error().to_string(jxc_string);
+                return make_parse_error();
             }
             else
             {
-                done = true;
-                if (expected_element.type == jxc::ElementType::Invalid)
-                {
-                    return testing::AssertionSuccess();
-                }
-                else
-                {
-                    return testing::AssertionFailure() << "Expected element " << expected_element.to_repr() << ", but parser is already done!";
-                }
+                return testing::AssertionSuccess();
             }
         }
     }
@@ -116,52 +88,385 @@ testing::AssertionResult _jxc_expect_jump_parse_next(
 #define EXPECT_PARSE_NEXT(PARSER, EXPECTED_ELEMENT) EXPECT_PRED_FORMAT2(_jxc_expect_jump_parse_next, (PARSER), (EXPECTED_ELEMENT))
 
 
-jxc::Token make_token(jxc::TokenType tok_type, std::string_view tok_value = std::string_view{})
-{
-    return jxc::Token(tok_type, jxc::invalid_idx, jxc::invalid_idx, tok_value);
-}
+#define EXPECT_PARSE_SINGLE(JXC_VALUE, EXPECTED_ELEMENT) do { \
+    TestJumpParser parser(JXC_VALUE); \
+    EXPECT_PRED_FORMAT2(_jxc_expect_jump_parse_next, parser, (EXPECTED_ELEMENT)); \
+} while(0)
 
-jxc::Token make_token(char symbol)
-{
-    jxc::TokenType tok_type = jxc::token_type_from_symbol(symbol);
-    JXC_ASSERT(tok_type != jxc::TokenType::Invalid);
-    JXC_ASSERT(!jxc::token_type_has_value(tok_type));
-    return jxc::Token(tok_type);
-}
 
-jxc::Token make_token(std::string_view symbol)
+template<typename Lambda>
+std::string test_serialize(Lambda&& callback)
 {
-    jxc::TokenType tok_type = jxc::token_type_from_symbol(symbol);
-    JXC_ASSERT(tok_type != jxc::TokenType::Invalid);
-    JXC_ASSERT(!jxc::token_type_has_value(tok_type));
-    return jxc::Token(tok_type, jxc::invalid_idx, jxc::invalid_idx, symbol);
+    jxc::StringOutputBuffer output;
+    jxc::Serializer doc(&output, jxc::SerializerSettings::make_compact());
+    callback(doc);
+    doc.flush();
+    return output.to_string();
 }
 
 
-jxc::OwnedElement make_element(jxc::ElementType ele_type, const jxc::Token& token, std::initializer_list<jxc::Token> annotation_tokens = {})
+TEST(jxc_core, JumpParserSimple)
 {
-    jxc::OwnedTokenSpan anno;
-    for (const jxc::Token& tok : annotation_tokens)
+    using namespace jxc;
+
+    // null
+    EXPECT_PARSE_SINGLE("null", make_element(ElementType::Null, make_token(TokenType::Null)));
+
+    // bool
+    EXPECT_PARSE_SINGLE("true", make_element(ElementType::Bool, make_token(TokenType::True)));
+    EXPECT_PARSE_SINGLE("false", make_element(ElementType::Bool, make_token(TokenType::False)));
+
+    // integers (dec)
+    EXPECT_PARSE_SINGLE("0", make_element(ElementType::Number, make_token(TokenType::Number, "0")));
+    EXPECT_PARSE_SINGLE("1", make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+    EXPECT_PARSE_SINGLE("2", make_element(ElementType::Number, make_token(TokenType::Number, "2")));
+    EXPECT_PARSE_SINGLE("-1", make_element(ElementType::Number, make_token(TokenType::Number, "-1")));
+    EXPECT_PARSE_SINGLE("-2", make_element(ElementType::Number, make_token(TokenType::Number, "-2")));
+
+    // integers (hex)
+    EXPECT_PARSE_SINGLE("0x0", make_element(ElementType::Number, make_token(TokenType::Number, "0x0")));
+    EXPECT_PARSE_SINGLE("0xaf", make_element(ElementType::Number, make_token(TokenType::Number, "0xaf")));
+    EXPECT_PARSE_SINGLE("-0xf", make_element(ElementType::Number, make_token(TokenType::Number, "-0xf")));
+
+    // integers (oct)
+    EXPECT_PARSE_SINGLE("0o0", make_element(ElementType::Number, make_token(TokenType::Number, "0o0")));
+    EXPECT_PARSE_SINGLE("0o777", make_element(ElementType::Number, make_token(TokenType::Number, "0o777")));
+    EXPECT_PARSE_SINGLE("-0o644", make_element(ElementType::Number, make_token(TokenType::Number, "-0o644")));
+
+    // integers (bin)
+    EXPECT_PARSE_SINGLE("0b0", make_element(ElementType::Number, make_token(TokenType::Number, "0b0")));
+    EXPECT_PARSE_SINGLE("0b1", make_element(ElementType::Number, make_token(TokenType::Number, "0b1")));
+    EXPECT_PARSE_SINGLE("0b1101", make_element(ElementType::Number, make_token(TokenType::Number, "0b1101")));
+    EXPECT_PARSE_SINGLE("-0b1", make_element(ElementType::Number, make_token(TokenType::Number, "-0b1")));
+    EXPECT_PARSE_SINGLE("-0b101", make_element(ElementType::Number, make_token(TokenType::Number, "-0b101")));
+
+    // floats
+    EXPECT_PARSE_SINGLE("0.0", make_element(ElementType::Number, make_token(TokenType::Number, "0.0")));
+    EXPECT_PARSE_SINGLE("0.5", make_element(ElementType::Number, make_token(TokenType::Number, "0.5")));
+    EXPECT_PARSE_SINGLE("-0.5", make_element(ElementType::Number, make_token(TokenType::Number, "-0.5")));
+    EXPECT_PARSE_SINGLE("123.456", make_element(ElementType::Number, make_token(TokenType::Number, "123.456")));
+    EXPECT_PARSE_SINGLE("-123.456", make_element(ElementType::Number, make_token(TokenType::Number, "-123.456")));
+
+    // normal strings
+    EXPECT_PARSE_SINGLE("\"\"", make_element(ElementType::String, make_token(TokenType::String, "\"\"")));
+    EXPECT_PARSE_SINGLE("''", make_element(ElementType::String, make_token(TokenType::String, "''")));
+    EXPECT_PARSE_SINGLE("\"abc\"", make_element(ElementType::String, make_token(TokenType::String, "\"abc\"")));
+    EXPECT_PARSE_SINGLE("'abc'", make_element(ElementType::String, make_token(TokenType::String, "'abc'")));
+
+    // raw strings
+    EXPECT_PARSE_SINGLE("r\"()\"", make_element(ElementType::String, make_token(TokenType::String, "r\"()\"")));
+    EXPECT_PARSE_SINGLE("r'()'", make_element(ElementType::String, make_token(TokenType::String, "r'()'")));
+    EXPECT_PARSE_SINGLE("r\"(abc)\"", make_element(ElementType::String, make_token(TokenType::String, "r\"(abc)\"")));
+    EXPECT_PARSE_SINGLE("r'(abc)'", make_element(ElementType::String, make_token(TokenType::String, "r'(abc)'")));
+
+    // raw strings (with heredoc)
+    EXPECT_PARSE_SINGLE("r\"HEREDOC()HEREDOC\"", make_element(ElementType::String, make_token(TokenType::String, "r\"HEREDOC()HEREDOC\"")));
+    EXPECT_PARSE_SINGLE("r'HEREDOC()HEREDOC'", make_element(ElementType::String, make_token(TokenType::String, "r'HEREDOC()HEREDOC'")));
+    EXPECT_PARSE_SINGLE("r\"HEREDOC(abc)HEREDOC\"", make_element(ElementType::String, make_token(TokenType::String, "r\"HEREDOC(abc)HEREDOC\"")));
+    EXPECT_PARSE_SINGLE("r'HEREDOC(abc)HEREDOC'", make_element(ElementType::String, make_token(TokenType::String, "r'HEREDOC(abc)HEREDOC'")));
+
+    // hexbyte strings
+    EXPECT_PARSE_SINGLE("bx\"\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"\"")));
+    EXPECT_PARSE_SINGLE("bx''", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx''")));
+    EXPECT_PARSE_SINGLE("bx\"00acff\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"00acff\"")));
+    EXPECT_PARSE_SINGLE("bx'00acff'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx'00acff'")));
+
+    // hexbyte strings (with parens - allows whitespace)
+    EXPECT_PARSE_SINGLE("bx\"()\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"()\"")));
+    EXPECT_PARSE_SINGLE("bx'()'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx'()'")));
+    EXPECT_PARSE_SINGLE("bx\"( 00 ac ff )\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"( 00 ac ff )\"")));
+    EXPECT_PARSE_SINGLE("bx'( 00 ac ff )'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx'( 00 ac ff )'")));
+
+    // base64 strings
+    EXPECT_PARSE_SINGLE("b64\"\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"\"")));
+    EXPECT_PARSE_SINGLE("b64''", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64''")));
+    EXPECT_PARSE_SINGLE("b64\"anhjIGZvcm1hdA==\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"anhjIGZvcm1hdA==\"")));
+    EXPECT_PARSE_SINGLE("b64'anhjIGZvcm1hdA=='", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64'anhjIGZvcm1hdA=='")));
+
+    // base64 strings (with parens - allows whitespace)
+    EXPECT_PARSE_SINGLE("b64\"()\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"()\"")));
+    EXPECT_PARSE_SINGLE("b64'()'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64'()'")));
+    EXPECT_PARSE_SINGLE("b64\"( anhjIGZ vcm1hdA== )\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"( anhjIGZ vcm1hdA== )\"")));
+    EXPECT_PARSE_SINGLE("b64'( anhjIGZ vcm1hdA== )'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64'( anhjIGZ vcm1hdA== )'")));
+}
+
+
+TEST(jxc_core, JumpParserArrays)
+{
+    using namespace jxc;
+
     {
-        anno.tokens.push(tok);
+        TestJumpParser parser("[]");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginArray, make_token(TokenType::SquareBracketOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndArray, make_token(TokenType::SquareBracketClose)));
     }
-    return jxc::OwnedElement(ele_type, token, anno);
-}
-
-
-TEST(jxc_core, JumpParser)
-{
 
     {
-        TestJumpParser parser("null");
-        EXPECT_PARSE_NEXT(parser, make_element(jxc::ElementType::Null, make_token(jxc::TokenType::Null)));
+        TestJumpParser parser("[null]");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginArray, make_token(TokenType::SquareBracketOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Null, make_token(TokenType::Null)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndArray, make_token(TokenType::SquareBracketClose)));
     }
 
+    {
+        TestJumpParser parser("[1, 2, 3]");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginArray, make_token(TokenType::SquareBracketOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "2")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "3")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndArray, make_token(TokenType::SquareBracketClose)));
+    }
+
+    {
+        TestJumpParser parser("[null, 3.141, true]");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginArray, make_token(TokenType::SquareBracketOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Null, make_token(TokenType::Null)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "3.141")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bool, make_token(TokenType::True)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndArray, make_token(TokenType::SquareBracketClose)));
+    }
 }
 
 
-TEST(jxc_core, Dummy)
+TEST(jxc_core, JumpParserExpressions)
 {
-    EXPECT_EQ(1 + 1, 2);
+    using namespace jxc;
+
+    {
+        TestJumpParser parser("()");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(1 + 1)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(true | false)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bool, make_token(TokenType::True)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "|")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bool, make_token(TokenType::False)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(abc=def, qqq=(1 + 2 / 3 * 4), zzz~=5)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "abc")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "=")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "def")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Comma, ",")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "qqq")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "=")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::ParenOpen, "(")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "2")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "/")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "3")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "*")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "4")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::ParenClose, ")")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Comma, ",")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "zzz")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "~")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "=")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "5")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
 }
 
+
+TEST(jxc_core, JumpParserObjects)
+{
+    using namespace jxc;
+
+    {
+        TestJumpParser parser("{}");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginObject, make_token(TokenType::BraceOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndObject, make_token(TokenType::BraceClose)));
+    }
+
+    {
+        TestJumpParser parser("{null:null}");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginObject, make_token(TokenType::BraceOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::Null)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Null, make_token(TokenType::Null)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndObject, make_token(TokenType::BraceClose)));
+    }
+
+    {
+        TestJumpParser parser("{x:0}");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginObject, make_token(TokenType::BraceOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "x")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndObject, make_token(TokenType::BraceClose)));
+    }
+
+    {
+        TestJumpParser parser("{ x: 4.0, y: 0.0, z: -3.5 }");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginObject, make_token(TokenType::BraceOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "x")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "4.0")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "y")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0.0")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "z")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "-3.5")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndObject, make_token(TokenType::BraceClose)));
+    }
+}
+
+
+TEST(jxc_core, JumpParserAnnotations)
+{
+    using namespace jxc;
+
+    EXPECT_PARSE_SINGLE("annotation null", make_element(ElementType::Null, make_token(TokenType::Null),
+        { make_token(TokenType::Identifier, "annotation") }));
+
+    EXPECT_PARSE_SINGLE("array<int> null", make_element(ElementType::Null, make_token(TokenType::Null), {
+        make_token(TokenType::Identifier, "array"),
+        make_token(TokenType::AngleBracketOpen),
+        make_token(TokenType::Identifier, "int"),
+        make_token(TokenType::AngleBracketClose),
+    }));
+
+    EXPECT_PARSE_SINGLE("annotation<int, null, 4, true, regex=r'(\\w*)'> null", make_element(ElementType::Null, make_token(TokenType::Null), {
+        make_token(TokenType::Identifier, "annotation"),
+        make_token(TokenType::AngleBracketOpen),
+        make_token(TokenType::Identifier, "int"),
+        make_token(TokenType::Comma),
+        make_token(TokenType::Null),
+        make_token(TokenType::Comma),
+        make_token(TokenType::Number, "4"),
+        make_token(TokenType::Comma),
+        make_token(TokenType::True),
+        make_token(TokenType::Comma),
+        make_token(TokenType::Identifier, "regex"),
+        make_token(TokenType::Equals),
+        make_token(TokenType::String, "r'(\\w*)'"),
+        make_token(TokenType::AngleBracketClose),
+    }));
+}
+
+
+TEST(jxc_core, SerializerSimple)
+{
+    using namespace jxc;
+
+    // null
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_null(); }), "null");
+    
+    // bool
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bool(true); }), "true");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bool(false); }), "false");
+
+    // signed integers (dec)
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(0); }), "0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(42); }), "42");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(-42); }), "-42");
+
+    // signed integers (bin)
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(0); }), "0b0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(1); }), "0b1");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(2); }), "0b10");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(3); }), "0b11");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(4); }), "0b100");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(-1); }), "-0b1");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(-2); }), "-0b10");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(-3); }), "-0b11");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(-4); }), "-0b100");
+
+    // signed integers (oct)
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(0); }), "0o0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(6); }), "0o6");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(7); }), "0o7");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(8); }), "0o10");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(9); }), "0o11");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(10); }), "0o12");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-6); }), "-0o6");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-7); }), "-0o7");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-8); }), "-0o10");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-9); }), "-0o11");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-10); }), "-0o12");
+
+    // signed integers (hex)
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(0); }), "0x0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(1); }), "0x1");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(-1); }), "-0x1");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(15); }), "0xf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(16); }), "0x10");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(-15); }), "-0xf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(-16); }), "-0x10");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(255); }), "0xff");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(-255); }), "-0xff");
+
+    // unsigned ints
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint(0); }), "0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint(42); }), "42");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint_bin(42); }), "0b101010");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint_oct(42); }), "0o52");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint_hex(42); }), "0x2a");
+
+    // floats
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(0); }), "0.0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1); }), "1.0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-1); }), "-1.0");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, {}, 4, false); }), "1.5");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, {}, 4, true); }), "1.5000");
+
+    // strings
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("", StringQuoteMode::Auto); }), "\"\"");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("", StringQuoteMode::Single); }), "''");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("", StringQuoteMode::Double); }), "\"\"");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("abc", StringQuoteMode::Single); }), "'abc'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("abc\ndef", StringQuoteMode::Single); }), "'abc\\ndef'");
+
+    /// raw strings
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("", StringQuoteMode::Single); }), "r'()'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("", StringQuoteMode::Single, "HEREDOC"); }), "r'HEREDOC()HEREDOC'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("abc\ndef", StringQuoteMode::Single); }), "r'(abc\ndef)'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("abc\ndef", StringQuoteMode::Single, "HEREDOC"); }), "r'HEREDOC(abc\ndef)HEREDOC'");
+
+    // hexbyte strings
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_hex(BytesView(), StringQuoteMode::Single); }), "bx''");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_hex(BytesValue({ 0x0, 0xD, 0x7C }), StringQuoteMode::Single); }), "bx'000d7c'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_hex(BytesValue({ 0x0, 0xD, 0x7C, 0x4F }), StringQuoteMode::Single); }), "bx'000d7c4f'");
+
+    // base64 strings
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesView(), StringQuoteMode::Single); }), "b64''");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesValue{ 'j','x','c',' ','f','o','r','m','a','t' }, StringQuoteMode::Single); }), "b64'anhjIGZvcm1hdA=='");
+
+    // arrays
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.array_begin().array_end(); }), "[]");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.array_begin().value_null().value_int(123).value_bool(true).array_end(); }), "[null,123,true]");
+
+    // objects
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.object_begin().object_end(); }), "{}");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.object_begin().identifier("x").sep().value_int(0).object_end(); }), "{x:0}");
+
+    // expressions
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().expression_end(); }), "()");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_int(1).op("+").value_int(2).expression_end(); }), "(1+2)");
+
+    // annotations
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.annotation("list<int>").value_null(); }), "list<int> null");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.annotation("list<int>").array_empty(); }), "list<int>[]");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.annotation("vec3").array_begin().value_int(0).value_int(1).value_int(2).array_end(); }), "vec3[0,1,2]");
+    EXPECT_EQ(test_serialize([](Serializer& doc) {
+        doc.annotation("vec3")
+        .object_begin()
+        .identifier("x").sep().value_int(0)
+        .identifier("y").sep().value_int(1)
+        .identifier("z").sep().value_int(2)
+        .object_end(); }),
+        "vec3{x:0,y:1,z:2}");
+
+}

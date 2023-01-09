@@ -16,6 +16,14 @@ CLEAN_FILES = [
     "bindings/python/jxc/__pycache__/",
 ]
 
+CLEAN_FILES_MSVC = [
+    ".vs",
+    "*.sln",
+    "*.vcxproj",
+    "*.vcxproj.user",
+    "*.vcxproj.filters",
+]
+
 
 def all_paths(path_globs):
     for path_glob in path_globs:
@@ -53,10 +61,14 @@ def clean(globs, preview=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-path", '-b', type=str, default='.', help="Base search path (generally the repository root directory)")
+    parser.add_argument("--msvc", '-m', action='store_true', help="Include MSVC project files")
     parser.add_argument("--preview", '-p', action='store_true', help="Shows actions instead of performing them")
     args = parser.parse_args()
 
     # make all globs relative to the base path
     clean_glob_list = [ os.path.join(args.base_path, g) for g in CLEAN_FILES ]
+
+    if args.msvc:
+        clean_glob_list += [ os.path.join(args.base_path, g) for g in CLEAN_FILES_MSVC ]
 
     clean(clean_glob_list, preview=args.preview)

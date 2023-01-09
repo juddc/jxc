@@ -1,7 +1,6 @@
 #include "jxc_cpp_tests.h"
 #include "jxc/jxc_serializer.h"
 
-#if 0
 // minimal, no-whitespace serializer settings for ease of test string comparisons
 static const jxc::SerializerSettings settings_minimal = {
     .pretty_print = false,
@@ -182,7 +181,7 @@ TEST(jxc_cpp_value, CustomNumberLiterals)
 }
 
 
-TEST(jxc_cpp_value, SimpleParsingWithAnnotations)
+TEST(jxc_cpp_value, SerializeWithAnnotationsSimple)
 {
     using jxc::Value;
     using jxc::Document;
@@ -214,4 +213,37 @@ TEST(jxc_cpp_value, SimpleParsingWithAnnotations)
     }
 }
 
-#endif
+
+TEST(jxc_cpp_value, Parsing)
+{
+    using jxc::Value;
+    using jxc::ValueType;
+
+    {
+        Value val = jxc::parse("null");
+        EXPECT_TRUE(val.is_null());
+    }
+
+    {
+        Value val = jxc::parse("123");
+        EXPECT_TRUE(val.is_integer());
+        EXPECT_EQ(val.as_integer(), 123);
+    }
+
+    {
+        Value val = jxc::parse("123.456");
+        EXPECT_TRUE(val.is_float());
+        EXPECT_EQ(val.as_float(), 123.456);
+    }
+
+    {
+        Value val = jxc::parse("[1, 2, true, ObjectType null]");
+        EXPECT_EQ(val.get_type(), ValueType::Array);
+        EXPECT_EQ(val.size(), 4);
+        EXPECT_EQ(val[0].as_integer(), 1);
+        EXPECT_EQ(val[1].as_integer(), 2);
+        EXPECT_EQ(val[2].as_bool(), true);
+        EXPECT_EQ(val[3].get_type(), ValueType::Null);
+        EXPECT_EQ(val[3].get_annotation_source(), "ObjectType");
+    }
+}

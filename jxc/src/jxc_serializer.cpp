@@ -252,6 +252,11 @@ Serializer& Serializer::value_int(int64_t value, std::string_view suffix)
 Serializer& Serializer::value_int_hex(int64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
+    if (value < 0)
+    {
+        last_token_size += output.write('-');
+        value = -value;
+    }
     last_token_size += output.write(jxc::format("0x{:x}{}", value, suffix));
     post_write_token();
     return *this;
@@ -261,6 +266,11 @@ Serializer& Serializer::value_int_hex(int64_t value, std::string_view suffix)
 Serializer& Serializer::value_int_oct(int64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
+    if (value < 0)
+    {
+        last_token_size += output.write('-');
+        value = -value;
+    }
     last_token_size += output.write(jxc::format("0o{:o}{}", value, suffix));
     post_write_token();
     return *this;
@@ -270,6 +280,11 @@ Serializer& Serializer::value_int_oct(int64_t value, std::string_view suffix)
 Serializer& Serializer::value_int_bin(int64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
+    if (value < 0)
+    {
+        last_token_size += output.write('-');
+        value = -value;
+    }
     last_token_size += output.write(jxc::format("0b{:b}{}", value, suffix));
     post_write_token();
     return *this;
@@ -441,6 +456,11 @@ Serializer& Serializer::value_bytes(const uint8_t* data, size_t data_len, String
 
 Serializer& Serializer::value_bytes_hex(const uint8_t* data, size_t data_len, StringQuoteMode quote)
 {
+    if (data == nullptr)
+    {
+        data_len = 0;
+    }
+
     const char quote_char = get_quote_char(settings.default_quote, quote);
     last_token_size = pre_write_token(TokenType::ByteString);
     last_token_size += output.write('b', 'x');
@@ -504,8 +524,11 @@ Serializer& Serializer::value_bytes_base64(const uint8_t* data, size_t data_len,
     last_token_size += output.write(quote_char);
 
     detail::ArrayBuffer<char, 255> buf;
-    buf.resize(base64::get_base64_string_size(data_len));
-    base64::bytes_to_base64(data, data_len, buf.data(), buf.size());
+    if (data != nullptr && data_len > 0)
+    {
+        buf.resize(base64::get_base64_string_size(data_len));
+        base64::bytes_to_base64(data, data_len, buf.data(), buf.size());
+    }
 
     if (settings.pretty_print && (int64_t)buf.size() > get_num_cols_remaining_on_line())
     {

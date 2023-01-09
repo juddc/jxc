@@ -252,7 +252,7 @@ bool JumpParser::next()
         (PRE_VALUE_EXPR); \
         goto jp_value_without_annotation; \
     default: \
-        JP_ERROR("Expected annotation or value"); \
+        JP_ERRORF("Expected annotation or value, got {} token", token_type_to_string(TOK_TYPE)); \
     } \
 } while(0)
 
