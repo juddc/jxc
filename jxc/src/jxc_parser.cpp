@@ -2119,7 +2119,7 @@ bool parse_bytes_token(const Token& bytes_token, uint8_t* out_data_buffer, size_
                 return false;
             }
 
-            num_result_bytes = base64::base64_multiline_to_bytes(value.data(), value.size(), out_data_buffer, out_data_buffer_size);
+            num_result_bytes = base64::base64_multiline_to_bytes(value.data(), value.size(), out_data_buffer, req_buffer_size);
             if (num_result_bytes != req_buffer_size)
             {
                 out_error = ErrorInfo("Failed parsing base64 string", bytes_token.start_idx, bytes_token.end_idx);

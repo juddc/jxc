@@ -357,6 +357,139 @@ TEST(jxc_core, JumpParserAnnotations)
 }
 
 
+testing::AssertionResult test_parse_string(const char* jxc_string_str, const char* expected_string_str,
+    const std::string& jxc_string, const std::string& expected_string)
+{
+    jxc::JumpParser parser(jxc_string);
+    if (!parser.next())
+    {
+        return testing::AssertionFailure() << parser.get_error().to_string(jxc_string);
+    }
+
+    const jxc::Element& ele = parser.value();
+
+    if (ele.type != jxc::ElementType::String)
+    {
+        return testing::AssertionFailure() << jxc::format("Expected String element, got {}", jxc::element_type_to_string(ele.type));
+    }
+
+    const jxc::Token& tok = ele.token;
+    if (tok.type != jxc::TokenType::String)
+    {
+        return testing::AssertionFailure() << jxc::format("Expected String token, got {}", jxc::token_type_to_string(tok.type));
+    }
+
+    std::string parsed_string;
+
+    jxc::ErrorInfo err;
+
+    if (!jxc::util::parse_string_token(tok, parsed_string, err))
+    {
+        return testing::AssertionFailure() << jxc::format("util::parse_string_token({}) failed: {}", tok.to_repr(), err.to_string(jxc_string));
+    }
+
+    if (parsed_string != expected_string)
+    {
+        return testing::AssertionFailure() << jxc::format("{} != {}",
+            jxc::detail::debug_string_repr(expected_string, '`'),
+            jxc::detail::debug_string_repr(parsed_string, '`'));
+    }
+
+    return testing::AssertionSuccess();
+}
+
+
+#define EXPECT_PARSE_STRING(JXC_STRING, EXPECTED_STRING) EXPECT_PRED_FORMAT2(test_parse_string, JXC_STRING, (EXPECTED_STRING))
+
+
+
+TEST(jxc_core, StringParsing)
+{
+    EXPECT_PARSE_STRING("''", "");
+    EXPECT_PARSE_STRING("'abc'", "abc");
+    EXPECT_PARSE_STRING("'\\nabc\\n'", "\nabc\n");
+    EXPECT_PARSE_STRING("r'HEREDOC()HEREDOC'", "");
+    EXPECT_PARSE_STRING("r'HEREDOC(abc)HEREDOC'", "abc");
+    EXPECT_PARSE_STRING(R"JXC(r'(
+
+!abc!
+
+)')JXC", "\n\n!abc!\n\n");
+}
+
+
+testing::AssertionResult test_parse_bytes(const char* jxc_string_str, const char* expected_bytes_str,
+    const std::string& jxc_string, std::initializer_list<uint8_t> expected_bytes)
+{
+    jxc::JumpParser parser(jxc_string);
+    if (!parser.next())
+    {
+        return testing::AssertionFailure() << parser.get_error().to_string(jxc_string);
+    }
+
+    const jxc::Element& ele = parser.value();
+
+    if (ele.type != jxc::ElementType::Bytes)
+    {
+        return testing::AssertionFailure() << jxc::format("Expected Bytes element, got {}", jxc::element_type_to_string(ele.type));
+    }
+
+    const jxc::Token& tok = ele.token;
+    if (tok.type != jxc::TokenType::ByteString)
+    {
+        return testing::AssertionFailure() << jxc::format("Expected ByteString token, got {}", jxc::token_type_to_string(tok.type));
+    }
+
+    std::vector<uint8_t> expected_data = expected_bytes;
+    std::vector<uint8_t> parsed_data;
+
+    jxc::ErrorInfo err;
+
+    if (!jxc::util::parse_bytes_token(tok, parsed_data, err))
+    {
+        return testing::AssertionFailure() << jxc::format("util::parse_bytes_token({}) failed: {}", tok.to_repr(), err.to_string(jxc_string));
+    }
+
+    if (parsed_data.size() != expected_data.size())
+    {
+        return testing::AssertionFailure() << jxc::format("Expected {} bytes, got {}", expected_data.size(), parsed_data.size());
+    }
+
+    if (parsed_data != expected_data)
+    {
+        return testing::AssertionFailure() << jxc::format("{} != {}",
+            jxc::detail::debug_bytes_repr(expected_data, '`'),
+            jxc::detail::debug_bytes_repr(parsed_data, '`'));
+    }
+
+    return testing::AssertionSuccess();
+}
+
+
+#define EXPECT_PARSE_BYTES(JXC_STRING, ...) EXPECT_PRED_FORMAT2(test_parse_bytes, JXC_STRING, std::initializer_list<uint8_t>{ __VA_ARGS__ })
+
+
+TEST(jxc_core, BytesParsing)
+{
+    EXPECT_PARSE_BYTES("bx''");
+    EXPECT_PARSE_BYTES("bx'00'", 0x00);
+    EXPECT_PARSE_BYTES("bx'AF'", 0xaf);
+    EXPECT_PARSE_BYTES("bx'2a00ff'", 0x2a, 0x00, 0xff);
+    EXPECT_PARSE_BYTES("bx\"001abf001a\"", 0x00, 0x1a, 0xbf, 0x00, 0x1a);
+    EXPECT_PARSE_BYTES("bx\"( 00 1a bf 00 1a )\"", 0x00, 0x1a, 0xbf, 0x00, 0x1a);
+    EXPECT_PARSE_BYTES("bx\"(\n 0 0 \n 1 a \n b f \n 0 0 \n 1 a \n)\"", 0x00, 0x1a, 0xbf, 0x00, 0x1a);
+
+    EXPECT_PARSE_BYTES("b64''");
+    EXPECT_PARSE_BYTES("b64'AA=='", 0x00);
+    EXPECT_PARSE_BYTES("b64'+g=='", 0xfa);
+    EXPECT_PARSE_BYTES("b64'+gBKDw=='", 0xfa, 0x00, 0x4a, 0x0f);
+    EXPECT_PARSE_BYTES("b64'anhj'", 'j', 'x', 'c');
+    EXPECT_PARSE_BYTES("b64'(anhj)'", 'j', 'x', 'c');
+    EXPECT_PARSE_BYTES("b64'( anhj )'", 'j', 'x', 'c');
+    EXPECT_PARSE_BYTES("b64\"(\n  anhjIGZ\n  vcm1hdA==\n  )\"", 'j', 'x', 'c', ' ', 'f', 'o', 'r', 'm', 'a', 't');
+}
+
+
 TEST(jxc_core, SerializerSimple)
 {
     using namespace jxc;

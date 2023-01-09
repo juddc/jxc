@@ -1154,8 +1154,13 @@ namespace base64
 
     size_t get_num_bytes_in_base64_multiline_string(const char* base64_str, size_t base64_str_len)
     {
-        // tiny buffer to store the last two base64 chars so we can check if they're padding at the end
-        ::jxc::detail::MiniBuffer<char, 2> buf;
+        if (base64_str == nullptr || base64_str_len == 0)
+        {
+            return 0;
+        }
+
+        // tiny buffer to store the last four base64 chars so we can check if they're padding at the end
+        ::jxc::detail::MiniBuffer<char, 4> buf;
         size_t buf_idx = 0;
 
         size_t num_base64_chars = 0;
@@ -1165,7 +1170,7 @@ namespace base64
             {
                 ++num_base64_chars;
 
-                buf.buf[buf_idx] = base64_str[i];
+                buf[buf_idx] = base64_str[i];
                 ++buf_idx;
                 if (buf_idx == buf.capacity())
                 {
@@ -1182,14 +1187,16 @@ namespace base64
 
         size_t num_bytes = num_base64_chars / 4 * 3;
 
-        if (buf[0] == '=')
+        for (int i = (int)buf.capacity() - 1; i >= 0; --i)
         {
-            num_bytes--;
-        }
-
-        if (buf[1] == '=')
-        {
-            num_bytes--;
+            if (buf[i] == '=')
+            {
+                --num_bytes;
+            }
+            else
+            {
+                break;
+            }
         }
 
         return num_bytes;
@@ -1271,62 +1278,92 @@ namespace base64
         }
     }
 
+
     size_t base64_multiline_to_bytes(const char* base64_str, size_t base64_str_len, uint8_t* out_data, size_t out_size)
     {
-        if (base64_str_len == 0)
-        {
-            return 0;
-        }
-
-        size_t i = 0;
-
-        auto fastforward = [&i, base64_str_len, base64_str]() -> bool
-        {
-            do
-            {
-                ++i;
-                if (i >= base64_str_len)
-                {
-                    return false;
-                }
-            } while (!is_base64_char(base64_str[i]));
-            return true;
-        };
-
+        JXC_ASSERT(base64_str != nullptr && base64_str_len >= 4);
         size_t out_data_idx = 0;
-        while (i < base64_str_len)
+        detail::MiniBuffer<char, 4> quad;
+
+#define JXC_B64_FASTFORWARD(STR_IDX) do { \
+    while (STR_IDX < base64_str_len && !is_base64_char(base64_str[STR_IDX])) { \
+        ++STR_IDX; \
+    } \
+} while(0)
+
+        size_t str_idx = 0;
+        while (str_idx < base64_str_len && out_data_idx < out_size)
         {
-            if (!fastforward()) return 0;
-
-            const uint32_t a = (base64_str[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(base64_str[i])];
-            if (!fastforward()) return 0;
-
-            const uint32_t b = (base64_str[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(base64_str[i])];
-            if (!fastforward()) return 0;
-
-            const uint32_t c = (base64_str[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(base64_str[i])];
-            if (!fastforward()) return 0;
-
-            const uint32_t d = (base64_str[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(base64_str[i])];
-            if (!fastforward()) return 0;
-
-            const uint32_t triple = (a << 3 * 6) + (b << 2 * 6) + (c << 1 * 6) + (d << 0 * 6);
-
-            if (out_data_idx < out_size)
+            JXC_B64_FASTFORWARD(str_idx);
+            if (str_idx >= base64_str_len)
             {
-                out_data[out_data_idx++] = (triple >> 2 * 8) & 0xFF;
+                break;
             }
 
-            if (out_data_idx < out_size)
+            quad[0] = base64_str[str_idx++];
+
+            JXC_B64_FASTFORWARD(str_idx);
+            if (str_idx >= base64_str_len)
             {
-                out_data[out_data_idx++] = (triple >> 1 * 8) & 0xFF;
+                // error - stopped in the middle of a quad
+                return 0;
             }
 
-            if (out_data_idx < out_size)
+            quad[1] = base64_str[str_idx++];
+
+            JXC_B64_FASTFORWARD(str_idx);
+            if (str_idx >= base64_str_len)
             {
-                out_data[out_data_idx++] = (triple >> 0 * 8) & 0xFF;
+                // error - stopped in the middle of a quad
+                return 0;
+            }
+
+            quad[2] = base64_str[str_idx++];
+
+            JXC_B64_FASTFORWARD(str_idx);
+            if (str_idx >= base64_str_len)
+            {
+                // error - stopped in the middle of a quad
+                return 0;
+            }
+
+            quad[3] = base64_str[str_idx++];
+
+            // push quad to output
+            {
+                int i = 0;
+
+                const uint32_t a = (quad[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(quad[i])];
+                ++i;
+
+                const uint32_t b = (quad[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(quad[i])];
+                ++i;
+
+                const uint32_t c = (quad[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(quad[i])];
+                ++i;
+
+                const uint32_t d = (quad[i] == '=') ? (0 & i) : decoding_table[static_cast<int>(quad[i])];
+
+                const uint32_t triple = (a << 3 * 6) + (b << 2 * 6) + (c << 1 * 6) + (d << 0 * 6);
+
+                if (out_data_idx < out_size)
+                {
+                    out_data[out_data_idx++] = (triple >> 2 * 8) & 0xFF;
+                }
+
+                if (out_data_idx < out_size)
+                {
+                    out_data[out_data_idx++] = (triple >> 1 * 8) & 0xFF;
+                }
+
+                if (out_data_idx < out_size)
+                {
+                    out_data[out_data_idx++] = (triple >> 0 * 8) & 0xFF;
+                }
             }
         }
+
+#undef JXC_B64_FASTFORWARD
 
         return out_data_idx;
     }
