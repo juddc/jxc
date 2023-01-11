@@ -466,7 +466,7 @@ testing::AssertionResult test_parse_bytes(const char* jxc_string_str, const char
 }
 
 
-#define EXPECT_PARSE_BYTES(JXC_STRING, ...) EXPECT_PRED_FORMAT2(test_parse_bytes, JXC_STRING, std::initializer_list<uint8_t>{ __VA_ARGS__ })
+#define EXPECT_PARSE_BYTES(JXC_STRING, ...) EXPECT_PRED_FORMAT2(test_parse_bytes, JXC_STRING, (std::initializer_list<uint8_t>{ __VA_ARGS__ }))
 
 
 TEST(jxc_core, BytesParsing)

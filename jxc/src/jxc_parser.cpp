@@ -362,7 +362,6 @@ jp_handle_annotation_type:
                     goto jp_handle_annotation_type;
 
                 case TokenType::ExclamationPoint:
-                case TokenType::Period:
                 case TokenType::Asterisk:
                 case TokenType::QuestionMark:
                 case TokenType::Pipe:

@@ -1,6 +1,7 @@
 import unittest
 import typing
 import jxc
+import enum
 
 
 def parse_annotations_to_source_tuple(val: str):
@@ -130,10 +131,10 @@ class SimpleValueTests(unittest.TestCase):
             {'a.b': True, 'a.b.c': False, 'a.*.c': None, '*': [], '$$$***$$$': 'neat'})
         self.assertEqual(jxc.loads(r"a.b.c.d<a.b.c.d, a.b.c.d>{ value: 12345 }"),
             {'value': 12345})
-        self.assertEqual(jxc.loads(r"{border-style: solid(2)}"),
-            {'border-style': [2]})
-        self.assertEqual(jxc.loads(r"p.attr<name='second'>{ height: auto(), font-size: 1.5em, background-color: rgb[20,50,150] }"),
-            {'height': [], 'font-size': 1.5, 'background-color': [20, 50, 150]})
+        self.assertEqual(jxc.loads(r"{border.style: solid(2)}"),
+            {'border.style': [2]})
+        self.assertEqual(jxc.loads(r"p.attr<name='second'>{ height: auto(), font.size: 1.5em, background.color: rgb[20,50,150] }"),
+            {'height': [], 'font.size': 1.5, 'background.color': [20, 50, 150]})
         self.assertEqual(jxc.loads(r'{"x": 1, "y": 2, "z": 3}'),
             {'x': 1, 'y': 2, 'z': 3})
         self.assertEqual(jxc.loads(r"vec3{ x: 1, y: 2, z: 3 }"),
@@ -196,6 +197,17 @@ class SimpleValueTests(unittest.TestCase):
         self.assertEqual(jxc.loads("(true || false)"), [True, '|', '|', False])
         self.assertEqual(jxc.loads("('abc')"), ['abc'])
         self.assertEqual(jxc.loads("(bx'00ff')"), [b'\x00\xff'])
+
+    def test_enum_crash_bug(self):
+        class TestEnum(enum.Enum):
+            A = enum.auto()
+            B = enum.auto()
+        with self.assertRaises(TypeError):
+            jxc.dumps([TestEnum.A, TestEnum.B], encode_enum=False)
+        # this triggers 'pure virtual method called'
+        with self.assertRaises(TypeError):
+            jxc.dumps({'a': TestEnum.A}, encode_enum=False)
+
 
 
 if __name__ == '__main__':

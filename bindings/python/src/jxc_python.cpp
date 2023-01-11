@@ -118,6 +118,33 @@ auto bind_element(py::module_& m, const char* name)
 } // namespace jxc
 
 
+
+uint32_t python_value_to_codepoint(py::object value)
+{
+    if (py::isinstance<py::str>(value))
+    {
+        py::str str = value;
+        const size_t str_len = py::len(str);
+        if (str_len != 1)
+        {
+            throw py::value_error(jxc::format("Expected string of length 1, got length {}", str_len));
+        }
+        py::object builtins_mod = py::module_::import("builtins");
+        py::object ord_fn = builtins_mod.attr("ord");
+        return py::cast<uint32_t>(ord_fn(str));
+    }
+    else if (py::isinstance<py::int_>(value))
+    {
+        return py::cast<uint32_t>(value);
+    }
+    else
+    {
+        throw py::type_error(jxc::format("Expected str or int, got {}", py::cast<std::string>(py::repr(value))));
+    }
+}
+
+
+
 PYBIND11_MODULE(_pyjxc, m)
 {
     using namespace jxc;
@@ -458,6 +485,41 @@ PYBIND11_MODULE(_pyjxc, m)
     m.def("is_valid_identifier_char", &is_valid_identifier_char);
     m.def("is_valid_object_key", &is_valid_object_key);
 
+    m.def("debug_string_repr", &detail::debug_string_repr, py::arg("value"), py::arg("quote_char") = '"',
+        py::doc("helper for creating a debug representation for a string"));
+
+    m.def("debug_bytes_repr", [](py::bytes value, char quote_char) -> std::string
+        {
+            std::string_view data = py::cast<std::string_view>(value);
+            return detail::debug_bytes_repr(BytesView(reinterpret_cast<const uint8_t*>(data.data()), data.size()), quote_char);
+        },
+        py::arg("value"),
+        py::arg("quote_char") = '"',
+        py::doc("helper for creating a debug representation for bytes"));
+
+    m.def("debug_char_repr", [](py::object value, char quote_char) -> std::string
+        {
+            return detail::debug_char_repr(python_value_to_codepoint(value), quote_char);
+        },
+        py::arg("codepoint"),
+        py::arg("quote_char") = '`',
+        py::doc("helper for creating a debug representation for a single codepoint"));
+
+    m.def("is_ascii_escape_char", [](py::object value, char quote_char) -> bool
+        {
+            return detail::is_ascii_escape_char(python_value_to_codepoint(value), quote_char);
+        },
+        py::arg("codepoint"),
+        py::arg("quote_char") = '\0',
+        py::doc("checks if a character should be escaped as ascii (eg. '\t')"));
+
+    m.def("is_renderable_ascii_char", [](py::object value) -> bool
+        {
+            return detail::is_renderable_ascii_char(python_value_to_codepoint(value));
+        },
+        py::arg("codepoint"),
+        py::doc("Checks if a given codepoint is a renderable ASCII char (eg. not a control character). NB: Returns true for space."));
+
     py::enum_<ExpressionParseMode>(m, "ExpressionParseMode")
         .value("ValueList", ExpressionParseMode::ValueList,
             "Returns the expression as a list of values (excluding comments)")
@@ -642,7 +704,7 @@ PYBIND11_MODULE(_pyjxc, m)
         .def("value_float", &ExpressionProxy::value_float, py::arg("value"), py::arg("suffix") = std::string_view{}, py::arg("precision") = 8)
         .def("value_string", &ExpressionProxy::value_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("value_string_raw", &ExpressionProxy::value_string_raw, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_bytes", [](PySerializer& self, py::bytes value, StringQuoteMode quote)
+        .def("value_bytes", [](ExpressionProxy& self, py::bytes value, StringQuoteMode quote)
         {
             auto data = py::cast<std::string_view>(value);
             self.value_bytes(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);

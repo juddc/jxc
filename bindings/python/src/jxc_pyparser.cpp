@@ -40,19 +40,19 @@ std::optional<ValueConstructor> ValueConstructor::from_python(py::object value)
     {
         py::tuple value_tup = value;
         const size_t sz = value_tup.size();
-        if (sz > 3)
-        {
-            throw py::value_error(jxc::format("Expected tuple of length 0..3, got {}", py::cast<std::string>(py::repr(value))));
-        }
-
         if (sz >= 1)
         {
             result.obj = value_tup[0];
         }
-        if (sz >= 2 && !value_tup[1].is_none())
+
+        switch (sz)
         {
+        case 1:
+            break;
+
+        case 2:
             // allow a 2-tuple in the form (callable, expr_parse_mode) or (callable, class_construct_mode)
-            if (sz == 2 && py::isinstance<ExpressionParseMode>(value_tup[1]))
+            if (py::isinstance<ExpressionParseMode>(value_tup[1]))
             {
                 result.expr_parse_mode = py::cast<ExpressionParseMode>(value_tup[1]);
             }
@@ -60,10 +60,15 @@ std::optional<ValueConstructor> ValueConstructor::from_python(py::object value)
             {
                 result.construct_mode = py::cast<ClassConstructMode>(value_tup[1]);
             }
-        }
-        if (sz >= 3 && !value_tup[2].is_none())
-        {
+            break;
+        
+        case 3:
+            result.construct_mode = py::cast<ClassConstructMode>(value_tup[1]);
             result.expr_parse_mode = py::cast<ExpressionParseMode>(value_tup[2]);
+            break;
+        
+        default:
+            throw py::value_error(jxc::format("Expected tuple of length 0..3, got {}", py::cast<std::string>(py::repr(value))));
         }
     }
     else
@@ -72,10 +77,7 @@ std::optional<ValueConstructor> ValueConstructor::from_python(py::object value)
     }
 
     result.is_type = py::isinstance<py::type>(result.obj);
-    if (result.is_type)
-    {
-        result.has_inline_decode_method = py::hasattr(result.obj, "_jxc_decode");
-    }
+    result.has_inline_decode_method = result.is_type && py::hasattr(result.obj, "_jxc_decode");
 
     return result;
 }

@@ -309,7 +309,7 @@ class ExpressionProxy:
 
     def value_bool(self: ExpressionProxy, arg0: bool) -> ExpressionProxy: ...
 
-    def value_bytes(self: Serializer, value: bytes, quote: StringQuoteMode = StringQuoteMode.Auto) -> Serializer: ...
+    def value_bytes(self: ExpressionProxy, value: bytes, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
 
     def value_bytes_base64(self: ExpressionProxy, value: bytes, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
 
@@ -945,6 +945,21 @@ class TokenType(enum.Enum):
 
 def _jxc_assert(arg0: bool, arg1: str): ...
 
+def debug_bytes_repr(value: bytes, quote_char: str = '"') -> str:
+    """
+    helper for creating a debug representation for bytes
+    """
+
+def debug_char_repr(codepoint, quote_char: str = '`') -> str:
+    """
+    helper for creating a debug representation for a single codepoint
+    """
+
+def debug_string_repr(value: str, quote_char: str = '"') -> str:
+    """
+    helper for creating a debug representation for a string
+    """
+
 def element_can_contain_annotation(arg0: ElementType) -> bool:
     """
     Returns true if a given element type is allowed to have an annotation
@@ -969,6 +984,11 @@ def element_is_value_type(arg0: ElementType) -> bool:
     """
 
 invalid_idx: int = 18446744073709551615
+def is_ascii_escape_char(codepoint, quote_char: str = '\x00') -> bool:
+    """
+    checks if a character should be escaped as ascii (eg. ' ')
+    """
+
 def is_debug_build() -> bool:
     """
     Returns True if pyjxc was compiled with JXC_DEBUG=1
@@ -977,6 +997,12 @@ def is_debug_build() -> bool:
 def is_profiler_enabled() -> bool:
     """
     Returns True if pyjxc was compiled with JXC_ENABLE_JUMP_BLOCK_PROFILER=1
+    """
+
+def is_renderable_ascii_char(codepoint) -> bool:
+    """
+    Checks if a given codepoint is a renderable ASCII char (eg. not a control
+    character). NB: Returns true for space.
     """
 
 def is_valid_identifier(arg0: str) -> bool: ...

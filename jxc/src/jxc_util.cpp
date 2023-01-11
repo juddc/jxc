@@ -1172,7 +1172,7 @@ namespace base64
 
                 buf[buf_idx] = base64_str[i];
                 ++buf_idx;
-                if (buf_idx == buf.capacity())
+                if (buf_idx >= buf.capacity())
                 {
                     buf_idx = 0;
                 }

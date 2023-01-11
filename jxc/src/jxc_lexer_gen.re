@@ -30,8 +30,8 @@
     integer = zero | (digit_1_9 digit*);
     frac = decimal_pt digit+;
     exponent = ("e" | "E") (minus | plus)? digit+;
-    number_type_suffix = [a-zA-Z_%] [a-zA-Z0-9_%]{0,15};
-    hex_number_type_suffix = "_" [a-zA-Z_%] [a-zA-Z0-9_%]{0,15};
+    number_type_suffix = "_"? [a-zA-Z%] [a-zA-Z0-9_%]{0,15};
+    hex_number_type_suffix = "_" [a-zA-Z%] [a-zA-Z0-9_%]{0,15};
 
     identifier = [a-zA-Z_$][a-zA-Z0-9_$]*;
 
@@ -42,13 +42,13 @@
     str_bytes = ("bx" | "b64") quote ((base64_digit*) | ("(" (base64_digit | linebreak | whitespace)* ")")) quote;
 
     object_key_identifier = [a-zA-Z_$*][a-zA-Z0-9_$*]*;
-    object_key_sep = "." | "-";
+    object_key_sep = ".";
     object_key = object_key_identifier (object_key_sep object_key_identifier)*;
 
     unsigned_number_value = (
-          (("0x" | "0X") hex_digit+ hex_number_type_suffix?)
-        | (("0b" | "0B") bin_digit+ number_type_suffix?)
-        | (("0o" | "0O") oct_digit+ number_type_suffix?)
+          ("0x" hex_digit+ hex_number_type_suffix?)
+        | ("0b" bin_digit+ number_type_suffix?)
+        | ("0o" oct_digit+ number_type_suffix?)
         | (integer number_type_suffix?)
         | (integer exponent number_type_suffix?)
         | (integer frac exponent? number_type_suffix?)

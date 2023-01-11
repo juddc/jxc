@@ -1,0 +1,158 @@
+{
+
+value: [
+    Match<Choice>[
+        Match<Sequence>[
+            Match<Optional Sequence>[
+                Match<MatchGroupRef> "annotation"
+                Match<Whitespace> ()
+            ]
+            Match<Choice>[
+                Match<MatchGroupRef> "string"
+                Match<MatchGroupRef> "string_raw"
+                Match<MatchGroupRef> "string_hexbyte"
+                Match<MatchGroupRef> "string_base64"
+                Match<MatchGroupRef> "number"
+                Match<String> "true"
+                Match<String> "false"
+                Match<String> "null"
+            ]
+        ]
+        Match<Sequence>[
+            Match<Optional Sequence>[
+                Match<MatchGroupRef> "annotation"
+                Match<Optional Whitespace> ()
+            ]
+            Match<Choice>[
+                Match<MatchGroupRef> "object"
+                Match<MatchGroupRef> "array"
+                Match<MatchGroupRef> "expression"
+            ]
+        ]
+    ]
+]
+
+annotation: [
+    Match<Sequence>[
+        Match<Optional Character> '!'
+        Match<OneOrMore('.') MatchGroupRef> "identifier"
+        Match<Optional Sequence>[
+            Match<Character> '<'
+            Match<MatchGroupRef> "annotation_inner"
+            Match<Character> '>'
+        ]
+    ]
+]
+
+annotation_inner: [
+    Match<Optional Choice>[
+        Match<OneOrMore('.') MatchGroupRef> "identifier"
+        Match<MatchGroupRef> "value_single"
+        Match<Character> '!'
+        Match<Character> '*'
+        Match<Character> '?'
+        Match<Character> '|'
+        Match<Character> '&'
+        Match<Character> '='
+        Match<Character> ','
+        Match<Sequence>[
+            Match<Character> '<'
+            Match<MatchGroupRef> "annotation_inner"
+            Match<Character> '>'
+        ]
+        Match<Sequence>[
+            Match<Character> '('
+            Match<MatchGroupRef> "annotation_inner"
+            Match<Character> ')'
+        ]
+    ]
+]
+
+object: [
+    Match<Sequence>[
+        Match<Character> '{'
+        Match<Choice>[
+            Match<ZeroOrMore(',\n') Sequence>[
+                Match<Choice>[
+                    Match<OneOrMore('.') MatchGroupRef> "key_identifier"
+                    Match<MatchGroupRef> 'string'
+                    Match<MatchGroupRef> 'string_hexbyte'
+                    Match<MatchGroupRef> 'number_integer'
+                    Match<String> "null"
+                    Match<String> "true"
+                    Match<String> "false"
+                ]
+                Match<Character> ':'
+                Match<MatchGroupRef> "value"
+            ]
+        ]
+        Match<Character> '}'
+    ]
+]
+
+array: [
+    Match<Sequence>[
+        Match<Character> '['
+        Match<Choice>[
+            Match<ZeroOrMore(',\n') Sequence>[
+                Match<MatchGroupRef> "value"
+            ]
+        ]
+        Match<Character> ']'
+    ]
+]
+
+expression: [
+    Match<Sequence>[
+        Match<Character> '('
+        Match<Choice>[
+            Match<ZeroOrMore Sequence>[
+                Match<MatchGroupRef> "expression_item"
+            ]
+        ]
+        Match<Character> ')'
+    ]
+]
+
+expression_item: [
+    Match<MatchGroupRef> "identifier"
+    Match<MatchGroupRef> "string"
+    Match<MatchGroupRef> "string_raw"
+    Match<MatchGroupRef> "string_hexbyte"
+    Match<MatchGroupRef> "string_base64"
+    Match<MatchGroupRef> "number_unsigned"
+    Match<String> "true"
+    Match<String> "false"
+    Match<String> "null"
+    Match<MatchGroupRef> "expression_operator"
+    Match<Character> '\n'
+    Match<Character> ','
+    Match<Character> ':'
+    Match<Character> '@'
+
+    Match<Sequence>[
+        Match<Character> '['
+        Match<ZeroOrMore Sequence>[
+            Match<MatchGroupRef> "expression_item"
+        ]
+        Match<Character> ']'
+    ]
+
+    Match<Sequence>[
+        Match<Character> '{'
+        Match<ZeroOrMore Sequence>[
+            Match<MatchGroupRef> "expression_item"
+        ]
+        Match<Character> '}'
+    ]
+
+    Match<Sequence>[
+        Match<Character> '('
+        Match<ZeroOrMore Sequence>[
+            Match<MatchGroupRef> "expression_item"
+        ]
+        Match<Character> ')'
+    ]
+]
+
+}
