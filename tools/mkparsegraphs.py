@@ -461,37 +461,30 @@ def write_diagrams_to_html_file(html_output_path: str, diagrams: typing.Iterable
             'diagrams': diagram_source,
         }))
 
-    # with open(html_output_path, 'w') as fp:
-    #     fp.write(HTML_HEADER.replace("$CSS_BLOCK$", railroad.DEFAULT_STYLE))
-    #     for name, diag in diagrams:
-    #         fp.write(f'<div class="node">\n')
-    #         diag.writeSvg(fp.write)
-    #         fp.write(f'</div>\n')
-    #     fp.write(HTML_FOOTER)
 
 
-
-def walk_tree(root: Match, callback: typing.Callable[[Match, int], None], depth=0):
-    callback(root, depth)
+def match_tree_iter(root: Match, depth=0) -> typing.Iterable[tuple[Match, int]]:
+    """
+    Generator that recursively goes through all nodes in a Match tree
+    """
+    yield (root, depth)
     if isinstance(root.value, Match):
-        walk_tree(root.value, callback, depth=depth + 1)
+        yield from match_tree_iter(root.value, depth=depth + 1)
     elif isinstance(root.value, list):
         for val in root.value:
             if isinstance(val, Match):
-                walk_tree(val, callback, depth=depth + 1)
+                yield from match_tree_iter(val, depth=depth + 1)
 
 
 
 def validate_match_group_ref_names(all_groups: dict[str, Match]):
     all_refs: set[str] = set()
-
-    def find_refs_callback(m: Match, _depth: int):
-        if m.match_type == MatchType.MatchGroupRef:
-            assert isinstance(m.value, str)
-            all_refs.add(m.value)
-
     for val in all_groups.values():
-        walk_tree(val, find_refs_callback)
+        for match, _depth in match_tree_iter(val):
+            #print('    ' * _depth, match.match_type, str(match.value)[:50])
+            if match.match_type == MatchType.MatchGroupRef:
+                assert isinstance(match.value, str)
+                all_refs.add(match.value)
 
     for ref_name in all_refs:
         if ref_name not in all_groups:
@@ -500,6 +493,7 @@ def validate_match_group_ref_names(all_groups: dict[str, Match]):
 
 if __name__ == "__main__":
     repo_root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+    generated_docs_output_dir = os.path.join(repo_root_dir, 'build', 'docs')
 
     with open(os.path.join(repo_root_dir, 'docs', 'jxc_syntax.jxc'), 'r') as fp:
         parser = SyntaxParser(fp.read())
@@ -522,5 +516,7 @@ if __name__ == "__main__":
                 print(f"Failed converting {group_name} to diagram")
                 raise
 
-    write_diagrams_to_html_file(os.path.join(repo_root_dir, 'docs', 'jxc_syntax.html'), diagrams)
+    os.makedirs(generated_docs_output_dir, exist_ok=True)
+
+    write_diagrams_to_html_file(os.path.join(generated_docs_output_dir, 'jxc_syntax_diagrams.html'), diagrams)
 
