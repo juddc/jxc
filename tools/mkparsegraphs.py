@@ -1,264 +1,526 @@
 import os
-import enum
+import io
 import typing
-import dataclasses
+from dataclasses import dataclass
+from enum import Enum, auto
+
+import railroad
+import jinja2
 
 import jxc
 import _pyjxc
-
-import railroad
-from railroad import Diagram
+from jxc import Token, TokenType, ElementType
 
 
-class MatchType(enum.Enum):
-    MatchGroupRef = enum.auto()
-    Sequence = enum.auto()
-    Choice = enum.auto()
-    String = enum.auto()
-    Character = enum.auto()
-    CharacterRange = enum.auto()
-    Whitespace = enum.auto()
-
-    def _jxc_encode(self, doc: jxc.Serializer, enc: jxc.Encoder):
-        doc.annotation("MatchType").expression_begin().identifier(self.name).expression_end()
+class ParseError(ValueError):
+    def __init__(self, msg: str, tok: Token, orig_buf: str):
+        err = _pyjxc.ErrorInfo(msg, tok.start_idx, tok.end_idx)
+        err.get_line_and_col_from_buffer(orig_buf)
+        super().__init__(err.to_string(orig_buf))
 
 
-class PatternType(enum.Enum):
-    NoPattern = enum.auto()
-    Optional = enum.auto()
-    ZeroOrMore = enum.auto()
-    OneOrMore = enum.auto()
+
+def char_repr(ch: str, quote_char='`') -> str:
+    assert isinstance(ch, str)
+    assert len(ch) == 1
+    match ch:
+        case '\\':
+            return f'{quote_char}\\{quote_char}'
+        case ' ':
+            return f'{quote_char} {quote_char} (space)'
+        case '\t':
+            return f'{quote_char}\\t{quote_char} (tab)'
+        case '\n':
+            return f'{quote_char}\\n{quote_char} (line break)'
+        case '\r':
+            return f'{quote_char}\\r{quote_char} (carriage return)'
+        case _:
+            return _pyjxc.debug_char_repr(ch, quote_char)
 
 
-@dataclasses.dataclass
+
+class MatchType(Enum):
+    Start = auto()
+    End = auto()
+    MatchGroupRef = auto()
+    Sequence = auto()
+    Stack = auto()
+    Choice = auto()
+    HorizontalChoice = auto()
+    String = auto()
+    Character = auto()
+    CharacterRange = auto()
+    Group = auto()
+    Comment = auto()
+    Whitespace = auto()
+
+
+
+class PatternType(Enum):
+    OptionalCommon = auto()
+    Optional = auto()
+    ZeroOrMore = auto()
+    OneOrMore = auto()
+
+
+
+@dataclass
 class CharRange:
-    start: int
-    end: int
-    exclusions: set[int]
+    start: str
+    end: str
+    exclusions: typing.Optional[set[str]] = None
 
+    def description(self) -> str:
+        have_exc = self.exclusions is not None and len(self.exclusions) > 0
 
-@dataclasses.dataclass
-class Match:
-    match_type: MatchType
-    value: str | list['Match'] | CharRange | typing.Optional['Match']
-    pattern: PatternType = PatternType.NoPattern
-    repeat: typing.Optional['Match'] = None
+        exc_repr: list[str] = [char_repr(ch) for ch in sorted(list(self.exclusions))] if have_exc else []
+
+        if not self.start and not self.end:
+            result = 'Any UTF8 sequence'
+            if have_exc:
+                result += f' except {(", ".join(exc_repr))}'
+            return result
+
+        if not self.start and self.end:
+            raise ValueError(f"Invalid character range - missing beginning of range")
+        elif self.start and not self.end:
+            raise ValueError(f"Invalid character range - missing end of range")
+
+        assert self.start and self.end
+
+        result = f'{char_repr(self.start)}..{char_repr(self.end)}'
+        if have_exc:
+            result += f' (except {(", ".join(exc_repr))})'
+        return ''.join(result)
 
     @classmethod
-    def _jxc_construct(cls, anno: list[jxc.Token]):
-        assert len(anno) >= 4
-        assert anno[0].type == jxc.TokenType.Identifier and anno[0].value == "Match"
-        assert anno[1].type == jxc.TokenType.AngleBracketOpen
+    def parse(cls, value):
+        if isinstance(value, (dict, list)) and len(value) == 0:
+            return cls(start='', end='')
 
-        flags: list[str] = []
-        paren_value = None
+        if isinstance(value, list):
+            match len(value):
+                case 0:
+                    return cls(start='', end='')
+                case 2:
+                    return cls(start=value[0], end=value[1])
+                case 3:
+                    return cls(start=value[0], end=value[1], exclusions=set(value[2]))
+                case _:
+                    raise ValueError(f'Expected list with 2 or 3 values, got {value!r}')
 
-        anno_idx = 2
-        while anno_idx < len(anno):
-            if paren_value is not None:
-                match anno[anno_idx].type:
-                    case jxc.TokenType.ParenClose:
-                        if len(paren_value) > 0:
-                            flags.append(paren_value)
-                        paren_value = None
-                    case jxc.TokenType.String:
-                        paren_value.append(_pyjxc.parse_string_token(anno[anno_idx]))
-                    case _:
-                        raise ValueError(f"Unexpected token type {anno[anno_idx].type}")
-            else:
-                match anno[anno_idx].type:
-                    case jxc.TokenType.Identifier:
-                        flags.append(anno[anno_idx].value)
-                    case jxc.TokenType.AngleBracketClose:
-                        break
-                    case jxc.TokenType.ParenOpen:
-                        paren_value = []
-                    case _:
-                        raise ValueError(f"Unexpected token type {anno[anno_idx].type}")
-
-            anno_idx += 1
-
-        match_pattern = PatternType.NoPattern
-        match_repeat = None
-        if len(flags) > 1:
-            match_pattern = getattr(PatternType, flags[0])
-            flags = flags[1:]
-            if match_pattern in (PatternType.ZeroOrMore, PatternType.OneOrMore) and isinstance(flags[0], list):
-                assert len(flags[0]) == 1 and isinstance(flags[0][0], str)
-                repeat_chars = flags[0][0]
-                flags = flags[1:]
-                if len(repeat_chars) == 1:
-                    match_repeat = Match(MatchType.Character, repeat_chars)
-                elif len(repeat_chars) > 1:
-                    match_repeat = Match(MatchType.Choice, value=[ Match(MatchType.Character, ch) for ch in repeat_chars ])
-        
-        assert len(flags) == 1
-        match_ty = getattr(MatchType, flags[0])
-
-        def make(value) -> Match:
-            return cls(match_type=match_ty, value=value, pattern=match_pattern, repeat=match_repeat)
-
-        return make
-        
-
-    def _jxc_encode(self, doc: jxc.Serializer, enc: jxc.Encoder):
-        type_args = [self.match_type.name]
-
-        if self.pattern != PatternType.NoPattern:
-            type_args.insert(0, self.pattern.name)
-
-        doc.annotation(f'{self.__class__.__name__}<{(" ".join(type_args))}>')
-        match self.match_type:
-            case MatchType.MatchGroupRef:
-                assert isinstance(self.value, str)
-                doc.value_string(self.value)
-            case MatchType.Sequence | MatchType.Choice:
-                assert isinstance(self.value, list)
-                doc.array_begin()
-                for submatch in self.value:
-                    submatch._jxc_encode(doc, enc)
-                doc.array_end()
-            case MatchType.String:
-                assert isinstance(self.value, str)
-                doc.value_string(self.value, jxc.StringQuoteMode.Double, decode_unicode=False)
-            case MatchType.Character:
-                assert isinstance(self.value, str) and len(self.value) == 1
-                doc.value_string(self.value, jxc.StringQuoteMode.Single, decode_unicode=False)
-            case MatchType.CharacterRange:
-                assert isinstance(self.value, CharRange)
-                enc.encode_value(self.value)
-            case MatchType.Whitespace:
-                doc.expression_empty()
+        elif isinstance(value, dict):
+            valid_keys = ['start', 'end', 'exclusions']
+            invalid_keys = set(value.keys()) - set(valid_keys)
+            if len(invalid_keys) > 0:
+                raise ValueError(f"Got one or more invalid keys {invalid_keys!r} (valid keys = {valid_keys!r})")
+            return cls(start=value.get('start', ''), end=value.get('end', ''), exclusions=set(value.get('exclusions', [])))
+        else:
+            raise TypeError(f'Expected list or dict, got {value!r}')
 
 
-@dataclasses.dataclass
-class MatchGroup:
-    name: str
-    options: list['Match']
 
+class TokenParser:
+    def __init__(self, tokens: _pyjxc.TokenSpan):
+        self.tokens = tokens
+        self.num_tokens = len(self.tokens)
+        self.idx = 0
 
-HTML_HEADER = """<!doctype html>
-<html>
-<head>
-<style type="text/css">
-html {
-    background-color: #444;
-    color: #eee;
-}
-.MatchGroupRef rect {
-    fill:hsl(200, 100%, 90%) !important;
-}
-$CSS_BLOCK$
-</style>
-<body>
-"""
+    def __len__(self):
+        return self.num_tokens
 
-HTML_FOOTER = """
-</body>
-</html>
-"""
+    def __getitem__(self, token_index: int):
+        return self.tokens[token_index]
 
+    def advance(self):
+        self.idx += 1
+        return self.idx < self.num_tokens
 
-def codepoint_repr(codepoint: str) -> str:
-    assert len(codepoint) == 1
-    match codepoint:
-        case ' ':
-            return "' ' (space)"
-        case '\t':
-            return "'\\t' (tab)"
-        case '\r':
-            return "'\\r' (carriage return)"
-        case '\n':
-            return "line break"
-        case _:
-            return _pyjxc.debug_char_repr(codepoint, quote_char="'")
+    def last(self) -> bool:
+        return self.idx == self.num_tokens - 1
 
+    def done(self) -> bool:
+        return self.idx >= self.num_tokens
 
-def match_to_node(match: Match):
-    if match is None:
+    def current(self) -> Token:
+        return self.tokens[self.idx] if self.idx < self.num_tokens else None
+
+    def require_advance(self):
+        self.idx += 1
+        if self.idx >= self.num_tokens:
+            raise ValueError(f'Unexpected end of stream')
+    
+    def require_done(self):
+        if self.idx < self.num_tokens - 1:
+            remainder = [ self.tokens[i] for i in range(self.idx, self.num_tokens) ]
+            raise ValueError(f'Expected end of tokens, but still have unparsed remainder {remainder!r}')
+
+    def require_token(self, ty: TokenType, val: typing.Optional[str] = None):
+        if self.idx >= self.num_tokens:
+            raise ValueError(f'Expected {ty}, got end of stream')
+        if not self.tokens[self.idx].type == ty:
+            raise ValueError(f'Expected {ty}, got {self.tokens[self.idx].type}')
+        if val is not None and self.tokens[self.idx].value != val:
+            raise ValueError(f'Expected {val}, got {self.tokens[self.idx].value}')
+
+    def check_token(self, ty: TokenType, val: typing.Optional[str] = None) -> bool:
+        if self.idx >= self.num_tokens:
+            return False
+        if not self.tokens[self.idx].type == ty:
+            return False
+        if val is not None and self.tokens[self.idx].value != val:
+            return False
+        return True
+    
+    def consume_token(self, ty: TokenType, val: typing.Optional[str] = None) -> typing.Optional[Token]:
+        """
+        If the current token matches, advances and returns the consumed Token.
+        Otherwise returns None.
+        """
+        if self.check_token(ty, val):
+            tok = self.current()
+            self.advance()
+            return tok
         return None
 
-    result = None
-    match match.match_type:
-        case MatchType.MatchGroupRef:
-            result = railroad.NonTerminal(match.value, cls=match.match_type.name)
-        case MatchType.Sequence:
-            assert isinstance(match.value, list)
-            result = railroad.Sequence(*[ match_to_node(val) for val in match.value ])
-        case MatchType.Choice:
-            assert isinstance(match.value, list)
-            result = railroad.Choice(0, *[ match_to_node(val) for val in match.value ])
-        case MatchType.String:
-            result = railroad.NonTerminal(_pyjxc.debug_string_repr(match.value), cls=match.match_type.name)
-        case MatchType.Character:
-            assert isinstance(match.value, str) and len(match.value) == 1
-            result = railroad.NonTerminal(codepoint_repr(match.value), cls=match.match_type.name)
-        case MatchType.CharacterRange:
-            assert isinstance(match.value, CharRange)
-            desc = f'{chr(match.value.start)} .. {chr(match.value.end)}'
-            if len(match.value.exclusions) > 0:
-                desc += ' (except ' + ', '.join(codepoint_repr(ch) for ch in sorted(list(match.value.exclusions))) + ')'
-            result = railroad.NonTerminal(text=desc, cls=match.match_type.name)
-        case MatchType.Whitespace:
-            result = railroad.NonTerminal(text='whitespace', cls=match.match_type.name)
-        case _:
-            raise TypeError(f'Unhandled match_type {match.match_type!r}')
 
-    match match.pattern:
-        case PatternType.NoPattern:
+
+@dataclass
+class PatternRepeat:
+    values: list[str | int]
+    group_name: typing.Optional[str] = None
+    source: typing.Optional[tuple[int, int]] = None
+
+
+    @staticmethod
+    def _parse_count_number_token(tok: Token) -> int:
+        number, number_suffix = _pyjxc.parse_number_token(tok)
+        if isinstance(number, _pyjxc.ErrorInfo):
+            raise ValueError(f'Failed parsing number: {number.to_string()}')
+        elif not isinstance(number, int):
+            raise ValueError(f'Expected integer, got {tok!r}')
+        elif number_suffix != 'x':
+            raise ValueError(f'Expected number with suffix "x", got {tok!r}')
+        return number
+
+
+    @classmethod
+    def parse(cls, expr: _pyjxc.TokenSpan):
+        if len(expr) == 0:
+            raise ValueError("Expected repeat expression to contain strings")
+
+        src_range = (expr[0].start_idx, expr[-1].end_idx)
+
+        match expr:
+            case [Token(TokenType.Number)]:
+                return cls(
+                    values=[PatternRepeat._parse_count_number_token(expr[0])],
+                    source=src_range)
+            case [Token(TokenType.Number), Token(TokenType.Comma), Token(TokenType.Number)]:
+                return cls(values=[
+                    PatternRepeat._parse_count_number_token(expr[0]),
+                    PatternRepeat._parse_count_number_token(expr[2]),
+                ], source=src_range)
+            case [Token(TokenType.Number), Token(TokenType.Comma), Token(TokenType.String, grp)]:
+                return cls(
+                    values=[PatternRepeat._parse_count_number_token(expr[0])],
+                    group_name=grp,
+                    source=src_range)
+            case [Token(TokenType.Number), Token(TokenType.Comma), Token(TokenType.Number), Token(TokenType.Comma), Token(TokenType.String, grp)]:
+                return cls(
+                    values=[
+                        PatternRepeat._parse_count_number_token(expr[0]),
+                        PatternRepeat._parse_count_number_token(expr[2]),
+                    ],
+                    group_name=grp,
+                    source=src_range)
+
+        values = []
+        group_name = None
+        parser = TokenParser(expr)
+        while True:
+            parser.require_token(TokenType.String)
+            values.append(_pyjxc.parse_string_token(parser.current()))
+            if not parser.advance():
+                break
+
+            if parser.consume_token(TokenType.ExpressionOperator, '|'):
+                # pipe -> back to top for another value
+                continue
+            elif parser.check_token(TokenType.Comma):
+                # comma (trailing) -> done
+                if parser.last():
+                    break
+                # comma -> group_name -> done
+                parser.require_advance()
+                parser.require_token(TokenType.String)
+                group_name = _pyjxc.parse_string_token(parser.current())
+                parser.advance()
+                break
+            else:
+                raise ValueError(f"Unexpected token {parser.current()!r}")
+
+        # allow trailing comma
+        parser.consume_token(TokenType.Comma)
+        parser.require_done()
+
+        return cls(values=values, group_name=group_name, source=src_range)
+
+
+
+@dataclass
+class Match:
+    match_type: MatchType
+    value: typing.Union[str, list['Match'], CharRange, 'Match']
+    pattern: typing.Optional[PatternType] = None
+    repeat: typing.Optional['Match'] = None
+    group: typing.Optional[str] = None
+    source: typing.Optional[tuple[int, int]] = None
+
+
+    @classmethod
+    def from_value(cls, val: str | int, group_name: typing.Optional[str] = None):
+        if isinstance(val, int):
+            match_type = MatchType.Comment
+            val = f'exactly {val}x'
+        else:
+            assert isinstance(val, str)
+            match len(val):
+                case 0:
+                    match_type = MatchType.Whitespace
+                case 1:
+                    match_type = MatchType.Character
+                case _:
+                    match_type = MatchType.String
+        return cls(match_type, value=val, group=group_name)
+
+
+    @classmethod
+    def from_pattern_repeat(cls, repeat: PatternRepeat):
+        assert len(repeat.values) > 0
+        if len(repeat.values) == 1:
+            result = cls.from_value(repeat.values[0])
+            result.source = repeat.source
             return result
-        case PatternType.Optional:
-            return railroad.Optional(result)
-        case PatternType.ZeroOrMore:
-            return railroad.ZeroOrMore(result, repeat=railroad.Group(match_to_node(match.repeat), label="separator") if match.repeat else None)
-        case PatternType.OneOrMore:
-            return railroad.OneOrMore(result, repeat=railroad.Group(match_to_node(match.repeat), label="separator") if match.repeat else None)
+        elif len(repeat.values) == 2 and all(isinstance(v, int) for v in repeat.values):
+            return cls(MatchType.Comment, value=f'{repeat.values[0]}x to {repeat.values[1]}x', group=repeat.group_name, source=repeat.source)
+        else:
+            return cls(MatchType.Choice, value=[ Match.from_value(val) for val in repeat.values ], group=repeat.group_name, source=repeat.source)
 
 
-def match_group_to_node(group: MatchGroup):
-    return railroad.Sequence(
-        railroad.Start(label=group.name),
-        railroad.Choice(0, *[ match_to_node(opt) for opt in group.options ]),
-    )
+    @classmethod
+    def make_parse_func(cls, ty: MatchType, pat: typing.Optional[PatternType] = None):
+        def parse_value(value):
+            repeat_meta: typing.Optional[PatternRepeat] = None
+            group: typing.Optional[str] = None
+            if isinstance(value, (str, CharRange)):
+                match_value = value
+            elif ty == MatchType.Group:
+                match value:
+                    case { 'name': group_name, 'value': group_inner }:
+                        assert isinstance(group_name, str)
+                        group = group_name
+                        match_value = group_inner
+                    case _:
+                        raise ValueError(f'Invalid group (expected object with "name" and "value" keys) {value!r}')
+            elif pat is not None:
+                # if a pattern is specified, check if the value contains a repeat directive
+                if isinstance(value, list) and len(value) > 0 and isinstance(value[0], PatternRepeat):
+                    if len(value) != 2:
+                        raise ValueError(f"Expected list in the form [repeat, value], got {value!r}")
+                    repeat_meta, match_value = value
+                else:
+                    match_value = value
+            elif isinstance(value, list):
+                if not all(isinstance(item, Match) for item in value):
+                    raise TypeError(f'Expected a list containing all matches, got {value!r}')
+                match_value = value
+            else:
+                raise TypeError(f"Invalid match value {value!r}")
+
+            repeat = None
+            if repeat_meta is not None:
+                assert isinstance(repeat_meta, PatternRepeat)
+                repeat = cls.from_pattern_repeat(repeat_meta)
+
+            return cls(match_type=ty, value=match_value, pattern=pat, repeat=repeat, group=group)
+
+        return parse_value
 
 
-def write_diagrams_to_html_file(html_output_path: str, diagrams: typing.Iterable[tuple[str, Diagram]]):
+    def to_node(self) -> 'railroad.Node':
+        result = None
+
+        match self.match_type:
+            case MatchType.Start:
+                result = railroad.Start(label=self.value)
+            case MatchType.End:
+                result = railroad.End()
+            case MatchType.MatchGroupRef:
+                result = railroad.NonTerminal(self.value, cls=self.match_type.name)
+            case MatchType.Sequence | MatchType.Stack:
+                if not isinstance(self.value, list):
+                    raise ValueError(f"Expected list of values, got {self.value!r}")
+                result = getattr(railroad, self.match_type.name)(*[ val.to_node() for val in self.value ])
+            case MatchType.Choice:
+                if not isinstance(self.value, list):
+                    raise ValueError(f"Expected list of values, got {self.value!r}")
+                result = railroad.Choice(0, *[ val.to_node() for val in self.value ])
+            case MatchType.HorizontalChoice:
+                if not isinstance(self.value, list):
+                    raise ValueError(f"Expected list of values, got {self.value!r}")
+                result = railroad.HorizontalChoice(*[ val.to_node() for val in self.value ])
+            case MatchType.String:
+                result = railroad.NonTerminal(_pyjxc.debug_string_repr(self.value, quote_char='`'), cls=self.match_type.name)
+            case MatchType.Character:
+                if not isinstance(self.value, str) or len(self.value) != 1:
+                    raise ValueError(f"Expected single character, got {self.value!r}")
+                result = railroad.NonTerminal(char_repr(self.value), cls=self.match_type.name)
+            case MatchType.CharacterRange:
+                if not isinstance(self.value, CharRange):
+                    raise ValueError(f"Expected CharRange, got {self.value!r}")
+                result = railroad.NonTerminal(text=self.value.description(), cls=self.match_type.name)
+            case MatchType.Group:
+                result = railroad.Group(item=self.value.to_node(), label=self.group)
+            case MatchType.Comment:
+                result = railroad.Comment(text=self.value)
+            case MatchType.Whitespace:
+                result = railroad.NonTerminal(text='whitespace', cls=self.match_type.name)
+            case _:
+                raise TypeError(f'Unhandled match_type {self.match_type!r}')
+
+        match self.pattern:
+            case None:
+                pass
+            case PatternType.OptionalCommon:
+                result = railroad.Optional(result, skip=False)
+            case PatternType.Optional:
+                result = railroad.Optional(result, skip=True)
+            case PatternType.ZeroOrMore:
+                result = railroad.ZeroOrMore(result, repeat=self.repeat.to_node() if self.repeat else None)
+            case PatternType.OneOrMore:
+                result = railroad.OneOrMore(result, repeat=self.repeat.to_node() if self.repeat else None)
+
+        if self.match_type != MatchType.Group and self.group:
+            result = railroad.Group(result, label=self.group)
+
+        return result
+
+
+
+class SyntaxParser:
+    def __init__(self, buf: str):
+        self.buf = buf
+        self.parser = jxc.Parser(buf)
+        self.parser.set_find_construct_from_annotation_callback(self.parse_annotation)
+        self._refs = set()
+
+    def parse_annotation(self, ele: jxc.Element) -> jxc.decode.ValueConstructor:
+        #TODO: investigate why converting to list is needed here
+        match list(ele.annotation):
+            case []:
+                return None
+            case [Token(TokenType.Identifier, ident)]:
+                return self._find_construct(ident)
+            case [Token(TokenType.Identifier, ident), Token(TokenType.AngleBracketOpen), Token(TokenType.Identifier, ident_inner), Token(TokenType.AngleBracketClose)]:
+                return self._find_construct(ident, ident_inner)
+            case _:
+                raise ParseError(f'Invalid annotation {ele.annotation.source()!r}', ele.token, self.buf)
+
+    def _find_construct(self, ident: str, ident_inner: typing.Optional[str] = None) -> jxc.decode.ValueConstructor:
+        pat = getattr(PatternType, ident_inner) if ident_inner is not None else None
+        if ident == 'CharacterRange':
+            def parse_range(value):
+                return Match(match_type=MatchType.CharacterRange, value=CharRange.parse(value), pattern=pat)
+            return parse_range
+        elif ident == 'repeat':
+            return (PatternRepeat.parse, jxc.ExpressionParseMode.TokenList)
+        elif hasattr(MatchType, ident):
+            return Match.make_parse_func(getattr(MatchType, ident), pat)
+        return None
+
+    def parse(self):
+        return self.parser.parse()
+
+
+
+def write_diagrams_to_html_file(html_output_path: str, diagrams: typing.Iterable[tuple[str, railroad.Diagram]]):
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader('./docs/templates'))
+    tmpl = env.loader.load(env, 'syntax_diagrams.html')
+
+    diagram_source = {}
+    for name, diag in diagrams:
+        diagram_writer = io.StringIO()
+        diag.writeSvg(diagram_writer.write)
+        diagram_source[name] = diagram_writer.getvalue()
+    
     with open(html_output_path, 'w') as fp:
-        fp.write(HTML_HEADER.replace("$CSS_BLOCK$", railroad.DEFAULT_STYLE))
-        for name, diag in diagrams:
-            fp.write(f'<div class="node">\n')
-            diag.writeSvg(fp.write)
-            fp.write(f'</div>\n')
-        fp.write(HTML_FOOTER)
+        fp.write(tmpl.render({
+            'page_title': "Syntax Specification",
+            'railroad_css': railroad.DEFAULT_STYLE,
+            'diagrams': diagram_source,
+        }))
 
+    # with open(html_output_path, 'w') as fp:
+    #     fp.write(HTML_HEADER.replace("$CSS_BLOCK$", railroad.DEFAULT_STYLE))
+    #     for name, diag in diagrams:
+    #         fp.write(f'<div class="node">\n')
+    #         diag.writeSvg(fp.write)
+    #         fp.write(f'</div>\n')
+    #     fp.write(HTML_FOOTER)
+
+
+
+def walk_tree(root: Match, callback: typing.Callable[[Match, int], None], depth=0):
+    callback(root, depth)
+    if isinstance(root.value, Match):
+        walk_tree(root.value, callback, depth=depth + 1)
+    elif isinstance(root.value, list):
+        for val in root.value:
+            if isinstance(val, Match):
+                walk_tree(val, callback, depth=depth + 1)
+
+
+
+def validate_match_group_ref_names(all_groups: dict[str, Match]):
+    all_refs: set[str] = set()
+
+    def find_refs_callback(m: Match, _depth: int):
+        if m.match_type == MatchType.MatchGroupRef:
+            assert isinstance(m.value, str)
+            all_refs.add(m.value)
+
+    for val in all_groups.values():
+        walk_tree(val, find_refs_callback)
+
+    for ref_name in all_refs:
+        if ref_name not in all_groups:
+            raise ValueError(f'MatchGroupRef {ref_name} is not defined')
 
 
 if __name__ == "__main__":
     repo_root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
-    def lookup_annotation(ele: jxc.Element) -> jxc.decode.ValueConstructor:
-        if len(ele.annotation) > 0 and ele.annotation[0].value == "Match":
-            assert len(ele.annotation) >= 4
-            return Match._jxc_construct(ele.annotation)
-        return None
-
     with open(os.path.join(repo_root_dir, 'docs', 'jxc_syntax.jxc'), 'r') as fp:
-        parser = jxc.Parser(fp.read())
-        parser.set_find_construct_from_annotation_callback(lookup_annotation)
-        group_dict: dict[str, Match] = parser.parse()
-        groups: list[MatchGroup] = []
-        for name, group in group_dict.items():
-            groups.append(MatchGroup(name=name, options=group))
+        parser = SyntaxParser(fp.read())
+        groups: dict[str, Match] = parser.parse()
+    
+    validate_match_group_ref_names(groups)
 
-    diagrams: list[tuple[str, Diagram]] = []
-    for group in groups:
-        nodes = [railroad.Start(label=group.name)]
-        if len(group.options) == 1:
-            nodes.append(match_to_node(group.options[0]))
-        elif len(group.options) > 1:
-            nodes.append(railroad.Choice(0, *[ match_to_node(opt) for opt in group.options ]))
-
-        diagrams.append((group.name, Diagram(*nodes, css=None)))
+    diagrams: list[tuple[str, railroad.Diagram]] = []
+    for group_name, match in groups.items():
+        try:
+            start_node = railroad.Start(label=group_name, type='complex')
+            start_node.attrs['class'] = 'start'
+            diagrams.append((group_name, railroad.Diagram(start_node, match.to_node(), css=None, type='complex')))
+        except Exception as e:
+            if match.source:
+                err = _pyjxc.ErrorInfo(f"{e.__class__.__name__}: {e}", match.source[0], match.source[1])
+                err.get_line_and_col_from_buffer(parser.buf)
+                raise Exception(err.to_string(parser.buf))
+            else:
+                print(f"Failed converting {group_name} to diagram")
+                raise
 
     write_diagrams_to_html_file(os.path.join(repo_root_dir, 'docs', 'jxc_syntax.html'), diagrams)
 

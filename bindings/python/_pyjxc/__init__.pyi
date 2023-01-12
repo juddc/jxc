@@ -787,6 +787,14 @@ class Token:
 
     def __lt__(self, rhs: Token) -> bool: ...
 
+    # [UNKNOWN TYPE tuple] '__match_args__' ('type', 'value')
+    """
+    Built-in immutable sequence.
+    If no argument is given, the constructor returns an empty tuple.
+    If iterable is specified the tuple is initialized from iterable's items.
+    If the argument is a tuple, the return value is the same object.
+    """
+
     def __ne__(self: Token, arg0: Token) -> bool: ...
 
     def __repr__(self: Token) -> str: ...

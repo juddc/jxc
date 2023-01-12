@@ -610,6 +610,7 @@ struct OwnedTokenSpan
         {
             tokens.push(rhs[i].copy());
         }
+        src = rhs.source(true);
     }
 
 private:
@@ -638,7 +639,7 @@ public:
 
     size_t size() const { return tokens.size(); }
 
-    FlexString source(bool force_owned = true) const;
+    FlexString source(bool force_owned = false) const;
 
     inline uint64_t hash() const { return to_token_span().hash(); }
 

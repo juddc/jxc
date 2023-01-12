@@ -1,6 +1,7 @@
 import unittest
 import typing
 import jxc
+import _pyjxc
 import enum
 
 
@@ -198,7 +199,7 @@ class SimpleValueTests(unittest.TestCase):
         self.assertEqual(jxc.loads("('abc')"), ['abc'])
         self.assertEqual(jxc.loads("(bx'00ff')"), [b'\x00\xff'])
 
-    def test_enum_crash_bug(self):
+    def test_enum_unhandled_exception_bug(self):
         class TestEnum(enum.Enum):
             A = enum.auto()
             B = enum.auto()
@@ -207,6 +208,9 @@ class SimpleValueTests(unittest.TestCase):
         # this triggers 'pure virtual method called'
         with self.assertRaises(TypeError):
             jxc.dumps({'a': TestEnum.A}, encode_enum=False)
+
+    def test_token_span_segfault_bug(self):
+        list(_pyjxc.OwnedTokenSpan())
 
 
 

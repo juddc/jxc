@@ -186,7 +186,7 @@ bool Lexer::scan_string(std::string& out_error_message, uint8_t quote_char, std:
             case '/': // forward slash
             case 'b': // backspace
             case 'f': // formfeed
-            case 'n': // linefeed
+            case 'n': // line break
             case 'r': // carriage return
             case 't': // horizontal tab
                 ++this->current;

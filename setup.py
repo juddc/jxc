@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 from setuptools import setup
@@ -13,8 +14,31 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 __version__ = subprocess.check_output(['python', './tools/version.py']).decode('utf-8').strip()
 
+
+def find_re2c() -> str | None:
+    re2c_path = None
+    if os.name == 'nt':
+        re2c_path = './tools/re2c.exe'
+    else:
+        try:
+            re2c_path = subprocess.check_output(['which', 're2c']).decode('utf-8').strip()
+        except subprocess.CalledProcessError:
+            return None
+    return re2c_path if os.path.exists(re2c_path) else None
+
+
+def run_re2c(re2c_path: str, input_file: str):
+    args = [re2c_path, '-W', '--verbose', '--utf8', '--input-encoding', 'utf8']
+    if os.name == 'nt':
+        args += ['--location-format', 'msvc']
+    else:
+        args += ['--location-format', 'gnu']
+    subprocess.check_call(args + ['-o', f'{input_file}.cpp', input_file])
+
+
 ext_modules = [
-    Pybind11Extension("_pyjxc",
+    Pybind11Extension(
+        "_pyjxc",
         cxx_std=17,
         sources=[
             # JXC core library
@@ -56,6 +80,10 @@ class build_ext_jxc(build_ext):
     }
 
     def build_extension(self, ext):
+        re2c_path = find_re2c()
+        if re2c_path is not None:
+            run_re2c(re2c_path, './jxc/src/jxc_lexer_gen.re')
+        assert os.path.exists('./jxc/src/jxc_lexer_gen.re.cpp')
         if extra_args := self.per_platform_compile_args.get(ext.name, None):
             if args := extra_args.get(self.compiler.compiler_type, None):
                 if not ext.extra_compile_args:
@@ -72,7 +100,7 @@ setup(
     url="https://github.com/juddc/jxc",
     description="JXC file format parsing and serialization library",
     long_description="",
-    cmdclass = {'build_ext': build_ext_jxc},
+    cmdclass={'build_ext': build_ext_jxc},
     ext_modules=ext_modules,
     packages=['_pyjxc', 'jxc'],
     package_dir={

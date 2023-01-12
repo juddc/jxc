@@ -1,158 +1,527 @@
 {
 
-value: [
-    Match<Choice>[
-        Match<Sequence>[
-            Match<Optional Sequence>[
-                Match<MatchGroupRef> "annotation"
-                Match<Whitespace> ()
-            ]
-            Match<Choice>[
-                Match<MatchGroupRef> "string"
-                Match<MatchGroupRef> "string_raw"
-                Match<MatchGroupRef> "string_hexbyte"
-                Match<MatchGroupRef> "string_base64"
-                Match<MatchGroupRef> "number"
-                Match<String> "true"
-                Match<String> "false"
-                Match<String> "null"
-            ]
+value: Choice[
+    Sequence[
+        Sequence<Optional>[
+            MatchGroupRef "annotation"
+            Whitespace()
         ]
-        Match<Sequence>[
-            Match<Optional Sequence>[
-                Match<MatchGroupRef> "annotation"
-                Match<Optional Whitespace> ()
-            ]
-            Match<Choice>[
-                Match<MatchGroupRef> "object"
-                Match<MatchGroupRef> "array"
-                Match<MatchGroupRef> "expression"
-            ]
+        Choice[
+            MatchGroupRef "string"
+            MatchGroupRef "string_raw"
+            MatchGroupRef "string_hexbyte"
+            MatchGroupRef "string_base64"
+            MatchGroupRef "number"
+            String "true"
+            String "false"
+            String "null"
+        ]
+    ]
+    Sequence[
+        Sequence<Optional>[
+            MatchGroupRef "annotation"
+            Whitespace<Optional>()
+        ]
+        Choice[
+            MatchGroupRef "object"
+            MatchGroupRef "array"
+            MatchGroupRef "expression"
         ]
     ]
 ]
 
-annotation: [
-    Match<Sequence>[
-        Match<Optional Character> '!'
-        Match<OneOrMore('.') MatchGroupRef> "identifier"
-        Match<Optional Sequence>[
-            Match<Character> '<'
-            Match<MatchGroupRef> "annotation_inner"
-            Match<Character> '>'
-        ]
+annotation: Sequence[
+    Character<Optional> '!'
+    MatchGroupRef<OneOrMore>[repeat('.'), "identifier"]
+    Sequence<Optional>[
+        Character '<'
+        MatchGroupRef<ZeroOrMore> "annotation_inner"
+        Character '>'
     ]
 ]
 
-annotation_inner: [
-    Match<Optional Choice>[
-        Match<OneOrMore('.') MatchGroupRef> "identifier"
-        Match<MatchGroupRef> "value_single"
-        Match<Character> '!'
-        Match<Character> '*'
-        Match<Character> '?'
-        Match<Character> '|'
-        Match<Character> '&'
-        Match<Character> '='
-        Match<Character> ','
-        Match<Sequence>[
-            Match<Character> '<'
-            Match<MatchGroupRef> "annotation_inner"
-            Match<Character> '>'
-        ]
-        Match<Sequence>[
-            Match<Character> '('
-            Match<MatchGroupRef> "annotation_inner"
-            Match<Character> ')'
-        ]
+annotation_inner: Choice<OptionalCommon>[
+    MatchGroupRef<OneOrMore>[repeat('.'), "identifier"]
+    MatchGroupRef "string"
+    MatchGroupRef "string_raw"
+    MatchGroupRef "string_hexbyte"
+    MatchGroupRef "number"
+    String "true"
+    String "false"
+    String "null"
+    Character '!'
+    Character '*'
+    Character '?'
+    Character '|'
+    Character '&'
+    Character '='
+    Character ','
+    Sequence[
+        Character '<'
+        MatchGroupRef<ZeroOrMore> "annotation_inner"
+        Character '>'
+    ]
+    Sequence[
+        Character '('
+        MatchGroupRef<ZeroOrMore> "annotation_inner"
+        Character ')'
     ]
 ]
 
-object: [
-    Match<Sequence>[
-        Match<Character> '{'
-        Match<Choice>[
-            Match<ZeroOrMore(',\n') Sequence>[
-                Match<Choice>[
-                    Match<OneOrMore('.') MatchGroupRef> "key_identifier"
-                    Match<MatchGroupRef> 'string'
-                    Match<MatchGroupRef> 'string_hexbyte'
-                    Match<MatchGroupRef> 'number_integer'
-                    Match<String> "null"
-                    Match<String> "true"
-                    Match<String> "false"
+object: Sequence[
+    Character '{'
+    Choice<OptionalCommon>[
+        Sequence[
+            Sequence<OneOrMore>[repeat(',' | '\n', 'separator'), [
+                Choice[
+                    MatchGroupRef<OneOrMore>[repeat('.'), "key_identifier"]
+                    MatchGroupRef 'string'
+                    MatchGroupRef 'string_hexbyte'
+                    MatchGroupRef 'number_integer'
+                    String "null"
+                    String "true"
+                    String "false"
                 ]
-                Match<Character> ':'
-                Match<MatchGroupRef> "value"
+                Character ':'
+                MatchGroupRef "value"
+            ]]
+            Choice<Optional>[
+                Group{
+                    name: 'trailing separator'
+                    value: Choice<OptionalCommon>[
+                        Character ','
+                        Character '\n'
+                    ]
+                }
             ]
         ]
-        Match<Character> '}'
     ]
+    Character '}'
 ]
 
-array: [
-    Match<Sequence>[
-        Match<Character> '['
-        Match<Choice>[
-            Match<ZeroOrMore(',\n') Sequence>[
-                Match<MatchGroupRef> "value"
+array: Sequence[
+    Character '['
+    Choice<OptionalCommon>[
+        Sequence[
+            Sequence<OneOrMore>[repeat(',' | '\n', 'separator'), [
+                MatchGroupRef "value"
+            ]]
+            Choice<Optional>[
+                Group{
+                    name: 'trailing separator'
+                    value: Choice<OptionalCommon>[
+                        Character ','
+                        Character '\n'
+                    ]
+                }
             ]
         ]
-        Match<Character> ']'
+    ]
+    Character ']'
+]
+
+expression: Sequence[
+    Character '('
+    Choice[
+        MatchGroupRef<ZeroOrMore> "expression_item"
+    ]
+    Character ')'
+]
+
+expression_item: Choice[
+    MatchGroupRef "identifier"
+    MatchGroupRef "string"
+    MatchGroupRef "string_raw"
+    MatchGroupRef "string_hexbyte"
+    MatchGroupRef "string_base64"
+    MatchGroupRef "number_unsigned"
+    String "true"
+    String "false"
+    String "null"
+    MatchGroupRef "expression_operator"
+    Character '\n'
+    Character ','
+    Character ':'
+    Character '@'
+
+    Sequence[
+        Character '['
+        MatchGroupRef<ZeroOrMore> "expression_item"
+        Character ']'
+    ]
+
+    Sequence[
+        Character '{'
+        MatchGroupRef<ZeroOrMore> "expression_item"
+        Character '}'
+    ]
+
+    Sequence[
+        Character '('
+        MatchGroupRef<ZeroOrMore> "expression_item"
+        Character ')'
     ]
 ]
 
-expression: [
-    Match<Sequence>[
-        Match<Character> '('
-        Match<Choice>[
-            Match<ZeroOrMore Sequence>[
-                Match<MatchGroupRef> "expression_item"
+expression_operator: Choice[
+    Character '|'
+    Character '&'
+    Character '!'
+    Character '='
+    Character '+'
+    Character '-'
+    Character '*'
+    Character '/'
+    Character '\\'
+    Character '%'
+    Character '^'
+    Character '.'
+    Character '?'
+    Character '~'
+    Character '<'
+    Character '>'
+    Character '`'
+    Character ';'
+]
+
+identifier: Sequence[
+    Choice[
+        CharacterRange['a', 'z']
+        CharacterRange['A', 'Z']
+        Character '_'
+        Character '$'
+    ]
+    Choice<ZeroOrMore>[
+        CharacterRange['a', 'z']
+        CharacterRange['A', 'Z']
+        CharacterRange['0', '9']
+        Character '_'
+        Character '$'
+    ]
+]
+
+key_identifier: Sequence[
+    Choice[
+        CharacterRange['a', 'z']
+        CharacterRange['A', 'Z']
+        Character '_'
+        Character '$'
+        Character '*'
+    ]
+    Choice<ZeroOrMore>[
+        CharacterRange['a', 'z']
+        CharacterRange['A', 'Z']
+        CharacterRange['0', '9']
+        Character '_'
+        Character '$'
+        Character '*'
+    ]
+]
+
+string: Sequence[
+    Choice[
+        Sequence[
+            Character '"'
+            Choice<ZeroOrMore>[
+                CharacterRange{ exclusions: ['\\', '"'] }
+                MatchGroupRef "string_escape_sequence"
+            ]
+            Character '"'
+        ]
+        Sequence[
+            Character "'"
+            Choice<ZeroOrMore>[
+                CharacterRange{ exclusions: ['\\', "'"] }
+                MatchGroupRef "string_escape_sequence"
+            ]
+            Character "'"
+        ]
+    ]
+]
+
+string_escape_sequence: Sequence[
+    Character '\\'
+    Choice[
+        Sequence[ Character '"', Comment 'double quote' ]
+        Sequence[ Character "'", Comment 'single quote' ]
+        Sequence[ Character '\\', Comment 'backslash' ]
+        Sequence[ Character '/', Comment 'forward slash' ]
+        Sequence[ Character 'b', Comment 'backspace' ]
+        Sequence[ Character 'f', Comment 'formfeed' ]
+        Sequence[ Character 'n', Comment 'line break' ]
+        Sequence[ Character 'r', Comment 'carriage return' ]
+        Sequence[ Character 't', Comment 'horizontal tab' ]
+        Sequence[
+            Character 'x'
+            MatchGroupRef<OneOrMore>[ repeat(2x), 'hex_digit' ]
+            Comment 'single-byte character'
+        ]
+        Sequence[
+            Character 'u'
+            MatchGroupRef<OneOrMore>[ repeat(4x), 'hex_digit' ]
+            Comment 'utf16 codepoint'
+        ]
+        Sequence[
+            Character 'U'
+            MatchGroupRef<OneOrMore>[ repeat(8x), 'hex_digit' ]
+            Comment 'utf32 codepoint'
+        ]
+    ]
+]
+
+string_raw: Sequence[
+    Character 'r'
+    Choice[
+        Sequence[
+            Character '"'
+            MatchGroupRef<Optional> "heredoc"
+            Character '('
+            Choice<ZeroOrMore>[
+                CharacterRange()
+            ]
+            Character ')'
+            MatchGroupRef<Optional> "heredoc"
+            Character '"'
+        ]
+        Sequence[
+            Character "'"
+            MatchGroupRef<Optional> "heredoc"
+            Character '('
+            Choice<ZeroOrMore>[
+                CharacterRange()
+            ]
+            Character ')'
+            MatchGroupRef<Optional> "heredoc"
+            String '\''
+        ]
+    ]
+]
+
+heredoc: Sequence[
+    Choice[
+        CharacterRange[ 'a', 'z' ]
+        CharacterRange[ 'A', 'Z' ]
+        Character '_'
+    ]
+    Choice<ZeroOrMore>[repeat(1x, 14x), [
+        CharacterRange[ 'a', 'z' ]
+        CharacterRange[ 'A', 'Z' ]
+        CharacterRange[ '0', '9' ]
+        Character '_'
+    ]]
+    Comment '(max 15 characters)'
+]
+
+string_hexbyte: Sequence[
+    Choice[
+        Sequence[
+            String 'bx"'
+            Sequence<ZeroOrMore>[
+                MatchGroupRef "hex_digit"
+            ]
+            Character '"'
+        ]
+        Sequence[
+            String "bx'"
+            Sequence<ZeroOrMore>[
+                MatchGroupRef "hex_digit"
+            ]
+            Character "'"
+        ]
+        Sequence[
+            String 'bx"('
+            Choice<ZeroOrMore>[
+                MatchGroupRef "hex_digit"
+                Whitespace()
+            ]
+            String ')"'
+        ]
+        Sequence[
+            String "bx'("
+            Choice<ZeroOrMore>[
+                MatchGroupRef "hex_digit"
+                Whitespace()
+            ]
+            String ")'"
+        ]
+    ]
+    Comment "Digit count must be a multiple of 2"
+]
+
+string_base64: Sequence[
+    Choice[
+        Sequence[
+            String 'b64"'
+            Sequence<ZeroOrMore>[
+                MatchGroupRef "base64_digit"
+            ]
+            Character '"'
+        ]
+        Sequence[
+            String "b64'"
+            Sequence<ZeroOrMore>[
+                MatchGroupRef "base64_digit"
+            ]
+            Character "'"
+        ]
+        Sequence[
+            String 'b64"('
+            Choice<ZeroOrMore>[
+                MatchGroupRef "base64_digit"
+                Whitespace()
+            ]
+            String ')"'
+        ]
+        Sequence[
+            String "b64'("
+            Choice<ZeroOrMore>[
+                MatchGroupRef "base64_digit"
+                Whitespace()
+            ]
+            String ")'"
+        ]
+    ]
+    Comment "Digit count must be a multiple of 4"
+]
+
+number: Sequence[
+    Choice<Optional>[
+        Character '+'
+        Character '-'
+    ]
+    MatchGroupRef "number_unsigned"
+]
+
+number_unsigned: Sequence[
+    Choice[
+        MatchGroupRef "number_unsigned_hex"
+        MatchGroupRef "number_unsigned_bin"
+        MatchGroupRef "number_unsigned_oct"
+        Sequence[
+            MatchGroupRef "number_unsigned_dec"
+            Choice<Optional>[
+                MatchGroupRef "exponent_positive"
+                MatchGroupRef "exponent_negative"
             ]
         ]
-        Match<Character> ')'
+        Sequence[
+            MatchGroupRef "number_unsigned_dec"
+            Character '.'
+            CharacterRange<OneOrMore>['0', '9']
+            Choice<Optional>[
+                MatchGroupRef "exponent_positive"
+                MatchGroupRef "exponent_negative"
+            ]
+        ]
     ]
 ]
 
-expression_item: [
-    Match<MatchGroupRef> "identifier"
-    Match<MatchGroupRef> "string"
-    Match<MatchGroupRef> "string_raw"
-    Match<MatchGroupRef> "string_hexbyte"
-    Match<MatchGroupRef> "string_base64"
-    Match<MatchGroupRef> "number_unsigned"
-    Match<String> "true"
-    Match<String> "false"
-    Match<String> "null"
-    Match<MatchGroupRef> "expression_operator"
-    Match<Character> '\n'
-    Match<Character> ','
-    Match<Character> ':'
-    Match<Character> '@'
-
-    Match<Sequence>[
-        Match<Character> '['
-        Match<ZeroOrMore Sequence>[
-            Match<MatchGroupRef> "expression_item"
-        ]
-        Match<Character> ']'
+number_integer: Sequence[
+    Choice<Optional>[
+        Character '+'
+        Character '-'
     ]
-
-    Match<Sequence>[
-        Match<Character> '{'
-        Match<ZeroOrMore Sequence>[
-            Match<MatchGroupRef> "expression_item"
+    Choice[
+        MatchGroupRef "number_unsigned_hex"
+        MatchGroupRef "number_unsigned_bin"
+        MatchGroupRef "number_unsigned_oct"
+        Sequence[
+            MatchGroupRef "number_unsigned_dec"
+            MatchGroupRef<Optional> "exponent_positive"
         ]
-        Match<Character> '}'
-    ]
-
-    Match<Sequence>[
-        Match<Character> '('
-        Match<ZeroOrMore Sequence>[
-            Match<MatchGroupRef> "expression_item"
-        ]
-        Match<Character> ')'
     ]
 ]
+
+number_unsigned_dec: Sequence[
+    CharacterRange['1', '9']
+    Choice<ZeroOrMore>[
+        CharacterRange['0', '9']
+    ]
+    Sequence<OptionalCommon>[
+        Character '_'
+        MatchGroupRef "number_suffix"
+    ]
+]
+
+number_unsigned_hex: Sequence[
+    String "0x"
+    MatchGroupRef<OneOrMore> "hex_digit"
+    Sequence<OptionalCommon>[
+        Character '_'
+        MatchGroupRef "number_suffix"
+    ]
+]
+
+number_unsigned_bin: Sequence[
+    String "0b"
+    MatchGroupRef<OneOrMore> "bin_digit"
+    Sequence<OptionalCommon>[
+        Character<Optional> '_'
+        MatchGroupRef "number_suffix"
+    ]
+]
+
+number_unsigned_oct: Sequence[
+    String "0o"
+    MatchGroupRef<OneOrMore> "oct_digit"
+    Sequence<OptionalCommon>[
+        Character<Optional> '_'
+        MatchGroupRef "number_suffix"
+    ]
+]
+
+number_suffix: Sequence[
+    Choice[
+        CharacterRange['a', 'z']
+        CharacterRange['A', 'Z']
+        Character '%'
+    ]
+    Choice<ZeroOrMore>[
+        CharacterRange['a', 'z']
+        CharacterRange['A', 'Z']
+        CharacterRange['0', '9']
+        Character '%'
+    ]
+    Comment "15 chars max"
+]
+
+exponent_positive: Sequence[
+    Choice[
+        Character 'e'
+        Character 'E'
+    ]
+    Character<Optional> '+'
+]
+
+exponent_negative: Sequence[
+    Choice[
+        Character 'e'
+        Character 'E'
+    ]
+    Character '-'
+]
+
+hex_digit: Choice[
+    CharacterRange['a', 'f']
+    CharacterRange['A', 'F']
+    CharacterRange['0', '9']
+]
+
+bin_digit: Choice[
+    Character '0'
+    Character '1'
+]
+
+oct_digit: CharacterRange['0', '7']
+
+base64_digit: Choice[
+    CharacterRange['a', 'z']
+    CharacterRange['A', 'Z']
+    CharacterRange['0', '9']
+    Character '+'
+    Character '/'
+    Character '='
+]
+
 
 }

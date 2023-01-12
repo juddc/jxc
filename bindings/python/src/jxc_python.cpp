@@ -13,14 +13,15 @@ auto bind_tokenspan(py::module_& m, const char* name)
 {
     return py::class_<T>(m, name)
         .def("__bool__", &T::operator bool)
-        .def("__getitem__", [](const T& self, size_t idx) -> const Token& { return self[idx]; })
+        .def("__getitem__", [](const T& self, int64_t idx) -> const Token& { return self[detail::python_index(idx, self.size())]; })
         .def("__eq__", [](const T& self, const T& rhs) { return self == rhs; })
         .def("__ne__", [](const T& self, const T& rhs) { return self != rhs; })
         .def("__len__", &T::size)
         .def("__repr__", &T::to_repr)
         .def("__str__", &T::to_string)
+        .def("__hash__", &T::hash)
         .def("copy", [](const T& self) -> OwnedTokenSpan { return OwnedTokenSpan(self); })
-        .def("source", [](const T& self) { return self.source(); },
+        .def("source", [](const T& self) { return self.source(false); },
             "The original text from the buffer that represents all the tokens in this span. "
             "Primarily useful for accessing the original whitespace.");
 }
@@ -241,7 +242,18 @@ PYBIND11_MODULE(_pyjxc, m)
         py::arg("symbol"));
     m.def("token_type_has_value", &token_type_has_value);
 
-    py::class_<Token>(m, "Token")
+    auto token_cls = py::class_<Token>(m, "Token")
+        .def(py::init([](TokenType type, py::object value, size_t start_idx, size_t end_idx, py::object tag) -> Token
+        {
+            return Token(type, start_idx, end_idx,
+                value.is_none() ? FlexString() : py::cast<FlexString>(value),
+                tag.is_none() ? FlexString() : py::cast<FlexString>(tag));
+        }),
+            py::arg("type"),
+            py::arg("value") = py::none(),
+            py::arg("start_idx") = invalid_idx,
+            py::arg("end_idx") = invalid_idx,
+            py::arg("tag") = py::none())
         .def_readwrite("type", &Token::type)
         .def_readwrite("value", &Token::value)
         .def_readwrite("tag", &Token::tag)
@@ -270,8 +282,42 @@ PYBIND11_MODULE(_pyjxc, m)
         })
     ;
 
+    token_cls.attr("__match_args__") = py::make_tuple("type", "value");
+
     bind_tokenspan<TokenSpan>(m, "TokenSpan");
-    bind_tokenspan<OwnedTokenSpan>(m, "OwnedTokenSpan");
+
+    bind_tokenspan<OwnedTokenSpan>(m, "OwnedTokenSpan")
+        .def(py::init([](py::args args, py::str source) -> OwnedTokenSpan
+        {
+            OwnedTokenSpan result{};
+            for (const auto& arg : args)
+            {
+                result.tokens.push(py::cast<Token>(arg));
+            }
+            if (py::len(source) > 0)
+            {
+                result.src = py::cast<FlexString>(source);
+            }
+            return result;
+        }),
+            py::arg("source") = "")
+        .def("reset", &OwnedTokenSpan::reset)
+        .def("__setitem__", [](OwnedTokenSpan& self, int64_t idx, const Token& tok)
+        {
+            self.tokens[detail::python_index(idx, self.tokens.size())] = tok;
+        })
+        .def("append", [](OwnedTokenSpan& self, const Token& tok) { self.tokens.push(tok); })
+        .def("pop_back", [](OwnedTokenSpan& self) -> py::object
+        {
+            if (self.tokens.size() > 0)
+            {
+                auto result = py::cast(self.tokens.back().copy());
+                self.tokens.pop_back();
+                return result;
+            }
+            return py::none();
+        })
+    ;
 
     py::class_<PyLexer>(m, "Lexer")
         .def(py::init<py::str>())

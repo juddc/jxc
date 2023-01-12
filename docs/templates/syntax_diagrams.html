@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block style %}
+{{ railroad_css }}
+
+ul.diagram-links {
+    margin-left: 0;
+    padding-left: 2.5vmin;
+}
+
+.diagram-link {
+    font-size: 0.85rem;
+    font-family: monospace;
+}
+
+.diagram-link.is-hidden {
+    list-style-type: circle;
+}
+
+.diagram-link.is-hidden > a,
+.diagram-link.is-hidden > span {
+    color: green;
+}
+
+.diagram-link.is-visible {
+    list-style-type: disc;
+}
+
+.diagram-link.is-visible > a,
+.diagram-link.is-visible > span {
+    color: cyan;
+}
+
+.diagram-header {
+    display: flex;
+    flex-direction: row;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.diagram-header > h1 {
+    flex: 1;
+    margin: 0.2vmin;
+    font-family: monospace;
+    font-size: 1.5rem;
+}
+
+.diagram > svg {
+    width: 100%;
+    background-color: transparent;
+}
+
+.hide {
+    display: none;
+}
+
+.diagram > svg g.start,
+.diagram > svg text.comment {
+    fill: #aaa;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.MatchGroupRef rect {
+    fill:hsl(200, 100%, 90%) !important;
+}
+
+.MatchGroupRef {
+    cursor: zoom-in;
+}
+
+{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block script %}
+window.DIAGRAMS = [
+{% for name in diagrams.keys() %}
+    '{{ name }}',
+{% endfor %}
+];
+
+function getDiagram(name) {
+    return document.getElementById(`diagram-${name}`);
+}
+
+function getDiagramLink(name) {
+    return document.getElementById(`diagram-link-${name}`);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    let groupLinks = document.querySelectorAll('.MatchGroupRef');
+    for (let link of groupLinks) {
+        link.onclick = () => {
+            let diagName = link.querySelector('text').innerHTML;
+            toggleDiagram(diagName);
+        };
+    }
+});
+
+function setDiagramVisible(name, visible) {
+    let diag = getDiagram(name);
+    let link = getDiagramLink(name);
+    if (!diag || !link) {
+        console.error(`Invalid diagram name '${name}'`);
+        return;
+    }
+    if (visible) {
+        diag.classList.remove('hide');
+        link.classList.remove('is-hidden');
+        link.classList.add('is-visible');
+    } else {
+        diag.classList.add('hide');
+        link.classList.add('is-hidden');
+        link.classList.remove('is-visible');
+    }
+}
+
+function isDiagramVisible(name) {
+    let diag = getDiagram(name);
+    return diag && diag.offsetParent !== null;
+}
+
+function showAllDiagrams() {
+    for (let name of window.DIAGRAMS) {
+        if (name !== 'value') {
+            setDiagramVisible(name, true);
+        }
+    }
+}
+
+function hideAllDiagrams() {
+    for (let name of window.DIAGRAMS) {
+        if (name !== 'value') {
+            setDiagramVisible(name, false);
+        }
+    }
+}
+
+function toggleDiagram(name) {
+    let diag = getDiagram(name);
+    if (diag && name !== 'value') {
+        if (isDiagramVisible(name)) {
+            setDiagramVisible(name, false);
+        } else {
+            setDiagramVisible(name, true);
+        }
+    }
+}
+
+{% endblock %}
+
+{% block nav %}
+    <h1>Diagrams</h1>
+    <div class="toolbar">
+        <button id="show-all" onclick="showAllDiagrams()">Show All</button>
+        <button id="hide-all" onclick="hideAllDiagrams()">Hide All</button>
+    </div>
+    <ul class="diagram-links">
+    {% for name in diagrams.keys() %}
+        <li class="diagram-link {{ 'is-hidden' if name != 'value' else '' }}" id="diagram-link-{{ name }}">
+        {% if name == 'value' %}
+            <span id="diagram-link-{{ name }}">{{ name }}</span>
+        {% else %}
+            <a href="javascript:void(0)" onclick="toggleDiagram('{{ name }}')">{{ name }}</a>
+        {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+{% endblock %}
+
+{% block main %}
+<article>
+{% for name, diag_svg in diagrams.items() %}
+    <div id="diagram-{{ name }}" class="diagram {{ 'primary' if name == 'value' else 'secondary' }} {{ 'hide' if name != 'value' else '' }}">
+        <div class="diagram-header">
+            <h1>{{ name }}</h1>
+            {% if name != 'value' %}<button onclick="toggleDiagram('{{ name }}')">Hide</button>{% endif %}
+        </div>
+        {{ diag_svg }}
+    </div>
+{% endfor %}
+</article>
+{% endblock %}
