@@ -862,22 +862,19 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
         return true;
     }
 
-    size_t idx = 0;
     if (value[0] == '-' || value[0] == '+')
     {
         out_result.sign = value[0];
-        ++idx;
+        value = value.substr(1);
     }
 
-    size_t value_start_idx = idx;
-    size_t value_len = 0;
-
+    // NB. (`d` isn't an actual supported prefix, it's just used internally in this function)
     char number_type = 'd'; // d=decimal, x=hex, b=binary, o=octal
 
     // get the '0x' type prefix if there is one
-    if (value.size() < idx + 1 && value[idx] == '0' && !is_decimal_digit(value[idx + 1]))
+    if (value.size() > 2 && value[0] == '0' && value[1] != '.' && !is_decimal_digit(value[1]))
     {
-        const char ch = value[idx + 1];
+        const char ch = value[1];
         switch (ch)
         {
         case 'x':
@@ -887,9 +884,8 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
         case 'o':
         case 'O':
             number_type = ch;
-            out_result.prefix = value.substr(idx, 2);
-            idx += 2;
-            value_start_idx = idx;
+            out_result.prefix = value.substr(0, 2);
+            value = value.substr(2);
             break;
         default:
             out_error = ErrorInfo{ jxc::format("Invalid syntax for number literal. Expected prefix like '0x', got '0{}'", ch),
@@ -901,6 +897,9 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
     {
         out_result.prefix = std::string_view{};
     }
+
+    size_t idx = 0;
+    size_t value_len = 0;
 
     switch (number_type)
     {
@@ -964,15 +963,24 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
     }
 
     // exponent
-    if (number_type == 'd' && idx < value.size() + 1 && (value[idx] == 'e' || value[idx] == 'E')
+    if (number_type == 'd'
+        && idx < value.size() - 1  // minimum 2 chars
+        && (value[idx] == 'e' || value[idx] == 'E')
         && (value[idx + 1] == '-' || value[idx + 1] == '+' || is_decimal_digit(value[idx + 1])))
     {
         ++idx;
-        char ch = value[idx];
-        const bool exponent_is_negative = ch == '-';
-        if (ch == '+')
+
+        bool exponent_is_negative = false;
+        switch (value[idx])
         {
+        case '-':
+            exponent_is_negative = true;
+            // fallthrough
+        case '+':
             ++idx;
+            break;
+        default:
+            break;
         }
 
         const size_t exponent_start_idx = idx;
@@ -1007,7 +1015,7 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
     // the lexer shouldn't ever give us a number type with no digits
     JXC_ASSERT(value_len > 0);
 
-    out_result.value = value.substr(value_start_idx, value_len);
+    out_result.value = value.substr(0, value_len);
     out_result.suffix = value.substr(idx);
     return true;
 }
@@ -1158,7 +1166,7 @@ bool string_token_to_value(const Token& string_token, std::string_view& out_view
 
     if (out_is_raw_string)
     {
-        // strip `R` prefix
+        // strip `r` prefix
         out_view = out_view.substr(1);
     }
 

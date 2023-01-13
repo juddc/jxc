@@ -1,0 +1,594 @@
+<!doctype html>
+<html>
+<head>
+<title>JXC WASM Lexer Test</title>
+<script>
+
+var Module = {
+    'onRuntimeInitialized': () => {
+        setSampleDocument(window.DEFAULT_SAMPLE_DOCUMENT);
+    },
+};
+
+function jxc_lex(value) {
+    console.assert(typeof value === 'string');
+
+    let result = [];
+
+    var lex = new Module.Lexer(value);
+    while (lex.next()) {
+        result.push({
+            type: lex.tokenType,
+            value: lex.tokenValue,
+            startIdx: lex.tokenStartIdx,
+            endIdx: lex.tokenEndIdx,
+        });
+    }
+
+    let lexError = null;
+    if (lex.hasError()) {
+        lexError = lex.getError();
+    }
+    lex.delete();
+
+    if (lexError !== null) {
+        throw Error(`JXC lexer error: ${lexError}`);
+    }
+
+    return result;
+}
+
+function jxcForEachToken(value, callback) {
+    console.assert(typeof value === 'string');
+    var lex = new Module.Lexer(value);
+    var lexError = null;
+
+    let lastEndIdx = 0;
+
+    try {
+        while (lex.next()) {
+            let tokStart = lex.tokenStartIdx;
+            let tokEnd = lex.tokenEndIdx;
+
+            // callback for the whitespace before this token
+            if (tokStart >= 0 && tokStart > lastEndIdx) {
+                let sliceLen = tokStart - lastEndIdx - 1;
+                callback(null, value.substr(lastEndIdx, sliceLen + 1), lastEndIdx + 1, tokStart - 1);
+            }
+
+            // callback for this token
+            callback(lex.tokenType, lex.tokenValue, tokStart, tokEnd);
+
+            lastEndIdx = tokEnd;
+        }
+
+        if (lex.hasError()) {
+            lexError = lex.getError();
+        }
+    } catch (err) {
+        lex.delete();
+        throw err;
+        return;
+    }
+
+    lex.delete();
+    if (lexError !== null) {
+        throw Error(`JXC lexer error: ${lexError}`);
+    }
+}
+
+function addSyntaxHighlighting() {
+    let jxcSource = document.getElementById('source').value;
+
+    let output = document.getElementById('output');
+    output.innerHTML = '';
+
+    try {
+        jxcForEachToken(jxcSource, (tokType, tokValue, tokStart, tokEnd) => {
+            //console.log(tokType, `(${tokValue.length}) '${tokValue}'`, tokStart, tokEnd);
+
+            let mknode = (val, cls) => {
+                console.assert(typeof val === 'string');
+                let node = document.createElement('span');
+                node.classList.add('token');
+                if (cls !== null) {
+                    node.classList.add(cls);
+                }
+                node.innerHTML = val;
+                return node;
+            };
+
+            if (tokType === null) {
+                // whitespace
+                output.appendChild(mknode(tokValue, null));
+            }
+            else if ((tokType === Module.TokenType.String || tokType === Module.TokenType.ByteString) && tokValue.length >= 3) {
+                let i = 0;
+                while (i < tokValue.length && tokValue[i] != '\'' && tokValue[i] != '\"') {
+                    i++;
+                }
+                console.assert(tokValue[i] == '\'' || tokValue[i] == '\"');
+                if (i > 0) {
+                    output.appendChild(mknode(tokValue.substr(0, i), 'StringPrefix'));
+                    tokValue = tokValue.substr(i);
+                }
+                output.appendChild(mknode(tokValue, `token-${Module.tokenTypeToString(tokType)}`));
+            } else if (tokType === Module.TokenType.Number) {
+                let parsedNumber = Module.splitNumberTokenValue(tokType, tokValue, tokStart, tokEnd);
+                //console.log(tokType, `(${tokValue.length}) '${tokValue}'`, tokStart, tokEnd, parsedNumber);
+                let prefix = '';
+                let suffix = '';
+                if (parsedNumber.isValid) {
+                    prefix = parsedNumber.value.prefix;
+                    if (prefix.length > 0) {
+                        tokValue = tokValue.substr(prefix.length);
+                    }
+
+                    suffix = parsedNumber.value.suffix;
+                    if (suffix.length > 0) {
+                        tokValue = tokValue.substr(0, tokValue.length - suffix.length);
+                    }    
+                }
+
+                if (prefix.length > 0) {
+                    output.appendChild(mknode(prefix, 'NumberPrefix'));
+                }
+
+                output.appendChild(mknode(tokValue, `token-${Module.tokenTypeToString(tokType)}`));
+
+                if (suffix.length > 0) {
+                    output.appendChild(mknode(suffix, 'NumberSuffix'));
+                }
+            } else {
+                output.appendChild(mknode(tokValue, `token-${Module.tokenTypeToString(tokType)}`));
+            }
+        });
+    } catch (err) {
+        let errNode = document.createElement('div');
+        errNode.classList.add('token-Invalid');
+        errNode.innerHTML = `Failed lexing input:\n${err}`;
+        output.appendChild(errNode);
+    }
+}
+
+window.THEMES = [
+    'one-monokai',
+    'ayu',
+];
+
+function setColorTheme(newTheme) {
+    let isValid = false;
+    for (let theme of window.THEMES) {
+        if (theme === newTheme) {
+            isValid = true;
+            break;
+        }
+    }
+
+    if (!isValid) {
+        console.error(`Invalid color theme: '${newTheme}'`);
+        return;
+    }
+
+    let node = document.getElementsByTagName('body')[0];
+    for (let theme of window.THEMES) {
+        node.classList.remove(`theme-${theme}`);
+    }
+    node.classList.add(`theme-${newTheme}`);
+}
+
+function onChangeColorTheme(newTheme) {
+    setColorTheme(document.getElementById('color-theme').value)
+}
+
+window.DEFAULT_SAMPLE_DOCUMENT = 'features.jxc';
+
+window.SAMPLE_DOCUMENTS = {
+    'blank.jxc': ``,
+    'simple.jxc': `[1px, true, null, vec3{x: 5, y: -3.2, z: 0}]`,
+    'features.jxc': `# JXC Document
+{
+    value.types: [
+        # Null
+        null,
+
+        # Bools
+        true, false,
+
+        # Integers
+        0, 1, 2, 3, -53242, 338935823, 1e20,
+
+        # Floats
+        0.0, 1.0, -2.5, -9999.2532, 42.31e-12,
+
+        # Strings
+        "",
+        '',
+        "abc",
+        'def',
+        '\\tqwerty\\n',
+
+        # Raw Strings
+        r'()',
+        r"()",
+        r'HEREDOC(
+            Multi-line raw string that can contain anything.
+            Great for regular expressions: ([a-zA-Z\\w]*){0,15}
+        )HEREDOC',
+
+        # Byte Strings
+        bx'',
+        bx"00ff",
+        bx"( 00 ff )",  # add parens to allow whitespace and line breaks
+
+        # Base64 Strings
+        b64'',
+        b64"",
+        b64'anhjIGZvcm1hdA==',
+        # add parens to allow whitespace and line breaks
+        b64"(
+            anhjIGZ
+            vcm1hdA==
+        )",
+
+        # Arrays
+        [], [1, 2, 3], [null, 3.141, false],
+
+        # Objects
+        {}, {x: 0, y: 1, z: 2.2}, {"red": 127, "green": 63, "blue": 202},
+
+        # Expressions
+        (), (1 + 1), (true | false), (x += y), (abc=def, qqq=(1 + 2 / 3 * 4), zzz~=5),
+    ],
+
+    annotations: [
+        # single identifier
+        vec3[1, 2, 3],
+        vec3{ x: 0, y: -5, z: 100 },
+        rot3f{ pitch: 12, yaw: -3, roll: 77 },
+        rot3f[12, -3, 77],
+        rot3f null,
+
+        # with "generics" (really just extra data you can use for anything)
+        Array<i32>[-5, 2, 100, 47],
+        Array<Vec3<f32, f32, f32>>[[0, 0, 0], [1, 2, 3], [-99, 22, 101]],
+        std.vector<std.string>['abc', 'def', 'ghi'],
+        typing.Union<str | int | float | bool>['abc', 5, -12345, 533.21, true, false, ''],
+
+        # in addition to identifiers, you can use numbers, strings, true, false, and null
+        FixedArray<str, 4>['abc', 'q', '', '!'],
+        Pattern<r'([a-zA-Z]*)', 4> { match: 'abc def ghi' },
+        Optional<double, AllowNan=false> null,
+
+        # annotations can have a '!' prefix, and this can indicate whatever you need it to
+        !ignore[ 0, 1, 2 ]
+        !important{ q: 5 }
+        !get_value_from_other_file "value_name"
+    ],
+
+    number.suffixes: [
+        # The two base number types are integer and floating-point
+        123,
+        123.456,
+
+        # You can also specify integer values using binary, hex, or octal
+        0xff,
+        0b01101100,
+        0o777,
+
+        # Both number types support custom suffixes to provide a unit or type.
+        # The unit value is limited to a short identifier, at most 16 characters.
+        10px,
+        25.1%,
+        30mm,
+        45deg,
+        3.141_radians,
+        15u8,
+        15_i64,
+        15.0f,
+
+        # You can combine these suffixes with annotations if desired.
+        int32_t 10px,
+        relative 20.234%,
+        absolute 52px,
+    ]
+}
+`,
+};
+
+
+function setSampleDocument(name) {
+    if (!(name in window.SAMPLE_DOCUMENTS)) {
+        console.error(`Invalid sample document '${name}'`);
+        return;
+    }
+
+    document.getElementById('source').value = window.SAMPLE_DOCUMENTS[name];
+    addSyntaxHighlighting();
+}
+
+function onChangeSampleDocument() {
+    setSampleDocument(document.getElementById('sample-doc').value);
+}
+
+
+addEventListener('DOMContentLoaded', (event) => {
+    let docSelect = document.getElementById('sample-doc');
+    docSelect.innerHTML = '';
+
+    for (let doc in window.SAMPLE_DOCUMENTS) {
+        let node = document.createElement('option');
+        node.innerHTML = doc;
+        node.setAttribute('value', doc);
+        if (doc === window.DEFAULT_SAMPLE_DOCUMENT) {
+            node.setAttribute("selected", "selected");
+        }
+        docSelect.appendChild(node);
+    }
+
+    let sourceNode = document.getElementById('source');
+    sourceNode.onkeydown = (evt) => {
+        if (evt.key === 'Tab') {
+            evt.preventDefault();
+            var start = sourceNode.selectionStart;
+            var end = sourceNode.selectionEnd;
+        
+            // set textarea value to: text before caret + tab + text after caret
+            sourceNode.value = sourceNode.value.substring(0, start) + "\t" + sourceNode.value.substring(end);
+        
+            // put caret at right position again
+            sourceNode.selectionStart = sourceNode.selectionEnd = start + 1;
+        }
+    };
+
+    sourceNode.onkeyup = (evt) => {
+        let autoRefresh = document.getElementById('auto-refresh').checked;
+        console.log(autoRefresh);
+        if (autoRefresh) {
+            addSyntaxHighlighting();
+        }
+    };
+});
+
+</script>
+<style>
+html {
+    --header-height: 3rem;
+    font-family: 'Noto Sans UI', 'Segoe UI', 'Arial', sans-serif;
+}
+
+header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-height);
+    overflow: hidden;
+}
+
+header > h1 {
+    margin: 0 2vmin;
+    padding: 0;
+    line-height: var(--header-height);
+}
+
+header > nav {
+    position: absolute;
+    top: 0;
+    right: 2vmin;
+    height: var(--header-height);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: right;
+}
+
+main {
+    position: absolute;
+    top: var(--header-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    display: flex;
+    flex-direction: row;
+    min-height: 60vh;
+    gap: 1vmin;
+    overflow: hidden;
+}
+
+#sync {
+    flex: 0;	
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#sync > button {
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid black;
+    background-color: #222;
+    color: #eee;
+    border-radius: 3px;
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.25);
+    font-size: 2rem;
+}
+
+.small-label {
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.pane {
+    flex: 1;
+    margin: 1vmin;
+    width: calc(50% - 2vmin);
+    border: 1px solid #555;
+    border-radius: 3px;
+}
+
+.pane > .pane-inner {
+    border: 0;
+    margin: 0;
+    padding: 2vmin;
+    width: calc(100% - 4vmin);
+    height: calc(100% - 4vmin);
+    overflow: scroll;
+}
+
+#source {
+    white-space: pre;
+}
+
+#output {
+    font-size: 1rem;
+    white-space: pre;
+}
+
+.token {
+    white-space: pre;
+}
+
+.code {
+    font-size: 1rem;
+    white-space: pre;
+    font-family: 'Consolas ligaturized v2', 'Consolas', 'Fira Code', 'Cascadia Code', 'Droid Sans Mono', monospace;
+}
+
+body.theme-one-monokai {
+    background-color: #444;
+    color: #eee;	
+}
+.theme-one-monokai .code {
+    background-color: #282c34;
+    color: white;
+}
+.theme-one-monokai .token-Invalid { color: #F8F8F0; background-color: #9c0808; }
+.theme-one-monokai .token-Comment { color: #676f7d; }
+.theme-one-monokai .token-Identifier { color: #61afef; }
+.theme-one-monokai .token-ObjectKeyIdentifier { color: #98c379; }
+.theme-one-monokai .token-True { color: #56b6c2; }
+.theme-one-monokai .token-False { color: #56b6c2; }
+.theme-one-monokai .token-Null { color: #56b6c2; }
+.theme-one-monokai .token-Number { color: #c678dd; }
+.theme-one-monokai .token-String { color: #e5c07b; }
+.theme-one-monokai .token-ByteString { color: #e5997b; }
+.theme-one-monokai .token-ExpressionOperator { color: #e06c75; }
+.theme-one-monokai .token-Colon { color: white; }
+.theme-one-monokai .token-Equals { color: white; }
+.theme-one-monokai .token-Comma { color: white; }
+.theme-one-monokai .token-Period { color: white; }
+.theme-one-monokai .token-BraceOpen { color: white; }
+.theme-one-monokai .token-BraceClose { color: white; }
+.theme-one-monokai .token-SquareBracketOpen { color: white; }
+.theme-one-monokai .token-SquareBracketClose { color: white; }
+.theme-one-monokai .token-AngleBracketOpen { color: white; }
+.theme-one-monokai .token-AngleBracketClose { color: white; }
+.theme-one-monokai .token-ParenOpen { color: white; }
+.theme-one-monokai .token-ParenClose { color: white; }
+.theme-one-monokai .token-ExclamationPoint { color: #e06c75; }
+.theme-one-monokai .token-Asterisk { color: white; }
+.theme-one-monokai .token-QuestionMark { color: white; }
+.theme-one-monokai .token-AtSymbol { color: white; }
+.theme-one-monokai .token-Pipe { color: white; }
+.theme-one-monokai .token-Ampersand { color: white; }
+.theme-one-monokai .token-Percent { color: white; }
+.theme-one-monokai .token-Semicolon { color: white; }
+.theme-one-monokai .token-LineBreak { color: white; }
+.theme-one-monokai .token-EndOfStream { color: white; }
+.theme-one-monokai .StringPrefix { color: #56b6c2; }
+.theme-one-monokai .NumberPrefix { color: #a250bb; }
+.theme-one-monokai .NumberSuffix { color: #e06c75; }
+
+body.theme-ayu {
+    background-color: #fff;
+    color: #000;
+}
+.theme-ayu .code {
+    background-color: #f8f9fa;
+    color: #5c6166;
+    font-weight: 600;
+}
+.theme-ayu::selection { background-color: #035bd626; }
+.theme-ayu .token-Invalid { color: #e65050; }
+.theme-ayu .token-Comment { color: #787b8099; font-style: italic; }
+.theme-ayu .token-Identifier { color: #61afef; font-style: italic; }
+.theme-ayu .token-ObjectKeyIdentifier { color: #56b6c2; }
+.theme-ayu .token-True { color: #fa8d3e; }
+.theme-ayu .token-False { color: #fa8d3e; }
+.theme-ayu .token-Null { color: #fa8d3e; }
+.theme-ayu .token-Number { color: #a37acc; }
+.theme-ayu .token-String { color: #56b6c2; }
+.theme-ayu .token-ByteString { color: #56c27a; }
+.theme-ayu .token-ExpressionOperator { color: #ed9366; }
+.theme-ayu .token-Colon { color: #ed9366; }
+.theme-ayu .token-Equals { color: #5c6166; }
+.theme-ayu .token-Comma { color: #5c6166b3; }
+.theme-ayu .token-Period { color: #5c6166; }
+.theme-ayu .token-BraceOpen { color: #5c6166; }
+.theme-ayu .token-BraceClose { color: #5c6166; }
+.theme-ayu .token-SquareBracketOpen { color: #5c6166; }
+.theme-ayu .token-SquareBracketClose { color: #5c6166; }
+.theme-ayu .token-AngleBracketOpen { color: #5c6166; }
+.theme-ayu .token-AngleBracketClose { color: #5c6166; }
+.theme-ayu .token-ParenOpen { color: #5c6166; }
+.theme-ayu .token-ParenClose { color: #5c6166; }
+.theme-ayu .token-ExclamationPoint { color: #fa8d3e; }
+.theme-ayu .token-Asterisk { color: #5c6166; }
+.theme-ayu .token-QuestionMark { color: #5c6166; }
+.theme-ayu .token-AtSymbol { color: #5c6166; }
+.theme-ayu .token-Pipe { color: #5c6166; }
+.theme-ayu .token-Ampersand { color: #5c6166; }
+.theme-ayu .token-Percent { color: #5c6166; }
+.theme-ayu .token-Semicolon { color: #5c6166; }
+.theme-ayu .token-LineBreak { color: white; }
+.theme-ayu .token-EndOfStream { color: white; }
+.theme-ayu .StringPrefix { color: #fa8d3e; }
+.theme-ayu .NumberPrefix { color: rgb(195, 166, 224); }
+.theme-ayu .NumberSuffix { color: #ed9366; }
+
+</style>
+</head>
+<body class="theme-one-monokai">
+<header>
+    <h1>JXC WASM Lexer Test</h1>
+    <nav>
+        <span>
+            <label for="sample-doc">Sample Document</label>
+            <select id="sample-doc" onchange="onChangeSampleDocument()">
+            </select>
+        </span>
+        <span>
+            <label for="color-theme">Color Theme</label>
+            <select id="color-theme" onchange="onChangeColorTheme()">
+                <option value="one-monokai" selected="selected">One Monokai (Dark)</option>
+                <option value="ayu">Ayu (Light)</option>
+            </select>
+        </span>
+    </nav>
+</header>
+<main>
+    <div class="pane">
+        <textarea id="source" class="pane-inner code" spellcheck="false">
+
+        </textarea>	
+    </div>
+    <div id="sync">
+        <div style="display: flex; flex-direction: row">
+            <label for="auto-refresh" class="small-label">Auto</label>
+            <input type="checkbox" id="auto-refresh" checked="checked" />
+        </div>
+
+        <button title="Refresh" onclick="addSyntaxHighlighting()">&#10227;</button>
+        <span class="small-label">Refresh</span>
+    </div>
+    <div class="pane">
+        <div id="output" class="pane-inner code"></div>
+    </div>
+</main>
+
+<script src="./jxc.js"></script>
+</body>
+</html>

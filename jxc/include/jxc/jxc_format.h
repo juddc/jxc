@@ -484,7 +484,7 @@ auto transform_format_argument(const char (&string_literal)[N])
 
 
 template<size_t N>
-constexpr std::string format(const char (&format_str)[N])
+std::string format(const char (&format_str)[N])
 {
     return std::string(format_str);
 }

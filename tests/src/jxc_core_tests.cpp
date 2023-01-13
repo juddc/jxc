@@ -357,6 +357,103 @@ TEST(jxc_core, JumpParserAnnotations)
 }
 
 
+testing::AssertionResult test_parse_number(
+    const char* jxc_number_str,
+    const char* split_result_str,
+    const std::string& jxc_string,
+    const jxc::util::NumberTokenSplitResult& expected_result)
+{
+    auto mkerr = [&]()
+    {
+        return jxc::format(" (expected {} to parse to {})", jxc_number_str, split_result_str);
+    };
+
+    jxc::Lexer lexer(jxc_string.data(), jxc_string.size());
+    jxc::Token number_token;
+    jxc::ErrorInfo err;
+
+    if (!lexer.next(number_token, err))
+    {
+        return testing::AssertionFailure() << err.to_string() << mkerr();
+    }
+
+    jxc::util::NumberTokenSplitResult split;
+    if (!jxc::util::split_number_token_value(number_token, split, err))
+    {
+        return testing::AssertionFailure() << err.to_string() << mkerr();
+    }
+
+    if (split.sign != expected_result.sign)
+    {
+        return testing::AssertionFailure() << jxc::format("Sign char {} != {}",
+            jxc::detail::debug_char_repr(split.sign),
+            jxc::detail::debug_char_repr(expected_result.sign)) << mkerr();
+    }
+
+    if (split.prefix != expected_result.prefix)
+    {
+        return testing::AssertionFailure() << jxc::format("Prefix {} != {}",
+            jxc::detail::debug_string_repr(split.prefix),
+            jxc::detail::debug_string_repr(expected_result.prefix)) << mkerr();
+    }
+
+    if (split.value != expected_result.value)
+    {
+        return testing::AssertionFailure() << jxc::format("Value {} != {}",
+            jxc::detail::debug_string_repr(split.value),
+            jxc::detail::debug_string_repr(expected_result.value)) << mkerr();
+    }
+
+    if (split.exponent != expected_result.exponent)
+    {
+        return testing::AssertionFailure() << jxc::format("Exponent {} != {}",
+            split.exponent,
+            expected_result.exponent) << mkerr();
+    }
+
+    if (split.suffix != expected_result.suffix)
+    {
+        return testing::AssertionFailure() << jxc::format("Suffix {} != {}",
+            jxc::detail::debug_string_repr(split.suffix),
+            jxc::detail::debug_string_repr(expected_result.suffix)) << mkerr();
+    }
+
+    jxc::Token dummy;
+    if (lexer.next(dummy, err))
+    {
+        return testing::AssertionFailure() << "Expected end of token stream" << mkerr();
+    }
+
+    return testing::AssertionSuccess();
+}
+
+#define EXPECT_PARSE_NUMBER(JXC_STRING, SIGN, PREFIX, VALUE, EXPONENT, SUFFIX) \
+    EXPECT_PRED_FORMAT2(test_parse_number, JXC_STRING, (jxc::util::NumberTokenSplitResult{ (SIGN), (PREFIX), (VALUE), (EXPONENT), (SUFFIX) }))
+
+
+
+TEST(jxc_core, NumberParsing)
+{
+    using namespace jxc;
+
+    EXPECT_PARSE_NUMBER("0", '+', "", "0", 0, "");
+    EXPECT_PARSE_NUMBER("-1", '-', "", "1", 0, "");
+    EXPECT_PARSE_NUMBER("1e20", '+', "", "1", 20, "");
+    EXPECT_PARSE_NUMBER("-0x4f_px", '-', "0x", "4f", 0, "_px");
+    EXPECT_PARSE_NUMBER("0x0", '+', "0x", "0", 0, "");
+    EXPECT_PARSE_NUMBER("0x1", '+', "0x", "1", 0, "");
+    EXPECT_PARSE_NUMBER("0b1", '+', "0b", "1", 0, "");
+    EXPECT_PARSE_NUMBER("0o0", '+', "0o", "0", 0, "");
+    EXPECT_PARSE_NUMBER("0o567", '+', "0o", "567", 0, "");
+    EXPECT_PARSE_NUMBER("-0o567px", '-', "0o", "567", 0, "px");
+    EXPECT_PARSE_NUMBER("0b01101100%", '+', "0b", "01101100", 0, "%");
+
+    EXPECT_PARSE_NUMBER("0.0", '+', "", "0.0", 0, "");
+    EXPECT_PARSE_NUMBER("-0.0", '-', "", "0.0", 0, "");
+    EXPECT_PARSE_NUMBER("-1.25555555555551f", '-', "", "1.25555555555551", 0, "f");
+}
+
+
 testing::AssertionResult test_parse_string(const char* jxc_string_str, const char* expected_string_str,
     const std::string& jxc_string, const std::string& expected_string)
 {

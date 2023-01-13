@@ -922,14 +922,14 @@ uint64_t TokenSpan::hash() const
 {
     uint64_t result = 0;
     const size_t sz = (start != nullptr) ? num_tokens : 0;
-    detail::hash_combine(result, sz);
+    detail::hash_combine<uint64_t>(result, sz);
     for (size_t i = 0; i < sz; i++)
     {
         const Token& tok = start[i];
-        detail::hash_combine(result, static_cast<uint64_t>(tok.type));
+        detail::hash_combine<uint64_t>(result, static_cast<uint64_t>(tok.type));
         if (token_type_has_value(tok.type))
         {
-            detail::hash_combine(result, std::hash<std::string_view>()(tok.value.as_view()));
+            detail::hash_combine<uint64_t>(result, std::hash<std::string_view>()(tok.value.as_view()));
         }
     }
     return result;

@@ -198,7 +198,7 @@ string_types: [
     custom_string "abcdef"
     custom_string bx"05ff"
     date "1998-03-11T17:14:12.456Z"
-    regex r'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
+    #regex r'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
 
     # this is NOT VALID syntax, as `str` would be treated as an invalid builtin string prefix instead of an annotation.
     #custom_string"abcdef"
@@ -238,17 +238,17 @@ object_keys: {
     "abc": 123
     'def': true
     "": "the empty string is valid as a key"
-    #bx"12ff": false    # byte strings (hex or base64) are not valid as keys
+    bx"12ff": false
+    #b64"anhjIGZvcm1hdA==": false    # base64 byte strings are not valid as keys
     true: "bool key (true)"
     false: "bool key (false)"
     null: "null key"
     1234: "integer key"
     #123.456: false     # floating point values are not valid as keys
 
-    # Non-value keys, composed of identifiers and the symbols `$`, `*`, `.`, and `-`.
-    # Keys must start and end with an identifier, `*`, or `$` (they can not start or end with `.` or `-`)
+    # Non-value keys, with identifiers that can contain `$`, `*`, and `_`, but cannot start with a number.
+    # These identifiers can be separated with `.` characters.
     # Whitespace is not allowed (use a string key if whitespace must be in the key)
-    # These can be interpreted however the host application wants, but by default these auto-convert to strings.
     identifier: 0
     identifier_with_underscore: 0
     dotted.identifier: 0
@@ -259,7 +259,6 @@ object_keys: {
     #.: 0       # not valid
     #-: 0       # not valid
     *.abc.*.def.*: 0
-    dashed-identifier: 0
     xfsroot.*: 'skip'
     $key$: null
 }
@@ -356,8 +355,8 @@ stylesheet_example: {
         # `calc` is actually an annotation here, and the part in parentheses is the "expression" value type.
         # You can combine these to simulate a function-style syntax.
         height: calc(10% + 20px)
-        font-size: 1.5em
-        background-color: rgb[20, 50, 150]
+        font.size: 1.5em
+        background.color: rgb[20, 50, 150]
     }
 
     # By default, objects are backed by a hashmap, which does not allow duplicate keys.
@@ -369,31 +368,31 @@ stylesheet_example: {
         # using a type annotation with an empty expression is one way you could use an identifier instead of a string
         # (identifiers can not be used as values, as that would create ambiguity when parsing)
         height: auto()
-        font-size: 1.5em
-        background-color: rgb[20, 50, 150]
-        border-style: dashed(dash_length 2px, thickness 1px)
+        font.size: 1.5em
+        background.color: rgb[20, 50, 150]
+        border.style: dashed(dash_length 2px, thickness 1px)
     }
 
     $toggle: {
-        var.accent-color: rgb[49, 49, 49]
-        var.indicator-width: 25%
+        $var.accent.color: rgb[49, 49, 49]
+        $var.indicator.width: 25%
         position: 'relative'
-        min-width: 5vmin
-        min-height: min(30px, 5vmin)
-        box-shadow: (0 0 0.5vmin rgba(0, 0, 0, 0.4))
+        min.width: 5vmin
+        min.height: min(30px, 5vmin)
+        box.shadow: (0 0 0.5vmin rgba(0, 0, 0, 0.4))
         background: var(accent-color)
-        border-size: max(2px, 0.2vmin)
-        border-style: solid()
-        border-color: rgb[134, 134, 50]
-        border-radius: 10px
-        padding-left: 4px
-        padding-right: 4px
+        border.size: max(2px, 0.2vmin)
+        border.style: solid()
+        border.color: rgb[134, 134, 50]
+        border.radius: 10px
+        padding.left: 4px
+        padding.right: 4px
     }
 
-    $with-border: classes.any<'calendar-month', 'calendar-week', 'calendar-day'> {
-        border-size: 1px
-        border-style: solid()
-        border-color: rgb[134, 134, 134]
+    $with.border: classes.any<'calendar-month', 'calendar-week', 'calendar-day'> {
+        border.size: 1px
+        border.style: solid()
+        border.color: rgb[134, 134, 134]
     }
 }
 

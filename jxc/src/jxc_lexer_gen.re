@@ -109,7 +109,7 @@ expr_start:
     "}"                  { set_token(); --expr_brace_depth; if (expr_brace_depth < 0) { set_error_msg("Unexpected symbol `}` in expression"); return TokenType::Invalid; } else { return TokenType::BraceClose; } }
 
     // allow comments
-    "#"                  { scan_comment(1, out_token_value); return TokenType::Comment; }
+    "#"                  { scan_comment(1, out_token_value); get_token_pos(out_start_idx, out_end_idx); return TokenType::Comment; }
 
     // NB. we match *unsigned* numbers only here to avoid operator mangling issues
     unsigned_number_value { set_token(); return TokenType::Number; }
@@ -123,9 +123,9 @@ expr_start:
     "null"               { set_token(); return TokenType::Null; }
 
     // string
-    str_prefix_raw quote { if (scan_raw_string(this->current[-1], out_token_value, out_string_delim)) { return TokenType::String; } else { return TokenType::Invalid; } }
+    str_prefix_raw quote { if (scan_raw_string(this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { return TokenType::Invalid; } }
     str_bytes            { set_token(); return TokenType::ByteString; }
-    quote                { if (scan_string(out_error.message, this->current[-1], out_token_value)) { return TokenType::String; } else { set_error_msg("Invalid string"); return TokenType::Invalid; } }
+    quote                { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error_msg("Invalid string"); return TokenType::Invalid; } }
 
     // identifiers
     identifier           { set_token(); return TokenType::Identifier; }
@@ -210,7 +210,7 @@ regular:
     "&"                  { set_token(); return TokenType::Ampersand; }
     "%"                  { set_token(); return TokenType::Percent; }
 
-    "#"                  { scan_comment(1, out_token_value); return TokenType::Comment; }
+    "#"                  { scan_comment(1, out_token_value); get_token_pos(out_start_idx, out_end_idx); return TokenType::Comment; }
 
     // literal constants
     "true"               { set_token(); return TokenType::True; }
@@ -222,9 +222,9 @@ regular:
     ")"                  { set_token(); --expr_paren_depth; if (expr_paren_depth < 0) { set_error_msg("Unmatched parentheses"); return TokenType::Invalid; } else { return TokenType::ParenClose; } }
 
     // string
-    str_prefix_raw quote { if (scan_raw_string(this->current[-1], out_token_value, out_string_delim)) { return TokenType::String; } else { return TokenType::Invalid; } }
+    str_prefix_raw quote { if (scan_raw_string(this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { return TokenType::Invalid; } }
     str_bytes            { set_token(); return TokenType::ByteString; }
-    quote				 { if (scan_string(out_error.message, this->current[-1], out_token_value)) { return TokenType::String; } else { set_error_msg("Invalid string"); return TokenType::Invalid; } }
+    quote				 { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error_msg("Invalid string"); return TokenType::Invalid; } }
 
     // identifiers
     identifier           { set_token(); return TokenType::Identifier; }

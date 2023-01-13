@@ -708,7 +708,7 @@ bool parse_number(const Token& tok, T& out_value, const NumberTokenSplitResult& 
         }
         else
         {
-            out_value = std::pow<T>(out_value, static_cast<T>(number.exponent));
+            out_value = std::pow<T>(out_value, number.exponent);
         }
     }
 
