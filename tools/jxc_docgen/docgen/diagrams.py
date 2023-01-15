@@ -9,7 +9,7 @@ import jinja2
 
 import jxc
 import _pyjxc
-from jxc import Token, TokenType, ElementType
+from jxc import Token, TokenType
 
 
 class ParseError(ValueError):
@@ -444,25 +444,6 @@ class SyntaxParser:
 
 
 
-def write_diagrams_to_html_file(html_output_path: str, diagrams: typing.Iterable[tuple[str, railroad.Diagram]]):
-    env = jinja2.Environment(loader=jinja2.FileSystemLoader('./docs/templates'))
-    tmpl = env.loader.load(env, 'syntax_diagrams.html')
-
-    diagram_source = {}
-    for name, diag in diagrams:
-        diagram_writer = io.StringIO()
-        diag.writeSvg(diagram_writer.write)
-        diagram_source[name] = diagram_writer.getvalue()
-    
-    with open(html_output_path, 'w') as fp:
-        fp.write(tmpl.render({
-            'page_title': "Syntax Specification",
-            'railroad_css': railroad.DEFAULT_STYLE,
-            'diagrams': diagram_source,
-        }))
-
-
-
 def match_tree_iter(root: Match, depth=0) -> typing.Iterable[tuple[Match, int]]:
     """
     Generator that recursively goes through all nodes in a Match tree
@@ -491,11 +472,8 @@ def validate_match_group_ref_names(all_groups: dict[str, Match]):
             raise ValueError(f'MatchGroupRef {ref_name} is not defined')
 
 
-if __name__ == "__main__":
-    repo_root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-    generated_docs_output_dir = os.path.join(repo_root_dir, 'build', 'docs')
-
-    with open(os.path.join(repo_root_dir, 'docs', 'jxc_syntax.jxc'), 'r') as fp:
+def parse_syntax_defs(syntax_file: str) -> list[tuple[str, railroad.Diagram]]:
+    with open(syntax_file, 'r') as fp:
         parser = SyntaxParser(fp.read())
         groups: dict[str, Match] = parser.parse()
     
@@ -516,7 +494,15 @@ if __name__ == "__main__":
                 print(f"Failed converting {group_name} to diagram")
                 raise
 
-    os.makedirs(generated_docs_output_dir, exist_ok=True)
+    return diagrams
 
-    write_diagrams_to_html_file(os.path.join(generated_docs_output_dir, 'jxc_syntax_diagrams.html'), diagrams)
+
+def get_diagram_styles() -> str:
+    return railroad.DEFAULT_STYLE
+
+
+def diagram_to_svg(diagram: railroad.Diagram) -> str:
+    writer = io.StringIO()
+    diagram.writeSvg(writer.write)
+    return writer.getvalue()
 

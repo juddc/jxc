@@ -1,10 +1,24 @@
 {% extends "base.html" %}
 {% block style %}
-{{ railroad_css }}
 
 ul.diagram-links {
     margin-left: 0;
     padding-left: 2.5vmin;
+}
+
+ul.diagram-links > .diagram-link {
+    display: flex;
+    flex-direction: row;
+}
+
+ul.diagram-links > .diagram-link > input[type='checkbox'] {
+    min-width: 20px;
+    max-width: 20px;
+}
+
+ul.diagram-links > .diagram-link > .menu-item {
+    display: block;
+    flex: 1;
 }
 
 .diagram-link {
@@ -46,7 +60,7 @@ ul.diagram-links {
 
 .diagram > svg g.start,
 .diagram > svg text.comment {
-    fill: #aaa;
+    fill: #eee;
     text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
@@ -65,7 +79,7 @@ ul.diagram-links {
 
 {% block script %}
 window.DIAGRAMS = [
-{% for name in diagrams.keys() %}
+{% for name, diag in diagrams %}
     '{{ name }}',
 {% endfor %}
 ];
@@ -75,12 +89,22 @@ function getDiagramLink(name) { return document.getElementById(`diagram-link-${n
 function getDiagramCheckbox(name) { return document.getElementById(`diagram-checkbox-${name}`); }
 
 document.addEventListener('DOMContentLoaded', () => {
+    let urlDiagram = window.location.hash;
+    if (urlDiagram.length > 0 && urlDiagram[0] == '#') {
+        urlDiagram = urlDiagram.substr(1);
+    }
+
     for (let name of window.DIAGRAMS) {
         let checkbox = getDiagramCheckbox(name);
         if (checkbox) {
             checkbox.onclick = (evt) => {
                 setDiagramVisible(name, evt.target.checked);
             };
+        }
+
+        // if we loaded in and there's a diagram in the address bar, default that diagram to visible
+        if (name === urlDiagram) {
+            setDiagramVisible(name, true);
         }
     }
 
@@ -179,13 +203,14 @@ function onClickDiagramInSidebar(name) {
         <button id="hide-all" onclick="hideAllDiagrams()">Hide All</button>
     </div>
     <ul class="diagram-links">
-    {% for name in diagrams.keys() %}
+    {% for name, diag in diagrams %}
         <li class="diagram-link {{ 'is-hidden' if name != 'value' else '' }}" id="diagram-link-{{ name }}">
-            <input type="checkbox" id="diagram-checkbox-{{ name }}" {{ 'disabled="disabled"' if name == 'value' else '' }} />
         {% if name == 'value' %}
-            <span id="diagram-link-{{ name }}">{{ name }}</span>
+            <input type="checkbox" id="diagram-checkbox-{{ name }}" disabled="disabled" checked="checked" />
+            <a href="#{{ name }}" class="menu-item" id="diagram-link-{{ name }}">{{ name }}</a>
         {% else %}
-            <a href="#{{ name }}" onclick="onClickDiagramInSidebar('{{ name }}')">{{ name }}</a>
+            <input type="checkbox" id="diagram-checkbox-{{ name }}" />
+            <a href="#{{ name }}" class="menu-item" onclick="onClickDiagramInSidebar('{{ name }}')">{{ name }}</a>
         {% endif %}
         </li>
     {% endfor %}
@@ -194,10 +219,10 @@ function onClickDiagramInSidebar(name) {
 
 {% block main %}
 <article>
-{% for name, diag_svg in diagrams.items() %}
+{% for name, diag_svg in diagrams %}
     <div id="diagram-{{ name }}" class="diagram {{ 'primary' if name == 'value' else 'secondary' }} {{ 'hide' if name != 'value' else '' }}">
         <div class="diagram-header">
-            <a name="{{ name }}"></a>
+            <a name="{{ name }}" class="anchor"></a>
             <h1>{{ name }}</h1>
             {% if name != 'value' %}<button onclick="setDiagramVisible('{{ name }}', false)">Hide</button>{% endif %}
         </div>

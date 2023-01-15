@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>
+    {% block title %}
+    {{ main_title }} - {{ page_title }}
+    {% endblock %}
+</title>
+<style>
+html {
+    background-color: #222;
+    color: #eee;
+    font-family: 'Noto Sans', 'Segoe UI', Arial, sans-serif;
+    --toolbar-height: max(60px, 6vmin);
+    --sidebar-width: min(250px, 20vw);
+    --sidebar-padding: 1.5vmin;
+    --main-padding: 1.5vmin;
+}
+
+#toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--toolbar-height) - 2vmin);
+    padding: 1vmin 2vmin;
+    z-index: 9999;
+
+    display: flex;
+    flex-direction: row;
+    background-color: #2f2f2f;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
+}
+
+#toolbar-left {
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+#toolbar-middle {
+    flex: 2;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#toolbar-right {
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+#toolbar-left > h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+#toolbar-left > h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+a {
+    color: cyan;
+}
+
+a.anchor {
+    display: block;
+    position: relative;
+    visibility: hidden;
+    top: calc(var(--toolbar-height) * -1);
+}
+
+.toolbar {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5vmin;
+}
+
+#page-outer {
+    margin-top: var(--toolbar-height);
+    width: calc(100% - 8vmin);
+    margin-left: 4vmin;
+    margin-right: 4vmin;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    outline: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+#page-inner {
+    display: flex;
+    flex-direction: row;
+}
+
+nav#sidebar {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    padding: var(--sidebar-padding);
+    min-width: calc(var(--sidebar-width) - (var(--sidebar-padding) * 2));
+    max-width: calc(var(--sidebar-width) - (var(--sidebar-padding) * 2));
+    background-color: #333;
+}
+
+nav#sidebar > ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+nav#sidebar > ul > li {
+    margin: 1px;
+    width: 100%;
+}
+
+nav#sidebar .menu-item {
+    display: block;
+    padding: 2px;
+    transition: background-color 0.25s;
+    background-color: rgba(30, 30, 30, 0.0);
+}
+
+nav#sidebar .menu-item:hover {
+    background-color: rgba(30, 30, 30, 1.0);
+}
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: var(--main-padding);
+    width: calc(100% - var(--sidebar-width) - (var(--main-padding) * 2));
+    background-color: #444;
+}
+
+main > article {
+    border-top: 1px solid #666;
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+}
+
+main > article:first-child {
+    border-top: none;
+}
+
+#code-style-switcher {
+    width: calc(var(--toolbar-height) - 1.5vmin);
+    height: calc(var(--toolbar-height) - 1.5vmin);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    font-size: 0.6rem;
+    border-radius: 1vmin;
+}
+
+#code-style-switcher.light {
+    background-color: #fff;
+    color: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+#code-style-switcher.dark {
+    background-color: #000;
+    color: #000;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+code, .code {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Droid Sans Mono', monospace;
+    white-space: pre;
+}
+
+.code {
+    flex: 1;
+    padding: 1.5vmin;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    max-width: calc(100% - 3vmin);
+    margin-bottom: 1vmin;
+}
+
+.code {
+    color: #fff;
+    background: #000;
+}
+
+.code.ayu {
+    font-weight: 600;
+}
+
+.code > pre {
+    margin: 0;
+}
+
+@media screen and (min-width: 1500px) {
+    #page-outer {
+        max-width: 1400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+@media screen and (max-width: 1100px) {
+    #page-outer {
+        width: calc(100% - 1vmin);
+        margin-left: 0.5vmin;
+        margin-right: 0.5vmin;
+    }
+
+    nav#sidebar {
+        min-width: 10vw;
+        padding: 0.6vmin;
+        font-size: 0.75rem;
+    }
+
+    nav#sidebar .diagram-link {
+        font-size: 0.75rem;
+    }
+
+    code, .code {
+        font-size: 0.85rem;
+    }
+}
+
+@media screen and (max-width: 700px) {
+    #toolbar-middle {
+        display: none;
+    }
+    nav#sidebar {
+        max-width: 100%;
+    }
+    #page-inner {
+        flex-direction: column;
+    }
+    .diagram-links {
+        display: none;
+    }
+    main {
+        width: calc(100% - 3vmin);
+    }
+    code, .code {
+        font-size: 0.75rem;
+    }
+}
+
+{% for style_name, (style_type, style_css) in code_styles.items() %}
+/* BEGIN {{ style_name }} ({{ style_type }}) */
+{%- for line in style_css.split('\n') -%}
+{%- if not line.startswith(".code") %}
+.code.{{ style_name }} {{ line.rstrip() }}
+{%- else -%}
+{{ line.rstrip() }}
+{% endif -%}
+{%- endfor %}
+/* END {{ style_name }} ({{ style_type }}) */
+{% endfor %}
+
+{% for style_name, (style_type, style_css) in code_styles.items() %}
+.code.{{ style_name }} pre {
+    line-height: 150%;
+}
+{% endfor %}
+
+{{ diagram_styles }}
+
+{{ css }}
+
+{% block style %}
+{% endblock %}
+</style>
+
+{% block head %}
+{% endblock %}
+
+<script>
+window.CODE_STYLES = [
+{%- for style_name, (style_type, style_css) in code_styles.items() %}
+    { name: '{{ style_name }}', type: '{{ style_type }}' },
+{%- endfor %}
+];
+window.CODE_STYLE_INDEX = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+    let styleSwitcherButton = document.getElementById('code-style-switcher');
+    styleSwitcherButton.classList.add(window.CODE_STYLES[0].type);
+
+    styleSwitcherButton.onclick = (evt) => {
+        console.assert(window.CODE_STYLES.length > 0);
+        window.CODE_STYLE_INDEX += 1;
+        if (window.CODE_STYLE_INDEX >= window.CODE_STYLES.length) {
+            window.CODE_STYLE_INDEX = 0;
+        }
+
+        let newStyleName = window.CODE_STYLES[window.CODE_STYLE_INDEX].name;
+        let newStyleType = window.CODE_STYLES[window.CODE_STYLE_INDEX].type;
+
+        for (let codeBlock of document.querySelectorAll('.code')) {
+            for (let style of window.CODE_STYLES) {
+                codeBlock.classList.remove(style.name);
+            }
+            codeBlock.classList.add(newStyleName);
+        }
+
+        styleSwitcherButton.classList.remove('light');
+        styleSwitcherButton.classList.remove('dark');
+        styleSwitcherButton.classList.add(newStyleType);
+    };
+});
+    
+{% block script %}
+{% endblock %}
+</script>
+
+</head>
+<body>
+
+<nav id="toolbar">
+    <div id="toolbar-left">
+        <h1>{{ main_title }}</h1>
+        <h2>{{ page_title }}</h2>
+    </div>
+    <div id="toolbar-middle">
+
+    </div>
+    <div id="toolbar-right">
+        {% block toolbar %}
+        {% endblock %}
+        <button id="code-style-switcher">Code Style</div>
+    </div>
+</nav>
+
+<div id="page-outer">
+    <div id="page-inner">
+        <nav id="sidebar">
+            <ul>
+                {% for page_path, page_title in menu %}
+                    <li><a href="{{ page_path }}" class="menu-item">{{ page_title }}</a></li>
+                {% endfor %}
+            </ul>
+                
+            {% block nav %}
+            <h1>Section 1</h1>
+            <ul>
+                <li>Menu Item 1</li>
+                <li>Menu Item 2</li>
+                <li>Menu Item 3</li>
+                <li>Menu Item 4</li>
+            </ul>
+            <h1>Section 2</h1>
+            <ul>
+                <li>Menu Item 1</li>
+                <li>Menu Item 2</li>
+                <li>Menu Item 3</li>
+                <li>Menu Item 4</li>
+            </ul>
+            {% endblock %}
+        </nav>
+
+        <main>
+            {% block main %}
+            <article>
+                <h1>Article Title 1</h1>
+                <p>This is a paragraph.</p>
+            </article>
+
+            <article>
+                <h1>Article Title 2</h1>
+                <p>This is a paragraph.</p>
+            </article>
+
+            <article>
+                <h1>Article Title 3</h1>
+                <p>This is a paragraph.</p>
+            </article>
+            {% endblock %}
+        </main>
+    </div>
+</div>
+
+</body>
+</html>

@@ -240,6 +240,11 @@ function setup_example_project(src_file, deps)
 end
 
 
+project "example_basic_parsing"
+    setup_example_project("basic_parsing.cpp", { "jxc" })
+
+project "example_basic_serialization"
+    setup_example_project("basic_serialization.cpp", { "jxc" })
+
 project "example_custom_parser"
     setup_example_project("custom_parser.cpp", { "jxc" })
-

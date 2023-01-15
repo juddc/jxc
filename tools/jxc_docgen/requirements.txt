@@ -1,0 +1,4 @@
+markdown>=3.4
+Pygments>=2.14
+railroad-diagrams>=2.0.4
+jinja2>=2.1.1

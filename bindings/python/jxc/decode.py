@@ -116,7 +116,7 @@ def loads(buf: str | bytes, *,
         def lookup_class(ele: Element) -> ValueConstructor:
             if anno := ele.annotation.source():
                 if cls := find_class(anno):
-                    if decode_enum and isinstance(cls, enum.Enum):
+                    if decode_enum and issubclass(cls, enum.Enum):
                         return (cls, ClassConstructMode.Value)
                     elif decode_inline and hasattr(cls, '_jxc_decode'):
                         return cls
