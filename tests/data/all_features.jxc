@@ -238,8 +238,7 @@ object_keys: {
     "abc": 123
     'def': true
     "": "the empty string is valid as a key"
-    bx"12ff": false
-    #b64"anhjIGZvcm1hdA==": false    # base64 byte strings are not valid as keys
+    #b64"anhjIGZvcm1hdA==": false    # byte strings are not valid as keys
     true: "bool key (true)"
     false: "bool key (false)"
     null: "null key"
