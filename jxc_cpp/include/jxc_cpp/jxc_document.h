@@ -141,6 +141,8 @@ public:
 
     Value parse_to_owned();
 
+    const std::string& get_buffer() const { return buffer; }
+
     inline bool has_error() const { return err.is_err; }
 
     inline ErrorInfo& get_error() { return err; }
@@ -151,15 +153,15 @@ public:
 /// Standalone parsing function. If a parse error occurs, returns an invalid value.
 /// Returns the parse error (if any) in out_error.
 /// This function always returns a fully owned Value.
-Value parse(std::string_view jxc_string, ErrorInfo& out_error);
+Value parse(std::string_view jxc_string, ErrorInfo& out_error, bool try_return_view = false);
 
 
 /// Standalone parsing function. If a parse error occurs, returns an invalid value.
 /// This function always returns a fully owned Value.
-inline Value parse(std::string_view jxc_string)
+inline Value parse(std::string_view jxc_string, bool try_return_view = false)
 {
     ErrorInfo err;
-    return jxc::parse(jxc_string, err);
+    return jxc::parse(jxc_string, err, try_return_view);
 }
 
 

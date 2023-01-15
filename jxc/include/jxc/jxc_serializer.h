@@ -438,8 +438,6 @@ public:
 
     // end expression and return to the parent serializer
     inline Serializer& expression_end() { return parent.expression_end(); }
-
-#undef JXC_FWD_CALL
 };
 
 

@@ -610,7 +610,7 @@ Value Document::parse_to_owned()
 
 
 
-Value parse(std::string_view jxc_string, ErrorInfo& out_error)
+Value parse(std::string_view jxc_string, ErrorInfo& out_error, bool try_return_view)
 {
     JumpParser parser(jxc_string);
     if (!parser.next())
@@ -618,7 +618,7 @@ Value parse(std::string_view jxc_string, ErrorInfo& out_error)
         return default_invalid;
     }
 
-    auto value_parser = detail::ValueParser(parser, out_error, false,
+    auto value_parser = detail::ValueParser(parser, out_error, try_return_view,
         [](detail::ValueParser& p, ElementType ele_type, const Token& tok, TokenSpan anno) -> Value
         {
             return p.parse_value(ele_type, tok, anno);

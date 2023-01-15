@@ -106,11 +106,12 @@ project "benchmark_jxc"
     pic "On"
     flags { "MultiProcessorCompile" }
     dependson { "jxc", "jxc_cpp" }
-    links { "jxc", "jxc_cpp" }
+    links { "jxc_cpp", "jxc" }
     files {
         "%{prj.location}/jxc_benchmark/src/jxc_benchmark.cpp",
     }
     includedirs {
+        "%{prj.location}/jxc_benchmark/src",
         "%{prj.location}/jxc/include",
         "%{prj.location}/jxc_cpp/include",
         "%{prj.location}/subprojects/unordered_dense/include",

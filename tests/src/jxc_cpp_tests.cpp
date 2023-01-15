@@ -247,3 +247,18 @@ TEST(jxc_cpp_value, Parsing)
         EXPECT_EQ(val[3].get_annotation_source(), "ObjectType");
     }
 }
+
+
+TEST(jxc_cpp_value, ToString)
+{
+    using jxc::Value;
+
+    EXPECT_EQ(Value(jxc::default_null).to_string(settings_minimal), "null");
+    EXPECT_EQ(Value(jxc::default_bool).to_string(settings_minimal), "false");
+    EXPECT_EQ(Value(jxc::default_integer).to_string(settings_minimal), "0");
+    EXPECT_EQ(Value(jxc::default_float).to_string(settings_minimal), "0.0");
+    EXPECT_EQ(Value(jxc::default_string).to_string(settings_minimal), "\"\"");
+    EXPECT_EQ(Value(jxc::default_bytes).to_string(settings_minimal), "b64\"\"");
+    EXPECT_EQ(Value(jxc::default_array).to_string(settings_minimal), "[]");
+    EXPECT_EQ(Value(jxc::default_object).to_string(settings_minimal), "{}");
+}
