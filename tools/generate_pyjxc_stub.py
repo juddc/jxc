@@ -261,9 +261,12 @@ class InterfaceFile:
         if not isinstance(docstr, str) or len(docstr) == 0:
             return
         self.writeln('"""')
-        for line in docstr.split("\n"):
-            for subline_idx, subline in enumerate(textwrap.wrap(line.rstrip(), 80)):
-                self.writeln(subline)
+        if DEBUG_DOCSTRINGS:
+            self.writeln(docstr)
+        else:
+            for line in docstr.split("\n"):
+                for subline in textwrap.wrap(line.rstrip(), 80):
+                    self.writeln(subline)
         self.writeln('"""')
 
 
@@ -355,8 +358,11 @@ def _parse_args(value: str) -> list[FunctionArg]:
             case _pyjxc.TokenType.Comma if paren_depth == 0 and bracket_depth == 0 and brace_depth == 0:
                 args.append(arg_parts)
                 arg_parts = []
+                continue
             case _:
-                arg_parts.append(tok.copy())
+                pass
+
+        arg_parts.append(tok.copy())
 
     if len(arg_parts) > 0:
         args.append(arg_parts)
@@ -366,9 +372,18 @@ def _parse_args(value: str) -> list[FunctionArg]:
             case 0:
                 return ''
             case 1:
+                if token_list[0].type in (_pyjxc.TokenType.True_, _pyjxc.TokenType.False_):
+                    return token_list[0].value.capitalize()
                 return token_list[0].value
             case _:
-                return orig_value[token_list[0].start_idx : token_list[-1].end_idx]
+                # capitalize True and False literals
+                orig_value_chars = [ ch for ch in orig_value ]
+                for i, tok in enumerate(token_list):
+                    if tok.type == _pyjxc.TokenType.True_:
+                        orig_value_chars[tok.start_idx] = 'T'
+                    elif tok.type == _pyjxc.TokenType.False_:
+                        orig_value_chars[tok.start_idx] = 'F'
+                return ''.join(orig_value_chars[token_list[0].start_idx : token_list[-1].end_idx])
 
     # merge result tokens
     result: list[FunctionArg] = []
@@ -409,13 +424,19 @@ def _parse_args(value: str) -> list[FunctionArg]:
         while idx < len(arg_tokens):
             default_value_parts.append(arg_tokens[idx])
             idx += 1
-        
-        result.append(FunctionArg(
+    
+        func_arg = FunctionArg(
             name=merge_token_list(value, name_parts),
             arg_type=merge_token_list(value, type_parts),
-            default_val=merge_token_list(value, default_value_parts)))
+            default_val=merge_token_list(value, default_value_parts))
 
-        result[-1].default_val = result[-1].default_val.replace(str(INVALID_IDX_CONSTANT), "invalid_idx")
+        if func_arg.default_val == str(INVALID_IDX_CONSTANT):
+            func_arg.default_val = "invalid_idx"
+        
+        if func_arg.arg_type == 'sequence':
+            func_arg.arg_type = 'typing.Sequence'
+
+        result.append(func_arg)
 
     return result
 
@@ -725,7 +746,6 @@ if __name__ == "__main__":
     pyi = InterfaceFile(_script_args.output)
     try:
         pyi.writeln("import typing")
-        pyi.writeln("from typing import Callable")
         pyi.writeln("import enum")
         pyi.writeln()
 

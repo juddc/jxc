@@ -1,11 +1,15 @@
 import typing
-from typing import Callable
 import enum
 
 class AnnotationLexer:
     def __eq__(self, rhs: AnnotationLexer) -> bool: ...
 
     def __ge__(self, rhs: AnnotationLexer) -> bool: ...
+
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
 
     def __gt__(self, rhs: AnnotationLexer) -> bool: ...
 
@@ -56,6 +60,11 @@ class Element:
     def __eq__(self: Element, arg0) -> bool: ...
 
     def __ge__(self, rhs: Element) -> bool: ...
+
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
 
     def __gt__(self, rhs: Element) -> bool: ...
 
@@ -135,6 +144,11 @@ class Encoder:
 
     def __ge__(self, rhs: Encoder) -> bool: ...
 
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
+
     def __gt__(self, rhs: Encoder) -> bool: ...
 
     def __hash__(self) -> int: ...
@@ -158,7 +172,7 @@ class Encoder:
 
     def encode_dict(self: Encoder, arg0: dict): ...
 
-    def encode_sequence(self: Encoder, arg0: sequence): ...
+    def encode_sequence(self: Encoder, arg0: typing.Sequence): ...
 
     def encode_value(self: Encoder, arg0): ...
 
@@ -180,6 +194,11 @@ class ErrorInfo:
     def __eq__(self, rhs: ErrorInfo) -> bool: ...
 
     def __ge__(self, rhs: ErrorInfo) -> bool: ...
+
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
 
     def __gt__(self, rhs: ErrorInfo) -> bool: ...
 
@@ -270,6 +289,11 @@ class ExpressionProxy:
 
     def __ge__(self, rhs: ExpressionProxy) -> bool: ...
 
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
+
     def __gt__(self, rhs: ExpressionProxy) -> bool: ...
 
     def __hash__(self) -> int: ...
@@ -354,6 +378,11 @@ class JumpParser:
 
     def __ge__(self, rhs: JumpParser) -> bool: ...
 
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
+
     def __gt__(self, rhs: JumpParser) -> bool: ...
 
     def __hash__(self) -> int: ...
@@ -403,6 +432,11 @@ class Lexer:
 
     def __ge__(self, rhs: Lexer) -> bool: ...
 
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
+
     def __gt__(self, rhs: Lexer) -> bool: ...
 
     def __hash__(self) -> int: ...
@@ -448,6 +482,11 @@ class OwnedElement:
 
     def __ge__(self, rhs: OwnedElement) -> bool: ...
 
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
+
     def __gt__(self, rhs: OwnedElement) -> bool: ...
 
     def __init__(self: OwnedElement, element_type: ElementType, token: Token, annotation: OwnedTokenSpan): ...
@@ -489,6 +528,11 @@ class OwnedTokenSpan:
     def __ge__(self, rhs: OwnedTokenSpan) -> bool: ...
 
     def __getitem__(self: OwnedTokenSpan, arg0: int) -> Token: ...
+
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
 
     def __gt__(self, rhs: OwnedTokenSpan) -> bool: ...
 
@@ -532,6 +576,11 @@ class Parser:
     def __eq__(self, rhs: Parser) -> bool: ...
 
     def __ge__(self, rhs: Parser) -> bool: ...
+
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
 
     def __gt__(self, rhs: Parser) -> bool: ...
 
@@ -590,11 +639,16 @@ class Serializer:
 
     def __ge__(self, rhs: Serializer) -> bool: ...
 
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
+
     def __gt__(self, rhs: Serializer) -> bool: ...
 
     def __hash__(self) -> int: ...
 
-    def __init__(self: Serializer, settings: SerializerSettings = SerializerSettings(pretty_print=true, encode_bytes_as_hexbytes=false, target_line_length=80, indent="    ", linebreak="\n", key_separator=": ", value_separator=",\n"): ...
+    def __init__(self: Serializer, settings: SerializerSettings = SerializerSettings(pretty_print=True, encode_bytes_as_hexbytes=False, target_line_length=80, indent="    ", linebreak="\n", key_separator=": ", value_separator=",\n")): ...
 
     def __le__(self, rhs: Serializer) -> bool: ...
 
@@ -680,6 +734,11 @@ class SerializerSettings:
     def __eq__(self, rhs: SerializerSettings) -> bool: ...
 
     def __ge__(self, rhs: SerializerSettings) -> bool: ...
+
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
 
     def __gt__(self, rhs: SerializerSettings) -> bool: ...
 
@@ -783,6 +842,11 @@ class Token:
 
     def __ge__(self, rhs: Token) -> bool: ...
 
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
+
     def __gt__(self, rhs: Token) -> bool: ...
 
     def __init__(self: Token, type: TokenType, value = None, start_idx: int = invalid_idx, end_idx: int = invalid_idx, tag = None): ...
@@ -851,6 +915,11 @@ class TokenSpan:
     def __ge__(self, rhs: TokenSpan) -> bool: ...
 
     def __getitem__(self: TokenSpan, arg0: int) -> Token: ...
+
+    def __getstate__(self, *args, **kwargs) -> typing.Any:
+        """
+        Helper for pickle.
+        """
 
     def __gt__(self, rhs: TokenSpan) -> bool: ...
 
