@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 import typing
 import argparse
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ import docgen.parser
 
 repo_root_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 template_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
+static_data_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
 default_output_dir = os.path.join(repo_root_dir, 'build', 'docs')
 
 
@@ -140,30 +142,14 @@ def build_docs(output_dir: str):
         else:
             raise TypeError(f'Unhandled page type {type(page).__name__}')
 
-
-    # # generate syntax diagrams
-    # builder.ctx['menu'].append(('jxc_syntax', 'Syntax Tree'))
-    # builder.ctx['menu'].append(('jxc_syntax_diagrams', 'Syntax Diagrams'))
-    # builder.ctx['diagram_styles'] = docgen.diagrams.get_diagram_styles()
-    # diagrams = docgen.diagrams.parse_syntax_defs(os.path.join(docs_dir, 'jxc_syntax.jxc'))
-
-    # for page_name, page_title, path in all_markdown_docs(docs_dir):
-    #     with open(path, 'r') as fp:
-    #         builder.render_to_file(
-    #             template='markdown_page.html',
-    #             output=f'{page_name}.html',
-    #             ctx={
-    #                 'page_title': page_title,
-    #                 'doc_html': markdown_to_html(fp.read(), code_css_class=f'code {default_code_style}'),
-    #             })
-
-    # builder.render_to_file(
-    #     template='syntax_diagrams.html',
-    #     output='jxc_syntax_diagrams.html',
-    #     ctx={
-    #         'page_title': 'Syntax Diagrams',
-    #         'diagrams': [ (name, docgen.diagrams.diagram_to_svg(diag)) for name, diag in diagrams ],
-    #     })
+    # copy all static files
+    static_file_dest = os.path.join(output_dir, 'static')
+    os.makedirs(static_file_dest, exist_ok=True)
+    for filename in doc_meta.static_files:
+        static_file_path = os.path.join(static_data_dir, filename)
+        if not os.path.exists(static_file_path):
+            raise FileNotFoundError(static_file_path)
+        shutil.copy2(src=static_file_path, dst=os.path.join(static_file_dest, filename))
 
 
 

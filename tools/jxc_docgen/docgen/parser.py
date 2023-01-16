@@ -49,6 +49,7 @@ class DocGen:
     code_styles: dict[str, CodeStyleType]
     default_code_style: str
     global_template_vars: typing.Optional[dict[str, typing.Any]]
+    static_files: list[str]
     pages: list[BasePage]
 
 

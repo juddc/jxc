@@ -1,217 +1,19 @@
 {% extends "base.html" %}
 {% block style %}
-
-ul.diagram-links {
-    margin-left: 0;
-    padding-left: 2.5vmin;
-}
-
-ul.diagram-links > .diagram-link {
-    display: flex;
-    flex-direction: row;
-}
-
-ul.diagram-links > .diagram-link > input[type='checkbox'] {
-    min-width: 20px;
-    max-width: 20px;
-}
-
-ul.diagram-links > .diagram-link > .menu-item {
-    display: block;
-    flex: 1;
-}
-
-.diagram-link {
-    font-size: 0.85rem;
-    font-family: monospace;
-}
-
-.diagram-link.is-hidden > a,
-.diagram-link.is-hidden > span {
-    color: green;
-}
-
-.diagram-link.is-visible > a,
-.diagram-link.is-visible > span {
-    color: cyan;
-}
-
-.diagram-header {
-    display: flex;
-    flex-direction: row;
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.diagram-header > h1 {
-    flex: 1;
-    margin: 0.2vmin;
-    font-family: monospace;
-    font-size: 1.5rem;
-}
-
-.diagram > svg {
-    width: 100%;
-    background-color: transparent;
-}
-
-.hide {
-    display: none;
-}
-
-.diagram > svg g.start,
-.diagram > svg text.comment {
-    fill: #eee;
-    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-.MatchGroupRef rect {
-    fill:hsl(200, 100%, 90%) !important;
-}
-
-.MatchGroupRef {
-    cursor: zoom-in;
-}
-
 {% endblock %}
 
 {% block head %}
 {% endblock %}
 
 {% block script %}
-window.DIAGRAMS = [
-{% for name, diag in diagrams %}
-    '{{ name }}',
-{% endfor %}
-];
-
-function getDiagram(name) { return document.getElementById(`diagram-${name}`); }
-function getDiagramLink(name) { return document.getElementById(`diagram-link-${name}`); }
-function getDiagramCheckbox(name) { return document.getElementById(`diagram-checkbox-${name}`); }
-
-document.addEventListener('DOMContentLoaded', () => {
-    let urlDiagram = window.location.hash;
-    if (urlDiagram.length > 0 && urlDiagram[0] == '#') {
-        urlDiagram = urlDiagram.substr(1);
-    }
-
-    for (let name of window.DIAGRAMS) {
-        let checkbox = getDiagramCheckbox(name);
-        if (checkbox) {
-            checkbox.onclick = (evt) => {
-                setDiagramVisible(name, evt.target.checked);
-            };
-        }
-
-        // if we loaded in and there's a diagram in the address bar, default that diagram to visible
-        if (name === urlDiagram) {
-            setDiagramVisible(name, true);
-        }
-    }
-
-    let groupLinks = document.querySelectorAll('.MatchGroupRef');
-    for (let link of groupLinks) {
-        link.onclick = () => {
-            onClickDiagramMatchGroupRef(link.querySelector('text').innerHTML);
-        };
-    }
-});
-
-function setDiagramVisible(name, visible) {
-    let diag = getDiagram(name);
-    let link = getDiagramLink(name);
-    let checkbox = getDiagramCheckbox(name);
-    if (!diag || !link || !checkbox) {
-        console.error(`Invalid diagram name '${name}'`);
-        return;
-    }
-    if (visible) {
-        diag.classList.remove('hide');
-        link.classList.remove('is-hidden');
-        link.classList.add('is-visible');
-        checkbox.checked = true;
-    } else {
-        diag.classList.add('hide');
-        link.classList.add('is-hidden');
-        link.classList.remove('is-visible');
-        checkbox.checked = false;
-    }
-}
-
-function isDiagramVisible(name) {
-    let diag = getDiagram(name);
-    return diag && diag.offsetParent !== null;
-}
-
-function showAllDiagrams() {
-    for (let name of window.DIAGRAMS) {
-        if (name !== 'value') {
-            setDiagramVisible(name, true);
-        }
-    }
-}
-
-function hideAllDiagrams() {
-    window.location.hash = '';
-    for (let name of window.DIAGRAMS) {
-        if (name !== 'value') {
-            setDiagramVisible(name, false);
-        }
-    }
-}
-
-function toggleDiagram(name) {
-    let diag = getDiagram(name);
-    if (diag && name !== 'value') {
-        if (isDiagramVisible(name)) {
-            setDiagramVisible(name, false);
-        } else {
-            setDiagramVisible(name, true);
-        }
-    }
-}
-
-function onClickDiagramMatchGroupRef(name) {
-    let found = false;
-    for (let diag of window.DIAGRAMS) {
-        if (diag === name) {
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
-        console.error(`Clicked unknown MatchGroupRef "${name}"`);
-        return;
-    }
-
-    setDiagramVisible(name, true);
-    window.location.hash = name;
-}
-
-function onClickDiagramInSidebar(name) {
-    if (!isDiagramVisible(name)) {
-        setDiagramVisible(name, true);
-    }
-}
-
 {% endblock %}
 
 {% block nav %}
     <h1>Diagrams</h1>
-    <div class="toolbar">
-        <button id="show-all" onclick="showAllDiagrams()">Show All</button>
-        <button id="hide-all" onclick="hideAllDiagrams()">Hide All</button>
-    </div>
     <ul class="diagram-links">
     {% for name, diag in diagrams %}
-        <li class="diagram-link {{ 'is-hidden' if name != 'value' else '' }}" id="diagram-link-{{ name }}">
-        {% if name == 'value' %}
-            <input type="checkbox" id="diagram-checkbox-{{ name }}" disabled="disabled" checked="checked" />
-            <a href="#{{ name }}" class="menu-item" id="diagram-link-{{ name }}">{{ name }}</a>
-        {% else %}
-            <input type="checkbox" id="diagram-checkbox-{{ name }}" />
+        <li class="diagram-link" id="diagram-link-{{ name }}">
             <a href="#{{ name }}" class="menu-item" onclick="onClickDiagramInSidebar('{{ name }}')">{{ name }}</a>
-        {% endif %}
         </li>
     {% endfor %}
     </ul>
@@ -220,11 +22,10 @@ function onClickDiagramInSidebar(name) {
 {% block main %}
 <article>
 {% for name, diag_svg in diagrams %}
-    <div id="diagram-{{ name }}" class="diagram {{ 'primary' if name == 'value' else 'secondary' }} {{ 'hide' if name != 'value' else '' }}">
+    <div id="diagram-{{ name }}" data-diagram-name="{{ name }}" class="diagram">
         <div class="diagram-header">
             <a name="{{ name }}" class="anchor"></a>
             <h1>{{ name }}</h1>
-            {% if name != 'value' %}<button onclick="setDiagramVisible('{{ name }}', false)">Hide</button>{% endif %}
         </div>
         {{ diag_svg }}
     </div>

@@ -10,6 +10,11 @@ DocGen{
         main_title: 'JXC Language'
     }
 
+    static_files: [
+        'jxc.css'
+        'jxc.js'
+    ]
+
     pages: [
         MarkdownPage{
             title: 'Home'

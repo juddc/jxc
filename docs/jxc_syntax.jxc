@@ -88,7 +88,7 @@ object: Sequence[
             Choice<Optional>[
                 Group{
                     name: 'trailing separator'
-                    value: Choice<OptionalCommon>[
+                    value: Choice[
                         Character ','
                         Character '\n'
                     ]
@@ -109,7 +109,7 @@ array: Sequence[
             Choice<Optional>[
                 Group{
                     name: 'trailing separator'
-                    value: Choice<OptionalCommon>[
+                    value: Choice[
                         Character ','
                         Character '\n'
                     ]

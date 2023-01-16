@@ -25,15 +25,16 @@ What does it look like?
 
 JXC looks similar to JSON - that's by design. JXC is actually a superset of JSON, so all valid JSON is valid JXC. If you're already using JSON for your config files, switching is trivial.
 
-Unlike YAML and Python, JXC does not care about indentation. Use whatever indentation scheme you like.
+Unlike YAML, JXC does not care about indentation. Use whatever indentation scheme you like.
 
 ### A note on commas
-While JSON has very strict rules around commas, JXC is much more lax. Arrays and objects allow using either a comma or a line break as a value separator. While you can use a comma after every value in a container, the recommended practice is to use commas only when you want to place multiple values on a single line, or when it would help readability.
+While JSON has very strict rules around commas, JXC is more relaxed. Arrays and objects allow using either a comma or a line break as a value separator. While you can use a comma after every value in a container, the recommended practice is to use commas only when you want to place multiple values on a single line, or when it would help readability.
 
 ## Extensibility
-JXC can be customized for many use cases that are difficult or unwieldy in JSON. For example, type information is commonly added to (well, shoehorned into) JSON objects. In JXC you get this for free - JXC has first-class support for type annotations.
 
 ### Type Annotations
+JXC can be customized for many use cases that are difficult or unwieldy in JSON. For example, type information is commonly added to (well, shoehorned into) JSON objects. In JXC you get this for free - JXC has first-class support for type annotations.
+
 One common JSON idiom is using objects with a `$type` key, for example:
 ```json
 { "$type": "some.library.type", "x": 5, "y": 10 }
@@ -91,6 +92,22 @@ Expressions are effectively a list of unparsed tokens, and you can read expressi
 ]
 ```
 
+An ideal use of expressions is when you need to treat math formulas as data. For example, if you wanted to define an RPG stat system.
+```jxc
+{
+    characters: [
+        Character{
+            name: 'Hero'
+            stats: { attack: 12, defense: 10 }
+        }
+    ]
+    weapons: [
+        sword: Formula((self.attack * 1.3) - (target.defense * 0.9))
+        axe: Formula((self.attack * 1.4) - target.defense)
+    ]
+}
+```
+
 Expressions can contain line breaks and comments as well, so they're a great fit for putting a small amount of logic into your data, without the language itself dictating how that logic should be used.
 
 ```jxc
@@ -109,12 +126,12 @@ This is just an example of how flexible the expression syntax is. It's not recom
 That said, JXC can be an excellent choice for simple DSLs (domain-specific languages). If you wanted a small, non-turing complete scripting system that just allows users to run a sequence of functions, that's an easy task for expressions.
 ```jxc
 [
-    set_environment_variable("DEBUG_MODE", 1)
+    set_environment_variable("DEBUG_MODE" = 1)
     launch_game[ "game.exe", "--flag1", "--flag2" ]
     init_renderer("directx12")
     set_graphics_mode(fullscreen, 1920, 1080)
     enable_physics_debug(true)
-    run_physics_tests()
+    run_physics_tests(intersection_depth > 0.0001)
     upload_physics_test_results_to_server("127.0.0.1:8080")
     exit()
 ]

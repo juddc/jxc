@@ -247,5 +247,8 @@ project "example_basic_parsing"
 project "example_basic_serialization"
     setup_example_project("basic_serialization.cpp", { "jxc" })
 
+project "example_basic_jxc_cpp_value"
+    setup_example_project("basic_jxc_cpp_value.cpp", { "jxc_cpp", "jxc" })
+
 project "example_custom_parser"
     setup_example_project("custom_parser.cpp", { "jxc" })

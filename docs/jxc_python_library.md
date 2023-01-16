@@ -1,4 +1,4 @@
-# JXC Python Basics
+# JXC Python Library
 
 The JXC Python library has two APIs - a simple one similar to `json.loads`/`json.dumps`, and a more complex but more flexible one.
 
