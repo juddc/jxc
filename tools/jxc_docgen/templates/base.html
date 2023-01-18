@@ -71,27 +71,33 @@ window.CODE_STYLE_INDEX = 0;
 <div id="page-outer">
     <div id="page-inner">
         <nav id="sidebar">
-            <ul>
-                {% for page_path, page_title in menu %}
-                    <li><a href="{{ page_path }}" class="menu-item">{{ page_title }}</a></li>
-                {% endfor %}
-            </ul>
-                
+            <div class="menu">
+                <ul>
+                    {% for page_path, page_title in menu %}
+                        <li><a href="{{ page_path }}" class="menu-item">{{ page_title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+
             {% block nav %}
             <h1>Section 1</h1>
-            <ul>
-                <li>Menu Item 1</li>
-                <li>Menu Item 2</li>
-                <li>Menu Item 3</li>
-                <li>Menu Item 4</li>
-            </ul>
+            <div class="menu">
+                <ul>
+                    <li>Menu Item 1</li>
+                    <li>Menu Item 2</li>
+                    <li>Menu Item 3</li>
+                    <li>Menu Item 4</li>
+                </ul>
+            </div>
             <h1>Section 2</h1>
-            <ul>
-                <li>Menu Item 1</li>
-                <li>Menu Item 2</li>
-                <li>Menu Item 3</li>
-                <li>Menu Item 4</li>
-            </ul>
+            <div class="menu">
+                <ul>
+                    <li>Menu Item 1</li>
+                    <li>Menu Item 2</li>
+                    <li>Menu Item 3</li>
+                    <li>Menu Item 4</li>
+                </ul>
+            </div>
             {% endblock %}
         </nav>
 

@@ -6,6 +6,7 @@ html {
     --sidebar-width: min(250px, 20vw);
     --sidebar-padding: 1.5vmin;
     --main-padding: 1.5vmin;
+    --highlight-border: rgba(255, 255, 255, 0.35);
 }
 
 #toolbar {
@@ -20,7 +21,7 @@ html {
     display: flex;
     flex-direction: row;
     background-color: #2f2f2f;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+    border-bottom: 1px solid var(--highlight-border);
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
 }
 
@@ -69,7 +70,18 @@ a.anchor {
     display: block;
     position: relative;
     visibility: hidden;
-    top: calc(var(--toolbar-height) * -1);
+    top: calc((var(--toolbar-height) * -1) - 5vmin);
+}
+
+a.headerlink {
+    margin: 0 1vmin;
+    text-decoration: none;
+    opacity: 0.2;
+    transition: ease-in-out opacity 0.5s;
+}
+
+a.headerlink:hover {
+    opacity: 1.0;
 }
 
 #page-outer {
@@ -96,25 +108,51 @@ nav#sidebar {
     background-color: #333;
 }
 
-nav#sidebar > ul {
+nav#sidebar h1,
+nav#sidebar h2,
+nav#sidebar h3 {
+    margin: 2vmin 0 0 0;
+    padding: 0;
+    border-bottom: 1px solid var(--highlight-border);
+}
+
+nav#sidebar h1 {
+    font-size: 0.9rem;
+}
+
+nav#sidebar h2 {
+    font-size: 0.8rem;
+}
+
+nav#sidebar h3 {
+    font-size: 0.7rem;
+}
+
+/* uls that are NOT the first child of .menu */
+.menu ul {
+    padding-left: 2.5vmin;
+}
+
+.menu > ul {
     list-style-type: none;
     margin: 0;
     padding: 0;
 }
 
-nav#sidebar > ul > li {
+.menu > ul > li {
     margin: 1px;
     width: 100%;
 }
 
-nav#sidebar .menu-item {
+.menu a {
     display: block;
     padding: 2px;
     transition: background-color 0.25s;
     background-color: rgba(30, 30, 30, 0.0);
+    font-size: 0.9rem;
 }
 
-nav#sidebar .menu-item:hover {
+.menu a:hover {
     background-color: rgba(30, 30, 30, 1.0);
 }
 
@@ -130,9 +168,6 @@ main {
 main > article {
     border-top: 1px solid #666;
     flex: 1;
-
-    display: flex;
-    flex-direction: column;
 }
 
 main > article:first-child {
@@ -142,7 +177,7 @@ main > article:first-child {
 #code-style-switcher {
     width: calc(var(--toolbar-height) - 1.5vmin);
     height: calc(var(--toolbar-height) - 1.5vmin);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--highlight-border);
     font-size: 0.6rem;
     border-radius: 1vmin;
 }
@@ -151,24 +186,67 @@ main > article:first-child {
     background-color: #fff;
     color: #fff;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-}t
+}
 
 #code-style-switcher.dark {
     background-color: #000;
     color: #000;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 10px var(--highlight-border);
 }
 
 code, .code {
+    position: relative;
     font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Droid Sans Mono', monospace;
     white-space: pre;
+    font-size: 0.9rem;
+}
+
+.code.language-jxc:before {
+    position: absolute;
+    top: 1vmin;
+    right: 1vmin;
+    content: 'JXC';
+}
+
+.code.language-json:before {
+    position: absolute;
+    top: 1vmin;
+    right: 1vmin;
+    content: 'JSON';
+}
+
+.code.language-python:before {
+    position: absolute;
+    top: 1vmin;
+    right: 1vmin;
+    content: 'Python';
+}
+
+.code.language-cpp:before {
+    position: absolute;
+    top: 1vmin;
+    right: 1vmin;
+    content: 'C++';
+}
+
+/* background/border only for non-syntax highlighted code */
+code {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 1px 0.6vmin;
+    border-radius: 2px;
+}
+
+.code code {
+    background: inherit;
+    padding: inherit;
+    border-radius: inherit;
 }
 
 .code {
     flex: 1;
     padding: 1.5vmin;
     border-radius: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--highlight-border);
     max-width: calc(100% - 3vmin);
     margin-bottom: 1vmin;
 }
@@ -212,7 +290,7 @@ code, .code {
     }
 
     code, .code {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
 }
 
@@ -232,47 +310,16 @@ code, .code {
     main {
         width: calc(100% - 3vmin);
     }
+    .toc {
+        display: none;
+    }
     code, .code {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
     }
 }
 
 
 /* diagram styles */
-ul.diagram-links {
-    margin-left: 0;
-    padding-left: 2.5vmin;
-}
-
-ul.diagram-links > .diagram-link {
-    display: flex;
-    flex-direction: row;
-}
-
-ul.diagram-links > .diagram-link > input[type='checkbox'] {
-    min-width: 20px;
-    max-width: 20px;
-}
-
-ul.diagram-links > .diagram-link > .menu-item {
-    display: block;
-    flex: 1;
-}
-
-.diagram-link {
-    font-size: 0.85rem;
-}
-
-.diagram-link.is-hidden > a,
-.diagram-link.is-hidden > span {
-    color: green;
-}
-
-.diagram-link.is-visible > a,
-.diagram-link.is-visible > span {
-    color: cyan;
-}
-
 .diagram-header {
     display: flex;
     flex-direction: row;

@@ -6,14 +6,16 @@
 {% endblock %}
 
 {% block script %}
-
-
 {% endblock %}
 
 {% block toolbar %}
 {% endblock %}
 
 {% block nav %}
+{% if toc_html %}
+<h1>Table of Contents</h1>
+{{ toc_html }}
+{% endif %}
 {% endblock %}
 
 {% block main %}

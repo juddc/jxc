@@ -47,7 +47,7 @@ Element.EndArray
 ```
 
 ## Serialization
-`Serializer` is a serializer type that outputs JXC to a buffer. Note that you can provide your own output buffer type that converts directly to a custom string type.
+`Serializer` is a helper class that writes JXC to a buffer. Note that you can provide your own output buffer type that converts directly to a custom string type.
 
 ```c++
 #include <iostream>

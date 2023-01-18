@@ -44,13 +44,7 @@ DocGen{
             title: 'Syntax Rules'
             template: Template{
                 file: 'jxc_page.html'
-                vars: {
-                    desc: r'(
-                        This is JXC's syntax defined using JXC.
-                        Note that the <a href="syntax_diagrams.html">syntax diagrams</a>
-                        are generated directly from this document.
-                    )'
-                }
+                vars: {}
             }
             output: 'syntax.html'
             source: 'jxc_syntax.jxc'

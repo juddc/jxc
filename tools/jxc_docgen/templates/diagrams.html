@@ -9,14 +9,16 @@
 {% endblock %}
 
 {% block nav %}
-    <h1>Diagrams</h1>
-    <ul class="diagram-links">
-    {% for name, diag in diagrams %}
-        <li class="diagram-link" id="diagram-link-{{ name }}">
-            <a href="#{{ name }}" class="menu-item" onclick="onClickDiagramInSidebar('{{ name }}')">{{ name }}</a>
-        </li>
-    {% endfor %}
-    </ul>
+    <div class="menu diagram-links">
+        <h1>Diagrams</h1>
+        <ul>
+        {% for name, diag in diagrams %}
+            <li>
+                <a href="#{{ name }}" onclick="onClickDiagramInSidebar('{{ name }}')">{{ name }}</a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
 {% endblock %}
 
 {% block main %}
