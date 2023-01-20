@@ -1,6 +1,6 @@
 # # JXC Syntax Rules
 # This is JXC's syntax defined using JXC.
-# Note that the [Syntax Diagrams](syntax_diagrams.html) are generated directly from this document.
+# Note that the [Syntax Diagrams](syntax_diagrams.md) are generated directly from this document.
 {
 
 value: Choice[

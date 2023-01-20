@@ -2,9 +2,9 @@
 
 JXC's reference implementation is split up into two libraries - `libjxc` and `libjxc_cpp`.
 
-The core library (`libjxc`) contains the lexer and a first-stage parser that attempts to be memory and storage agnostic, where possible. The idea is that it handles all the syntax implementation details, but does not allocate memory for values - that's up to a second-stage parser. The core library provides utility functions to make this easier. The reasoning for this is that different environments use different data structures, and trying to handle them all with C++ templates can be painful at best. In this way, we can reuse the same lexer and first-stage parser for other environments (for example, script language bindings) without excess copying of data in an intermediate data structure.
+The core library (`libjxc`) contains the lexer and a first-stage parser that attempts to be memory and storage agnostic, where possible. The idea is that it handles all the syntax implementation details, but does not allocate memory for values - that's up to a second-stage parser. The core library provides utility functions to make this easier. The reasoning for this is that different environments use different data structures, and trying to handle them all with C++ templates can be painful at best. In this way, we can reuse the same lexer and first-stage parser for other environments (for example, scripting language bindings) without needing to copy data into and out of an intermediate data structure.
 
-If you want a higher-level API that integrates with the C++ standard library, see [libjxc_cpp](jxc_cpp_library.html).
+If you want a higher-level API that integrates with the C++ standard library, see [libjxc_cpp](jxc_cpp_library.md).
 
 If you want to integrate JXC into a codebase that does not use the C++ standard library, or if you just want a higher degree of control over parsing and serialization, then you can skip `libjxc_cpp` and just use `libjxc`. For example, if you're integrating JXC into an Unreal Engine game project, you can write your own second-stage parser that parses directly to types like `FString` rather than `std::string`.
 

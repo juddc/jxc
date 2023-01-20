@@ -1,16 +1,11 @@
 {% extends "base.html" %}
 {% block style %}
-.desc {
-    margin-bottom: 1vmin;
-}
 {% endblock %}
 
 {% block head %}
 {% endblock %}
 
 {% block script %}
-
-
 {% endblock %}
 
 {% block toolbar %}
@@ -19,16 +14,14 @@
 {% block nav %}
 {% endblock %}
 
+{% block toc %}
+{% if toc_html %}
+{{ toc_html }}
+{% endif %}
+{% endblock %}
+
 {% block main %}
-
-<article>
-    <div class="desc">
-        {{ desc }}
-    </div>
-</article>
-
 <article class="markdown">
     {{ markdown_html }}
 </article>
-
 {% endblock %}

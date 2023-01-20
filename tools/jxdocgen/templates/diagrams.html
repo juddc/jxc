@@ -9,8 +9,10 @@
 {% endblock %}
 
 {% block nav %}
-    <div class="menu diagram-links">
-        <h1>Diagrams</h1>
+{% endblock %}
+
+{% block toc %}
+    <div class="menu">
         <ul>
         {% for name, diag in diagrams %}
             <li>
@@ -27,9 +29,11 @@
     <div id="diagram-{{ name }}" data-diagram-name="{{ name }}" class="diagram">
         <div class="diagram-header">
             <a name="{{ name }}" class="anchor"></a>
-            <h1>{{ name }}</h1>
+            <h1>{{ name }}<a class="headerlink" href="#{{ name }}">&para;</a></h1>
         </div>
-        {{ diag_svg }}
+        <div class="diagram-outer">
+            {{ diag_svg }}
+        </div>
     </div>
 {% endfor %}
 </article>

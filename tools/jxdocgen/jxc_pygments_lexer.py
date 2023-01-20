@@ -102,12 +102,14 @@ class JXCLexer(pygments.lexer.Lexer):
     @staticmethod
     def register():
         import pygments.lexers._mapping
-        pygments.lexers._mapping.LEXERS['JXCLexer'] = (
-            'docgen.jxc_pygments_lexer',
-            JXCLexer.name,
-            JXCLexer.aliases,
-            JXCLexer.filenames,
-            JXCLexer.mimetypes)
+        lexer_name = JXCLexer.__class__.__name__
+        if lexer_name not in pygments.lexers._mapping.LEXERS:
+            pygments.lexers._mapping.LEXERS[lexer_name] = (
+                'jxdocgen.jxc_pygments_lexer',
+                JXCLexer.name,
+                JXCLexer.aliases,
+                JXCLexer.filenames,
+                JXCLexer.mimetypes)
 
     def _lex_raw_string(self, start_idx: int, tok_value: str, heredoc: str):
         # min heredoc string: "()" (4 chars)

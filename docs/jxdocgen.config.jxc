@@ -1,0 +1,158 @@
+SiteGenerator{
+    global_template_vars: {
+        body_class: 'dark'
+        main_title: 'JXC Language'
+    }
+
+    # full code style list:
+    # code_styles: [
+    #     # from jxdocgen
+    #     'onemonokai'
+    #     'ayu'
+    #     # from pygments
+    #     'default'
+    #     'emacs'
+    #     'friendly'
+    #     'friendly_grayscale'
+    #     'colorful'
+    #     'autumn'
+    #     'murphy'
+    #     'manni'
+    #     'material'
+    #     'monokai'
+    #     'perldoc'
+    #     'pastie'
+    #     'borland'
+    #     'trac'
+    #     'native'
+    #     'fruity'
+    #     'bw'
+    #     'vim'
+    #     'vs'
+    #     'tango'
+    #     'rrt'
+    #     'xcode'
+    #     'igor'
+    #     'paraiso-light'
+    #     'paraiso-dark'
+    #     'lovelace'
+    #     'algol'
+    #     'algol_nu'
+    #     'arduino'
+    #     'rainbow_dash'
+    #     'abap'
+    #     'solarized-dark'
+    #     'solarized-light'
+    #     'sas'
+    #     'staroffice' 
+    #     'stata-light'
+    #     'stata-dark'
+    #     'inkpot'
+    #     'zenburn'
+    #     'gruvbox-dark'
+    #     'gruvbox-light'
+    #     'dracula'
+    #     'one-dark'
+    #     'lilypond' 
+    #     'nord'
+    #     'nord-darker'
+    #     'github-dark'
+    # ]
+
+    code_styles: [
+        'onemonokai'
+        'monokai'
+        'solarized-dark'
+        'stata-dark'
+        'paraiso-dark'
+        'zenburn'
+        'gruvbox-dark'
+        'dracula'
+        'one-dark'
+        'nord'
+        'github-dark'
+
+        'ayu'
+        'paraiso-light'
+        'solarized-light'
+        'stata-light'
+        'gruvbox-light'
+        'lilypond'
+        'algol'
+        'emacs'
+        'perldoc'
+        'borland'
+        'bw'
+        'vs'
+        'tango'
+    ]
+    default_code_style: 'onemonokai'
+
+    extra_static_files: []
+
+    markdown_extensions: {
+        header_anchors: null
+        toc: {
+            permalink: true
+        }
+        inline_code_class: {
+            css_class: 'inline-code'
+        }
+        page_links: {
+            extensions: ['md', 'jxc']
+        }
+        fenced_code: null
+        codehilite: {
+            use_pygments: true
+            css_class: 'code'
+        }
+    }
+
+    pages: [
+        MarkdownPage{
+            title: 'Home'
+            template: Template{ file: 'markdown.html' }
+            output: 'index.html'
+            source: 'introduction.md'
+        }
+        MarkdownPage{
+            title: 'JXC Core Library'
+            template: Template{ file: 'markdown.html' }
+            output: 'jxc_core_library.html'
+            source: 'jxc_core_library.md'
+        }
+        MarkdownPage{
+            title: 'JXC C++ Library'
+            template: Template{ file: 'markdown.html' }
+            output: 'jxc_cpp_library.html'
+            source: 'jxc_cpp_library.md'
+        }
+        MarkdownPage{
+            title: 'JXC Python Library'
+            template: Template{ file: 'markdown.html' }
+            output: 'jxc_python_library.html'
+            source: 'jxc_python_library.md'
+        }
+        JXCPage{
+            title: 'Syntax Rules'
+            template: Template{
+                file: 'jxc_page.html'
+                vars: {}
+            }
+            output: 'syntax.html'
+            source: 'jxc_syntax.jxc'
+        }
+        RailroadDiagramsPage{
+            title: 'Syntax Diagrams'
+            template: Template{ file: 'diagrams.html' }
+            output: 'syntax_diagrams.html'
+            source: 'jxc_syntax.jxc'
+        }
+        MarkdownPage{
+            title: 'Pre-1.0 TODO'
+            template: Template{ file: 'markdown.html' }
+            output: 'todo.html'
+            source: 'todo.md'
+        }
+    ]
+}

@@ -3,12 +3,14 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>
-    {% block title %}
-    {{ main_title }} - {{ page_title }}
-    {% endblock %}
+{% block title %}
+{{ main_title }} - {{ page_title }}
+{% endblock %}
 </title>
-<link rel="stylesheet" type="text/css" href="static/jxc.css" />
+<link rel="stylesheet" type="text/css" href="static/jxdocgen.css" />
 <style>
+
+{# Code CSS styles from Pygments #}
 {% for style_name, (style_type, style_css) in code_styles.items() %}
 /* BEGIN {{ style_name }} ({{ style_type }}) */
 {%- for line in style_css.split('\n') -%}
@@ -17,16 +19,12 @@
 {%- else -%}
 {{ line.rstrip() }}
 {% endif -%}
-{%- endfor %}
+{%- endfor -%}
+.code.{{ style_name }} pre { line-height: 150%; }
 /* END {{ style_name }} ({{ style_type }}) */
 {% endfor %}
 
-{% for style_name, (style_type, style_css) in code_styles.items() %}
-.code.{{ style_name }} pre {
-    line-height: 150%;
-}
-{% endfor %}
-
+{# Diagram styles from railroad-diagrams #}
 {{ diagram_styles }}
 
 {{ css }}
@@ -41,30 +39,63 @@
 <script>
 window.CODE_STYLES = [
 {%- for style_name, (style_type, style_css) in code_styles.items() %}
-    { name: '{{ style_name }}', type: '{{ style_type }}' },
+    { name: '{{ style_name }}', type: '{{ style_type.name.lower() }}' },
 {%- endfor %}
 ];
-window.CODE_STYLE_INDEX = 0;    
+window.CODE_STYLE_INDEX = 0;
+
+window.DEFAULT_DARK_STYLE = null;
+window.DEFAULT_LIGHT_STYLE = null;
+for (let style of window.CODE_STYLES) {
+    if (window.DEFAULT_DARK_STYLE === null && style.type === 'dark') {
+        window.DEFAULT_DARK_STYLE = style;
+    } else if (window.DEFAULT_LIGHT_STYLE === null && style.type === 'light') {
+        window.DEFAULT_LIGHT_STYLE = style;
+    }
+
+    if (window.DEFAULT_DARK_STYLE !== null && window.DEFAULT_LIGHT_STYLE !== null) {
+        break;
+    }
+}
+
 {% block script %}
 {% endblock %}
 </script>
 
-<script src="static/jxc.js"></script>
+<script src="static/jxdocgen.js"></script>
 </head>
-<body>
+<body class="{{ body_class }}">
 
 <nav id="toolbar">
     <div id="toolbar-left">
         <h1>{{ main_title }}</h1>
         <h2>{{ page_title }}</h2>
     </div>
-    <div id="toolbar-middle">
-
-    </div>
     <div id="toolbar-right">
         {% block toolbar %}
         {% endblock %}
-        <button id="code-style-switcher">Code Style</div>
+        <label for="code-style-select">Code Color Theme: </label>
+        <select id="code-style-select">
+            <optgroup label="Auto-detect">
+                <option value="auto">Auto-detect</option>
+            </optgroup>
+
+            <optgroup label="Dark">
+            {%- for style_name, (style_type, style_css) in code_styles.items() %}
+            {% if style_type.name == 'Dark' %}
+            <option value="{{ style_name }}">{{ style_name.removesuffix("-dark").removesuffix("-light") }} ({{ style_type.name }})</option>
+            {% endif %}
+            {% endfor -%}
+            </optgroup>
+
+            <optgroup label="Light">
+            {%- for style_name, (style_type, style_css) in code_styles.items() %}
+            {% if style_type.name == 'Light' %}
+            <option value="{{ style_name }}">{{ style_name.removesuffix("-dark").removesuffix("-light") }} ({{ style_type.name }})</option>
+            {% endif %}
+            {% endfor -%}
+            </optgroup>
+        </select>
     </div>
 </nav>
 
@@ -99,6 +130,16 @@ window.CODE_STYLE_INDEX = 0;
                 </ul>
             </div>
             {% endblock %}
+
+            <div class="toc-small">
+                <div class="toc-small-header">
+                    <h1 id="toc-small-expand"><span class="expando">&equiv;</span>Table of Contents</h1>
+                </div>
+                <div id="toc-small-menu">
+                    {# repeat the toc here so it can be rendered on the left side on smaller screens #}
+                    {{ self.toc() }}
+                </div>
+            </div>
         </nav>
 
         <main>
@@ -119,8 +160,12 @@ window.CODE_STYLE_INDEX = 0;
             </article>
             {% endblock %}
         </main>
+
+        <nav id="toc">
+            {% block toc %}
+            {% endblock %}
+        </nav>
     </div>
 </div>
-
 </body>
 </html>

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 import railroad
-import jinja2
 
 import jxc
 import _pyjxc

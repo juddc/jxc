@@ -28,7 +28,7 @@ JXC looks similar to JSON - that's by design. JXC is actually a superset of JSON
 Unlike YAML, JXC does not care about indentation. Use whatever indentation scheme you like.
 
 ### A note on commas
-While JSON has very strict rules around commas, JXC is more relaxed. Arrays and objects allow using either a comma or a line break as a value separator. While you can use a comma after every value in a container, the recommended practice is to use commas only when you want to place multiple values on a single line, or when it would help readability.
+While JSON has very strict rules around commas, JXC is more relaxed. Arrays and objects allow using either a comma or a line break as a value separator. While you can use a comma after every value in a container, the recommended practice for human-edited JXC files is to use commas only when you want to place multiple values on a single line, or when it would help readability.
 
 ## Extensibility
 
@@ -45,7 +45,7 @@ In JXC this is a first-class language feature:
 some.library.type{ x: 5, y: 10 }
 ```
 
-You can even go further with it and use annotations as a way to normalize data, allowing a large amount of flexibility in how users can enter values. By using annotations, you could automatically convert any value (or error out) that has a given annotation to its intended type.
+You can even go further with it and use annotations as a way to normalize data, allowing a large amount of flexibility in how users can enter values. By using annotations, you could automatically convert any value that has a given annotation to its intended type. This is also useful for data validation.
 
 ```jxc
 [
@@ -57,7 +57,7 @@ You can even go further with it and use annotations as a way to normalize data, 
 ```
 
 ### Numeric Suffixes
-If you need to support different kinds of numeric values, JXC support numeric suffixes. You can handle these however you need - converting the values at parse time, wrapping them in a value+enum structure, or even just using them for validation and erroring out if a value has a missing or incorrect suffix.
+If you need to support different kinds of numeric values, JXC support numeric suffixes. You can handle these however you need - converting the values at parse time, wrapping them in a value+enum structure, or even just using them for validation and erroring out if a value has a missing or unexpected suffix.
 
 ```jxc
 {
@@ -95,15 +95,13 @@ Expressions are effectively a list of unparsed tokens, and you can read expressi
 An ideal use of expressions is when you need to treat math formulas as data. For example, if you wanted to define an RPG stat system.
 ```jxc
 {
-    characters: [
-        Character{
-            name: 'Hero'
-            stats: { attack: 12, defense: 10 }
-        }
-    ]
+    characters: {
+        'hero': Character{ attack: 12, defense: 10 }
+        'enemy': Character{ attack: 8, defense: 6 }
+    }
     weapons: [
-        sword: Formula((self.attack * 1.3) - (target.defense * 0.9))
-        axe: Formula((self.attack * 1.4) - target.defense)
+        'sword': Formula((self.attack * 1.3) - (target.defense * 0.9))
+        'axe': Formula((self.attack * 1.4) - target.defense)
     ]
 }
 ```
@@ -121,17 +119,17 @@ Expressions can contain line breaks and comments as well, so they're a great fit
 )
 ```
 
-This is just an example of how flexible the expression syntax is. It's not recommended to write whole programs using expressions, or even very complex logic - you're not going to have a great time debugging that.
+This is just an example of how flexible the expression syntax is. It's not recommended to write whole programs in expressions, or even very complex logic - you're not going to have a great time debugging that.
 
-That said, JXC can be an excellent choice for simple DSLs (domain-specific languages). If you wanted a small, non-turing complete scripting system that just allows users to run a sequence of functions, that's an easy task for expressions.
+That said, JXC can be an excellent choice for simple [DSLs](https://www.wikipedia.com/wiki/Domain-specific_language). If you wanted a small, non-turing complete scripting system that just allows users to run a sequence of functions, that's an easy task for expressions.
 ```jxc
 [
     set_environment_variable("DEBUG_MODE" = 1)
     launch_game[ "game.exe", "--flag1", "--flag2" ]
-    init_renderer("directx12")
+    init_renderer(os == 'nt' ? "directx12" : "vulkan")
     set_graphics_mode(fullscreen, 1920, 1080)
     enable_physics_debug(true)
-    run_physics_tests(intersection_depth > 0.0001)
+    run_physics_tests(require: intersection_depth >= -0.0001)
     upload_physics_test_results_to_server("127.0.0.1:8080")
     exit()
 ]

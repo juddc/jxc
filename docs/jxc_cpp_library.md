@@ -1,6 +1,6 @@
 # JXC C++ Library
 
-`libjxc_cpp` is a supplemental, higher-level library that ships alongside `libjxc` which makes it easy to use JXC with the C++ standard library. Its design is similar to the excellent nlohmann_json library.
+`libjxc_cpp` is a supplemental, higher-level library that ships alongside `libjxc` which makes it easy to use JXC with the C++ standard library. Its design is similar to the excellent [nlohmann/json](https://json.nlohmann.me/) library.
 
 ## Parsing
 
@@ -43,6 +43,7 @@ int main(int argc, const char** argv)
 }
 ```
 
+Output:
 ```jxc
 {
     parent: null,
