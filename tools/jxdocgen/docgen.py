@@ -4,7 +4,7 @@ import typing
 
 import jxc
 import jinja2
-from . import siteconfig, search, code_style, markdown_util, diagram_util
+from . import siteconfig, code_style, markdown_util, diagram_util
 
 
 docgen_base_dir = os.path.normpath(os.path.dirname(os.path.abspath(__file__)))
@@ -136,11 +136,6 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str) -> sitecon
     builder.ctx['default_code_style'] = site_cfg.default_code_style
     builder.ctx['menu'] = make_menu(site_cfg.pages)
     builder.ctx['default_dark_or_light'] = code_style.get_style_type(site_cfg.default_code_style).name.lower()
-
-    if site_cfg.enable_search:
-        builder.ctx['search_index'] = search.build_index(site_cfg, docs_dir).serialize()
-    else:
-        builder.ctx['search_index'] = None
 
     # passthrough global template vars
     for key, val in site_cfg.global_template_vars.items():

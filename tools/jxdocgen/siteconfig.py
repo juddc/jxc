@@ -59,7 +59,6 @@ class JXCPage(BasePage):
 @dataclass
 class SiteGenerator:
     pages: list[BasePage]
-    enable_search: bool = True
     extra_static_files: typing.Optional[list[str]] = None
     code_styles: typing.Optional[list[str]] = None
     default_code_style: typing.Optional[str] = None

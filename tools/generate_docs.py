@@ -1,6 +1,7 @@
+#!/usr/bin/env python3
 import os
 import argparse
-from jxdocgen import (docgen, siteconfig, search)
+from jxdocgen import (docgen, siteconfig)
 import logging
 
 
