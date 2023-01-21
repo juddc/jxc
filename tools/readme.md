@@ -3,7 +3,7 @@
 Note that several of these scripts depend on the Python JXC library. If you want to use the bindings from the repo, this is the simplest way (from the repo root):
 
 ```
-$ virtualenv -p /usr/bin/python3 venv
+$ virtualenv venv
 $ source venv/bin/activate
 (venv) $ pip install .
 ```
@@ -34,17 +34,23 @@ Just useful for developing the JXC reference implementation, this script removes
 
 # generate_docs.py
 
-Static website generator for JXC. Supports parsing railroad diagrams that are themselves defined in JXC (see `/docs/jxc_syntax.jxc`).
+Static website generator for JXC. Supports parsing railroad diagrams that are themselves defined in JXC (see `/docs/jxc_syntax.jxc`). Note that this script has some dependencies (other than JXC) - see `/tools/jxdocgen/requirements.txt`.
 
-Note that this script has some dependencies (other than JXC). See `/tools/jxdocgen/requirements.txt`. You can set up a standard Python virtualenv with this requirements file.
-
-Example usage (running from the repo root):
-
+Example documentation generator usage:
+```bash
+cd /path/to/repo
+# create and activate a virtualenv for the documentation generator
+$ virtualenv venv
+$ source venv/bin/activate
+# install the documentation generator's dependencies
+(venv) $ pip install -r tools/jxdocgen/requirements.txt
+# install the JXC python bindings directly from the repo
+(venv) $ pip install .
+# build the documentation
+(venv) $ python3 tools/generate_docs.py --input ./docs --output ./build/docs
 ```
-python3 tools/generate_docs.py --input ./docs --output ./build/docs
-```
 
-Add the `--dev-server` flag to run a local webserver that automatically rebuilds the documentation when any source file changes.
+For documentation development, you can add the `--dev-server` flag to run a local webserver that automatically rebuilds the documentation when any source file changes.
 
 # generate_pyjxc_stub.py
 
@@ -66,10 +72,10 @@ Windows binary for premake5 (build system generator). On Linux, this is generall
 
 Note that premake is only used for developing the JXC reference implementation itself. If you are integrating JXC into a C/C++ project with another build system, you can either use the amalgamated build (recommended), or add JXC's source files and headers directly to your project. If you are integrating JXC into a Python project, you can simply use the included `setup.py` and `pyproject.toml` to build the Python extension directly.
 
-If your Linux distribution does not include `premake5` yet, you can download a standalone binary with no dependencies from the [premake website](https://premake.github.io/download), or build it from source.
+If your Linux distribution does not include premake5 yet, you can download a standalone binary with no dependencies from the [premake website](https://premake.github.io/download), or build it from source.
 
 # re2c (3.0)
 
 Windows binary for re2c (regular expression compiler). On Linux, this is generally available from your distribution's respositories.
 
-If your distribution does not include `re2c` 3.0 yet, you can easily [build re2c from source](https://github.com/skvadrik/re2c/releases/tag/3.0). Note that JXC has not been tested with older versions of re2c. It might work, but it's not tested or supported.
+If your distribution does not include re2c 3.0 yet, you can easily [build re2c from source](https://github.com/skvadrik/re2c/releases/tag/3.0). Note that JXC has not been tested with older versions of re2c. It might work, but it's not tested or supported.

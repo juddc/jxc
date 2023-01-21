@@ -88,7 +88,7 @@ Expressions are effectively a list of unparsed tokens, and you can read expressi
     python_eval(value + 2 if (value / 2 > 4) else value - 2)
 
     # You could use expressions to express constraints for a particular system
-    bind_function(name "do_stuff", int32 'x' > 0, int32 'y' > 0)
+    bind_function(name 'do_stuff', int32 'x' > 0, int32 'y' > 0)
 ]
 ```
 
@@ -126,7 +126,7 @@ That said, JXC can be an excellent choice for simple [DSLs](https://www.wikipedi
 [
     set_environment_variable("DEBUG_MODE" = 1)
     launch_game[ "game.exe", "--flag1", "--flag2" ]
-    init_renderer(os == 'nt' ? "directx12" : "vulkan")
+    init_renderer(os == "nt" ? "directx12" : "vulkan")
     set_graphics_mode(fullscreen, 1920, 1080)
     enable_physics_debug(true)
     run_physics_tests(require: intersection_depth >= -0.0001)

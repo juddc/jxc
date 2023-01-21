@@ -1,7 +1,11 @@
 SiteGenerator{
     global_template_vars: {
-        body_class: 'dark'
+        body_class: ''
         main_title: 'JXC Language'
+        copyright: '&copy; 2023 Judd Cohen'
+        footer_links: [
+            #{ href: '', css_class: '', label: 'Github' }
+        ]
     }
 
     # full code style list:
@@ -110,7 +114,7 @@ SiteGenerator{
 
     pages: [
         MarkdownPage{
-            title: 'Home'
+            title: 'Introduction'
             template: Template{ file: 'markdown.html' }
             output: 'index.html'
             source: 'introduction.md'

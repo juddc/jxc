@@ -2,6 +2,7 @@ import typing
 import xml.etree.ElementTree as etree
 from markdown.treeprocessors import Treeprocessor
 from markdown.extensions import Extension
+import markdown.util
 import markdown
 from . import siteconfig
 
@@ -25,7 +26,10 @@ markdown.extensions.codehilite.CodeHilite = CodeHiliteExt
 
 
 
-def _all_element_nodes(node: etree.Element, level: int = 0):
+def _all_element_nodes(
+        node: etree.Element,
+        level: int = 0
+        ) -> typing.Iterable[tuple[etree.Element, int]]:
     yield node, level
     for child in node:
         yield from _all_element_nodes(child, level + 1)

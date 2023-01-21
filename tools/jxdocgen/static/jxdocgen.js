@@ -65,7 +65,9 @@ function setCodeStyle(newStyleName, updateSelect = true) {
 
     // set dropdown value
     if (updateSelect && newStyleIndex !== null) {
-        document.getElementById('code-style-select').value = newStyle.name;
+        for (let codeStyleSelector of document.querySelectorAll('select.code-theme')) {
+            codeStyleSelector.value = newStyle.name;
+        }
     }
 
     // update code block classes
@@ -87,12 +89,91 @@ function setCodeStyle(newStyleName, updateSelect = true) {
 }
 
 
+function toggleSidebarVisible() {
+    document.getElementById('sidebar').classList.toggle('expand');
+    document.getElementById('body-mask').classList.toggle('expand');
+}
+
+
+function languageTagToLabel(lang) {
+    if (typeof lang !== 'string' || lang.length == 0) {
+        return `${lang}`;
+    }
+
+    switch (lang) {
+        case "jxc": return "JXC";
+        case "json": return "JSON";
+        case "cpp": return "C++";
+        case "python": return "Python";
+        default: break;
+    }
+
+    let result = [];
+    for (let i = 0; i < lang.length; i++) {
+        result.push(lang[i]);
+    }
+    result[0] = result[0].toLocaleUpperCase();
+    return result.join('');
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
+    // add language labels for code language blocks
+    let langPrefix = 'language-';
+    for (let codeBlock of document.querySelectorAll('.code')) {
+        let langClass = null;
+        for (let cls of codeBlock.classList) {
+            if (cls.length > langPrefix.length && cls.startsWith(langPrefix)) {
+                langClass = cls;
+                break;
+            }
+        }
+
+        if (langClass === null) {
+            continue;
+        }
+
+        let lang = langClass.substring(langPrefix.length);
+
+        if (lang !== null) {
+            let labelEle = document.createElement('span');
+            labelEle.classList.add('language-label');
+            labelEle.classList.add(langClass);
+            labelEle.innerHTML = languageTagToLabel(lang);
+
+            let codeClone = codeBlock.cloneNode();
+            for (let child of codeBlock.childNodes) {
+                codeClone.appendChild(child);
+            }
+
+            let codeWrap = document.createElement('div');
+            codeWrap.classList.add('code-wrap');
+            codeWrap.appendChild(labelEle);
+            codeWrap.appendChild(codeClone);
+            codeBlock.replaceWith(codeWrap);
+        }
+    }
+
+    // set code style to the user's selected setting on first page load
+    let localStyle = window.localStorage.getItem('code-style');
+    if (localStyle === null) {
+        localStyle = 'auto';
+    }
+    setCodeStyle(localStyle, true);
+
     // phone-sized screen table of contents expando
-    document.getElementById('toc-small-expand').addEventListener('click', (evt) => {
-        document.getElementById('toc-small-menu').classList.toggle('expand');
+    for (let button of document.querySelectorAll('.sidebar-toggle')) {
+        button.addEventListener('click', (evt) => {
+            toggleSidebarVisible();
+        });
+    }
+
+    // allow tapping the space outside the slide-in sidebar to close it (phone-sized screens only)
+    document.getElementById('body-mask').addEventListener('click', (evt) => {
+        toggleSidebarVisible();
     });
 
+    // if code style is auto, automatically change it when light/dark mode changes
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (evt) => {
         //let newColorScheme = evt.matches ? "dark" : "light";
         let localStyle = window.localStorage.getItem('code-style');
@@ -101,17 +182,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    let localStyle = window.localStorage.getItem('code-style');
-    if (localStyle === null) {
-        localStyle = 'auto';
+    // code style switchers
+    for (let codeStyleSelector of document.querySelectorAll('select.code-theme')) {
+        codeStyleSelector.addEventListener('change', (evt) => {
+            setCodeStyle(evt.target.value, false);
+        });
     }
-    setCodeStyle(localStyle, true);
-
-    // code style switcher
-    let codeStyleSelector = document.getElementById('code-style-select');
-    codeStyleSelector.addEventListener('change', (evt) => {
-        setCodeStyle(evt.target.value, false);
-    });
 
     // diagrams
     window.DIAGRAMS = findAllDiagrams();

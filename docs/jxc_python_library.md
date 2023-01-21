@@ -73,10 +73,12 @@ assert vecs == [
 
 Lets say you want to use more complex objects. You could write your own serializers for types, but if your types are simple, you could just use dataclasses and enums, which are supported out of the box.
 
+To start with, lets define some types we want to use:
+
 ```python
-import jxc
 from enum import Enum
 from dataclasses import dataclass
+import jxc
 
 class DataType(Enum):
     A = 'A'
@@ -88,13 +90,20 @@ class Data:
     name: str
     ty: DataType
     meta: dict[str, str]
+```
 
+Serializing these is trivial:
+
+```python
 print(jxc.dumps(
     Data(val=(2.5, -5.6), name='abc', ty=DataType.B, meta={ 'key': 'value' }),
     indent=4,
     encode_dataclass=True,
     encode_enum=True))
 ```
+
+Output:
+
 ```jxc
 Data{
     val: [
@@ -109,10 +118,9 @@ Data{
 }
 ```
 
-You can use the same system for loading values into those dataclasses and enums.
-```python
-# This assumes that the DataType enum and Data dataclass are already defined
+Parsing these values is also trivial:
 
+```python
 print(jxc.loads("""
     Data{
         name: 'jxc'
@@ -124,6 +132,9 @@ print(jxc.loads("""
     decode_dataclass=True,
     decode_enum=True))
 ```
+
+Output:
+
 ```
 Data(val=[-4.1, 9.8], name='jxc', ty=<DataType.A: 'A'>, meta={'key.a': 'b', 'key.b': '_'})
 ```

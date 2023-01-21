@@ -66,48 +66,70 @@ for (let style of window.CODE_STYLES) {
 </head>
 <body class="{{ body_class }}">
 
-<nav id="toolbar">
-    <div id="toolbar-left">
-        <h1>{{ main_title }}</h1>
-        <h2>{{ page_title }}</h2>
+{% macro code_color_theme_select(select_id) %}
+    <select class="code-theme" id="{{ select_id }}">
+        <optgroup label="Auto-detect">
+            <option value="auto">Auto-detect</option>
+        </optgroup>
+
+        <optgroup label="Dark">
+        {%- for style_name, (style_type, style_css) in code_styles.items() %}
+        {% if style_type.name == 'Dark' %}
+        <option value="{{ style_name }}">{{ style_name.removesuffix("-dark").removesuffix("-light") }} ({{ style_type.name }})</option>
+        {% endif %}
+        {% endfor -%}
+        </optgroup>
+
+        <optgroup label="Light">
+        {%- for style_name, (style_type, style_css) in code_styles.items() %}
+        {% if style_type.name == 'Light' %}
+        <option value="{{ style_name }}">{{ style_name.removesuffix("-dark").removesuffix("-light") }} ({{ style_type.name }})</option>
+        {% endif %}
+        {% endfor -%}
+        </optgroup>
+    </select>
+{% endmacro %}
+
+<div id="body-mask" class="small-screen-only"></div>
+
+<header id="header">
+    <div id="header-left">
+        <button class="sidebar-toggle small-screen-only">&equiv;</button>
+        <div id="page-title">
+            <h1>{{ main_title }}</h1>
+            <h2>{{ page_title }}</h2>    
+        </div>
     </div>
-    <div id="toolbar-right">
+    <div id="header-right">
         {% block toolbar %}
         {% endblock %}
-        <label for="code-style-select">Code Color Theme: </label>
-        <select id="code-style-select">
-            <optgroup label="Auto-detect">
-                <option value="auto">Auto-detect</option>
-            </optgroup>
-
-            <optgroup label="Dark">
-            {%- for style_name, (style_type, style_css) in code_styles.items() %}
-            {% if style_type.name == 'Dark' %}
-            <option value="{{ style_name }}">{{ style_name.removesuffix("-dark").removesuffix("-light") }} ({{ style_type.name }})</option>
-            {% endif %}
-            {% endfor -%}
-            </optgroup>
-
-            <optgroup label="Light">
-            {%- for style_name, (style_type, style_css) in code_styles.items() %}
-            {% if style_type.name == 'Light' %}
-            <option value="{{ style_name }}">{{ style_name.removesuffix("-dark").removesuffix("-light") }} ({{ style_type.name }})</option>
-            {% endif %}
-            {% endfor -%}
-            </optgroup>
-        </select>
+        <label for="code-style-select">Code Style:&nbsp;</label>
+        {{ code_color_theme_select("code-style-select") }}
     </div>
-</nav>
+</header>
 
 <div id="page-outer">
     <div id="page-inner">
         <nav id="sidebar">
+            <div class="menu-header small-screen-only">
+                <h1>Menu</h1>
+                <button class="sidebar-toggle">&times;</button>
+            </div>
+
             <div class="menu">
                 <ul>
-                    {% for page_path, page_title in menu %}
-                        <li><a href="{{ page_path }}" class="menu-item">{{ page_title }}</a></li>
+                    {% for href, title in menu %}
+                        <li><a href="{{ href }}" class="menu-item {{ 'current' if title == page_title else '' }}">{{ title }}</a></li>
                     {% endfor %}
                 </ul>
+            </div>
+
+            <div class="menu-header small-screen-only">
+                <h1>Code Style</h1>
+            </div>
+
+            <div class="small-screen-only">
+                {{ code_color_theme_select("code-style-select-sidebar") }}
             </div>
 
             {% block nav %}
@@ -132,8 +154,8 @@ for (let style of window.CODE_STYLES) {
             {% endblock %}
 
             <div class="toc-small">
-                <div class="toc-small-header">
-                    <h1 id="toc-small-expand"><span class="expando">&equiv;</span>Table of Contents</h1>
+                <div class="menu-header">
+                    <h1>Page Outline</h1>
                 </div>
                 <div id="toc-small-menu">
                     {# repeat the toc here so it can be rendered on the left side on smaller screens #}
@@ -162,10 +184,32 @@ for (let style of window.CODE_STYLES) {
         </main>
 
         <nav id="toc">
+            <div class="menu-header">
+                <h1>Page Outline</h1>
+            </div>
             {% block toc %}
             {% endblock %}
         </nav>
     </div>
+
+    <footer>
+        <div id="footer-a">
+        {% block footer_a %}
+            {% for link in footer_links %}
+                <a href="{{ link.get('href', '') }}" class="footer-link {{ link.get('css_class', '') }}">{{ link.get('label', 'Link') }}</a>
+            {% endfor %}
+        {% endblock %}
+        </div>
+    
+        <div id="footer-b">
+        {% block footer_b %}
+            {% if copyright %}
+                <div class="copyright">{{ copyright }}</div>
+            {% endif %}
+        {% endblock %}
+        </div>
+    </footer>    
 </div>
+
 </body>
 </html>
