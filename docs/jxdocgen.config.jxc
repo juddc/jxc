@@ -132,6 +132,12 @@ SiteGenerator{
             source: 'jxc_cpp_library.md'
         }
         MarkdownPage{
+            title: 'Using JXC as a C++ Dependency'
+            template: Template{ file: 'markdown.html' }
+            output: 'dependency.html'
+            source: 'dependency.md'
+        }
+        MarkdownPage{
             title: 'JXC Python Library'
             template: Template{ file: 'markdown.html' }
             output: 'jxc_python_library.html'
