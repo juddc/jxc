@@ -1,6 +1,6 @@
 ## What is JXC?
 
-JXC is a JSON-like language for humans, intended for use where humans are editing these files, such as configuration files. It adds some much needed flexibility to JSON without sacrificing readability or clarity.
+JXC is a structured data language similar to JSON, but with a focus on being expressive, extensible, and human-friendly. It's fantastic in many use-cases that can be awkward in other data formats. It's a perfect fit for config files, especially ones with more complex needs. It also does not sacrifice speed - benchmarks show that the reference implementation is about as fast as many commonly used C++ JSON libraries.
 
 ## Core tenets
 
