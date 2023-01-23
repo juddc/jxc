@@ -389,7 +389,6 @@ JXC_BEGIN_NAMESPACE(util)
 
 static constexpr std::string_view raw_string_prefix = "r";
 static constexpr std::string_view base64_string_prefix = "b64";
-static constexpr std::string_view hexbyte_string_prefix = "bx";
 
 inline bool parse_bool(std::string_view value, bool& out_result)
 {
@@ -775,9 +774,6 @@ bool parse_number_object_key(const Token& tok, IntType& out_value, ErrorInfo& ou
 }
 
 
-//size_t get_raw_string_buffer_required_size(const char* string_token_value, size_t string_token_value_len, const char* heredoc, size_t heredoc_len);
-//size_t get_string_buffer_required_size(const char* string_token_value, size_t string_token_value_len);
-
 // Returns a string_view representing a string token's inner string data.
 // eg. The string without quote chars, heredoc+parens, etc.
 // This is half of the parsing process for strings - the other half is handling escape characters.
@@ -854,16 +850,6 @@ bool parse_string_token(const Token& string_token, T& out_string_buffer, ErrorIn
     JXC_MEMCPY(buf_ptr, buf_len, value.data(), value.size());
     return true;
 }
-
-//// Attempts to parse a string token without any allocations.
-//// If this returns true, the string value did not contain any escape characters and can be used directly.
-//// If this returns false, you need to check if out_error contains an error - if it does not, then the string just needs
-//// to be parsed by parse_string_token. Otherwise a parsing error occured (eg. mismatched string quotes)
-//bool try_parse_string_token_to_view(const Token& string_token, std::string_view& out_view, ErrorInfo& out_error);
-//
-//bool parse_string_token(const Token& string_token, char* out_string_buffer, size_t out_string_buffer_size, size_t& out_num_chars_written, ErrorInfo& out_error);
-//
-//bool parse_string_token(const Token& string_token, std::string& out_string, ErrorInfo& out_error);
 
 // returns the number of bytes required to store the decoded version of a byte string
 size_t get_byte_buffer_required_size(const char* bytes_token_str, size_t bytes_token_str_len);

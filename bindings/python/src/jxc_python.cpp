@@ -624,7 +624,6 @@ PYBIND11_MODULE(_pyjxc, m)
     py::class_<SerializerSettings>(m, "SerializerSettings")
         .def(py::init([](
             bool pretty_print,
-            bool encode_bytes_as_hexbytes,
             int32_t target_line_length,
             const std::string& indent,
             const std::string& linebreak,
@@ -637,7 +636,6 @@ PYBIND11_MODULE(_pyjxc, m)
         {
             SerializerSettings result;
             result.pretty_print = pretty_print;
-            result.encode_bytes_as_hexbytes = encode_bytes_as_hexbytes;
             result.target_line_length = target_line_length;
             result.indent = indent;
             result.linebreak = linebreak;
@@ -650,7 +648,6 @@ PYBIND11_MODULE(_pyjxc, m)
         }), 
             py::kw_only{},
             py::arg("pretty_print") = true,
-            py::arg("encode_bytes_as_hexbytes") = true,
             py::arg("target_line_length") = 80,
             py::arg("indent") = "    ",
             py::arg("linebreak") = "\n",
@@ -663,7 +660,6 @@ PYBIND11_MODULE(_pyjxc, m)
         .def_static("make_compact", &SerializerSettings::make_compact)
 
         .def_readwrite("pretty_print", &SerializerSettings::pretty_print)
-        .def_readwrite("encode_bytes_as_hexbytes", &SerializerSettings::encode_bytes_as_hexbytes)
         .def_readwrite("target_line_length", &SerializerSettings::target_line_length)
         .def_readwrite("indent", &SerializerSettings::indent)
         .def_readwrite("linebreak", &SerializerSettings::linebreak)
@@ -698,14 +694,6 @@ PYBIND11_MODULE(_pyjxc, m)
         {
             auto data = py::cast<std::string_view>(value);
             self.value_bytes(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
-            return self;
-        },
-            py::arg("value"),
-            py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_bytes_hex", [](PySerializer& self, py::bytes value, StringQuoteMode quote)
-        {
-            auto data = py::cast<std::string_view>(value);
-            self.value_bytes_hex(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
             return self;
         },
             py::arg("value"),
@@ -755,13 +743,6 @@ PYBIND11_MODULE(_pyjxc, m)
             auto data = py::cast<std::string_view>(value);
             self.value_bytes(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
             return self;
-        },
-            py::arg("value"),
-            py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_bytes_hex", [](ExpressionProxy& self, py::bytes value, StringQuoteMode quote)
-        {
-            auto data = py::cast<std::string_view>(value);
-            return self.value_bytes_hex(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
         },
             py::arg("value"),
             py::arg("quote") = StringQuoteMode::Auto)

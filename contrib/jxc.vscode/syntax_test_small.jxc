@@ -20,7 +20,7 @@
     strings: [
         "abc"
         'abc'
-        bx"0011ff"
+        b64"/xEiu/8="
     ]
     annotations: [
         vec{ x: 2, y: 3, z: 4 }

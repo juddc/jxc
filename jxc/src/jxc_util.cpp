@@ -107,7 +107,7 @@ std::string detail::debug_bytes_repr(BytesView bytes, char quote_char)
                 {
                     char a = 0;
                     char b = 0;
-                    hexbytes::detail::byte_to_hex(ch, a, b);
+                    detail::byte_to_hex(ch, a, b);
                     stream << "\\x" << a << b;
                 }
             }
@@ -257,8 +257,8 @@ size_t detail::serialize_ascii_codepoint(uint8_t codepoint, char* out_buf, size_
     // not a printable character, escape it using a general-purpose hex escape
     out_buf[0] = '\\';
     out_buf[1] = 'x';
-    out_buf[2] = hexbytes::detail::byte_to_hex_table[(codepoint >> 4) & 0xF];
-    out_buf[3] = hexbytes::detail::byte_to_hex_table[codepoint & 0xF];
+    out_buf[2] = detail::byte_to_hex_table[(codepoint >> 4) & 0xF];
+    out_buf[3] = detail::byte_to_hex_table[codepoint & 0xF];
     return 4;
 }
 
@@ -272,24 +272,24 @@ size_t detail::serialize_utf32_codepoint(uint32_t codepoint, char* out_buf, size
     {
         out_buf[0] = '\\';
         out_buf[1] = 'u';
-        out_buf[2] = hexbytes::detail::byte_to_hex_table[(codepoint >> 12) & 0xF];
-        out_buf[3] = hexbytes::detail::byte_to_hex_table[(codepoint >> 8) & 0xF];
-        out_buf[4] = hexbytes::detail::byte_to_hex_table[(codepoint >> 4) & 0xF];
-        out_buf[5] = hexbytes::detail::byte_to_hex_table[codepoint & 0xF];
+        out_buf[2] = detail::byte_to_hex_table[(codepoint >> 12) & 0xF];
+        out_buf[3] = detail::byte_to_hex_table[(codepoint >> 8) & 0xF];
+        out_buf[4] = detail::byte_to_hex_table[(codepoint >> 4) & 0xF];
+        out_buf[5] = detail::byte_to_hex_table[codepoint & 0xF];
         return 6;
     }
     else
     {
         out_buf[0] = '\\';
         out_buf[1] = 'U';
-        out_buf[2] = hexbytes::detail::byte_to_hex_table[(codepoint >> 28) & 0xF];
-        out_buf[3] = hexbytes::detail::byte_to_hex_table[(codepoint >> 24) & 0xF];
-        out_buf[4] = hexbytes::detail::byte_to_hex_table[(codepoint >> 20) & 0xF];
-        out_buf[5] = hexbytes::detail::byte_to_hex_table[(codepoint >> 16) & 0xF];
-        out_buf[6] = hexbytes::detail::byte_to_hex_table[(codepoint >> 12) & 0xF];
-        out_buf[7] = hexbytes::detail::byte_to_hex_table[(codepoint >> 8) & 0xF];
-        out_buf[8] = hexbytes::detail::byte_to_hex_table[(codepoint >> 4) & 0xF];
-        out_buf[9] = hexbytes::detail::byte_to_hex_table[codepoint & 0xF];
+        out_buf[2] = detail::byte_to_hex_table[(codepoint >> 28) & 0xF];
+        out_buf[3] = detail::byte_to_hex_table[(codepoint >> 24) & 0xF];
+        out_buf[4] = detail::byte_to_hex_table[(codepoint >> 20) & 0xF];
+        out_buf[5] = detail::byte_to_hex_table[(codepoint >> 16) & 0xF];
+        out_buf[6] = detail::byte_to_hex_table[(codepoint >> 12) & 0xF];
+        out_buf[7] = detail::byte_to_hex_table[(codepoint >> 8) & 0xF];
+        out_buf[8] = detail::byte_to_hex_table[(codepoint >> 4) & 0xF];
+        out_buf[9] = detail::byte_to_hex_table[codepoint & 0xF];
         return 10;
     }
 }
@@ -306,7 +306,7 @@ uint32_t detail::deserialize_hex_to_codepoint(const char* hex_buf, size_t hex_bu
             if ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'))
             {
                 const int byte_offset = ((int)hex_buf_len - 1 - i) * 4;
-                result |= hexbytes::detail::hex_char_to_byte_table[ch] << byte_offset;
+                result |= detail::hex_char_to_byte_table[ch] << byte_offset;
             }
             else
             {
@@ -1030,7 +1030,6 @@ std::string SerializerSettings::to_repr() const
     };
 
     add_field(jxc::format("pretty_print={}", detail::debug_bool_repr(pretty_print)));
-    add_field(jxc::format("encode_bytes_as_hexbytes={}", detail::debug_bool_repr(encode_bytes_as_hexbytes)));
     add_field(jxc::format("target_line_length={}", target_line_length));
     add_field(jxc::format("indent={}", detail::debug_string_repr(indent)));
     add_field(jxc::format("linebreak={}", detail::debug_string_repr(linebreak)));
@@ -1369,111 +1368,6 @@ namespace base64
     }
 
 } // namespace base64
-
-
-namespace hexbytes
-{
-
-    size_t get_num_bytes_in_multiline_hexbytes_string(const char* hexbytes_str, size_t hexbytes_str_len)
-    {
-        size_t num_hexbytes_chars = 0;
-        for (size_t i = 0; i < hexbytes_str_len; i++)
-        {
-            if (detail::is_hexbytes_char(hexbytes_str[i]))
-            {
-                ++num_hexbytes_chars;
-            }
-        }
-        return get_num_bytes_in_hexbytes_string(num_hexbytes_chars);
-    }
-
-    void bytes_to_hexbytes(const uint8_t* bytes, size_t bytes_len, char* out_data, size_t out_size)
-    {
-        const size_t req_out_size = get_hexbytes_string_size(bytes_len);
-        JXC_ASSERTF(out_size >= req_out_size,
-            "bytes_to_hexbytes requires {} bytes, but out_size is {}", req_out_size, out_size);
-
-        char* ptr = out_data;
-        for (size_t i = 0; i < bytes_len; ++i)
-        {
-            detail::byte_to_hex(bytes[i], *ptr, *(ptr + 1));
-            ptr += 2;
-        }
-    }
-
-    void hexbytes_to_bytes(const char* hexbytes_str, size_t hexbytes_str_len, uint8_t* out_data, size_t out_size)
-    {
-        const size_t req_num_bytes = get_num_bytes_in_hexbytes_string(hexbytes_str_len);
-        JXC_ASSERTF(out_size >= req_num_bytes,
-            "hexbytes_to_bytes requires {} bytes, but out_size is {}", req_num_bytes, out_size);
-
-        size_t str_idx = 0;
-        for (size_t i = 0; i < req_num_bytes; ++i)
-        {
-            out_data[i] = detail::hex_to_byte(hexbytes_str[str_idx], hexbytes_str[str_idx + 1]);
-            str_idx += 2;
-        }
-    }
-
-    size_t hexbytes_multiline_to_bytes(const char* hexbytes_str, size_t hexbytes_str_len, uint8_t* out_data, size_t out_size)
-    {
-        if (hexbytes_str_len == 0)
-        {
-            return 0;
-        }
-
-        size_t out_data_idx = 0;
-
-        ::jxc::detail::MiniBuffer<char, 2> buf;
-        int buf_idx = 0;
-
-        for (size_t i = 0; i < hexbytes_str_len; i++)
-        {
-            const char ch = hexbytes_str[i];
-            if (detail::is_hexbytes_char(ch))
-            {
-                buf.buf[buf_idx] = ch;
-                ++buf_idx;
-
-                if (buf_idx == 2)
-                {
-                    if (out_data_idx >= out_size)
-                    {
-                        return 0;
-                    }
-
-                    out_data[out_data_idx] = detail::hex_to_byte(buf.buf[0], buf.buf[1]);
-                    ++out_data_idx;
-
-                    buf_idx = 0;
-                }
-            }
-        }
-
-        // flush the buffer if we still have any data in there
-        switch (buf_idx)
-        {
-        case 0:
-            break;
-        case 1:
-            // odd number of bytes - invalid byte string
-            return 0;
-        case 2:
-            if (out_data_idx >= out_size)
-            {
-                return 0;
-            }
-            out_data[out_data_idx] = detail::hex_to_byte(buf.buf[0], buf.buf[1]);
-            ++out_data_idx;
-            break;
-        default:
-            break;
-        }
-
-        return out_data_idx;
-    }
-
-} // namespace hexbytes
 
 
 template<typename LexerType>

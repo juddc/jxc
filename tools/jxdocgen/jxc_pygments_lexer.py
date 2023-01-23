@@ -177,7 +177,7 @@ class JXCLexer(pygments.lexer.Lexer):
                         assert text[tok.start_idx + i] == tok_value[0]
                         yield from self._lex_raw_string(tok.start_idx + i, tok_value, tok.tag)
                         continue
-                    elif str_prefix in ('bx', 'b64'):
+                    elif str_prefix == 'b64':
                         str_type = pygtoken.String.Other
 
                 yield tok.start_idx + i, str_type, tok_value

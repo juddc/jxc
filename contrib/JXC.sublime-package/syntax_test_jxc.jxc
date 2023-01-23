@@ -66,22 +66,12 @@ r'html(
 )html'
 
 # byte strings
-bx''
-bx"00ff"
-bx"( 00 ff )"
 b64"anhjIGZvcm1hdA=="
 b64"( anhjIGZ vcm1hdA== )"
 b64"(
     anhjIGZ
     vcm1hdA==
 )"
-bx"ff1122bbff"
-bx"35346a762a28265950232a5448463b736468673b6c"
-bx"(
-    35346a762a28265950232a
-    5448463b736468673b6c0f
-)"
-
 b64"/xEiu/8="
 b64"(
     LV+SYQ94r4HjyDS+PyMBTGqnRwFIbLEXYaGhj8yQbAvpaHRLdvxNLvfyjXL
@@ -115,7 +105,7 @@ b64"(
 (3.141)
 (25px)
 ("abc")
-(bx"00ff")
+(b64"/xEiu/8=")
 (true)
 (false)
 (null)
@@ -146,13 +136,13 @@ b64"(
 {
     x: 5
     y: 'abc'
-    z: bx'1122ff'
+    z: b64"/xEiu/8="
     q: [0, 50, 22]
 }
 {
     x : 5
     y: 'abc'
-    z: bx'1122ff'
+    z: b64"/xEiu/8="
     w: [1, 2, 3]
     true: '\tabc\n'
     false: 5
@@ -171,8 +161,8 @@ b64"(
     anno2: !vec.vec<vec.int<1px, 2px, 3px>, 'abc', vec.int>[1px, 2px, 3px],
     w: !vec<int, int, int>[1, 2, 3]
     q: rgb[0, 50, 22]
-    z: !color bx'1122ff'   # huh
-    z: color bx'1122ff'
+    z: !color b64"/xEiu/8="   # huh
+    z: color b64"/xEiu/8="
     qq: { x: !val 5, y: val 2, z: val 10 }
     0xff11: tag(a=5)
     0xff11: tag +5.2

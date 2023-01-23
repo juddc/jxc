@@ -17,9 +17,9 @@ These need a definitive answer before a 1.0 release.
     - Need to find an elegant solution to this so that users who _want_ all raw tokens for custom handling can get that, while users that expect [`2`, `-`, `-5`] get that.
 
 
-## Remove hexbyte type
-* Doesn't seem like this would get much use
-* Possibly replace with a Python-style bytes type that works like a string but converts to a byte array?
+## Add Python-style byte strings
+* Would work exactly like base64 strings, but more readable.
+* Ex. `b"abc\n\xFF\x00\x4aALLOWS_ascii_CHARS"`
 
 
 ## Add native datetime type
@@ -29,16 +29,31 @@ These need a definitive answer before a 1.0 release.
         - This has the advantage of being easily convertable to a string for any system that does not have a standard datetime type, while maintaining the benefit of having the values be validated at parse time.
 
 
-## Add native support for NaN, +Inf, and -Inf
+## Add native support for NotANumber, +Infinity, and -Infinity
 * This is easily supportable with annotations and expressions, but it would be nice to have a standard way to do this for interoperability.
 - JXC has no reserved annotation types, so for this to make sense it would need to have a syntax that's unambigious
 - JXC only has three reserved multi-character tokens (`null`, `true`, and `false`), and it seems odd to reserve more, especially for values that are much more rarely used
 - Need to bikeshed this more. Possible syntaxes:
-    - Require a sign character on infinity, so that we're only adding a single new identifier (`nan`).
+    - Require a sign character on infinity, so that we're effectively only adding a single new identifier that could potentially conflict with user identifiers (`nan`).
         - `+inf`
         - `-inf`
         - `nan`
             - One possible footgun with this approach is object keys. If `nan` is used as an unquoted object key, is that a parse error, or should it treat `nan` as an identifier in that case? Note that floats are already not valid object keys. This could create a small amount of ambiguity.
+    - Use annotations. The upside to this is that it might require no language changes. The downside is that that would effectively reserve a specific annotation, depending on the syntax chosen.
+        - If this option were selected, this could potentially be a _convention_ rather than syntax.
+        - One possibility is adding some kind of syntax or convention that indicates the following annotation is a language-reserved type. Some options:
+            - A single-character token that is only for reserved annotations.
+                - `@float(nan)`
+                - `@float(+inf)`
+                - `@float(-inf)`
+            - Python-style double-underscores
+                - `__float__(nan)`
+                - `__float__(+inf)`
+                - `__float__(-inf)`
+            - A language-reserved prefix
+                - `jxc.float(nan)`
+                - `jxc.float(+inf)`
+                - `jxc.float(-inf)`
     - Use a number prefix (like the hex/oct/bin prefixes) so the constants always get parsed by the existing number parser. Trivial to parse, but reads poorly.
         - `0f.nan` or `0fnan`
         - `+0f.inf` or `+0finf`

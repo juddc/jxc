@@ -415,9 +415,6 @@ struct SerializerSettings
 {
     bool pretty_print = true;
 
-    // if true, uses hexbytes instead of base64 (more readable, but takes up more space)
-    bool encode_bytes_as_hexbytes = false;
-
     int32_t target_line_length = 80;
     std::string indent = "    ";
     std::string linebreak = "\n";
@@ -431,7 +428,6 @@ struct SerializerSettings
     {
         SerializerSettings result;
         result.pretty_print = false;
-        result.encode_bytes_as_hexbytes = false;
         result.target_line_length = -1;
         result.indent.clear();
         result.linebreak.clear();
@@ -504,87 +500,44 @@ namespace base64
 } // namespace base64
 
 
-namespace hexbytes
+namespace detail
 {
-    namespace detail
-    {
-        static constexpr uint8_t hex_char_to_byte_table[] = {
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  0,  0,  0,  0,  0,  0,
-            0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-        };
 
-        static constexpr char byte_to_hex_table[] = "0123456789abcdef";
+static constexpr uint8_t hex_char_to_byte_table[] = {
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  0,  0,  0,  0,  0,  0,
+    0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+};
 
-        inline void byte_to_hex(uint8_t value, char& out_char_a, char& out_char_b)
-        {
-            out_char_a = byte_to_hex_table[value >> 4];
-            out_char_b = byte_to_hex_table[value & 0xF];
-        }
+static_assert(sizeof(hex_char_to_byte_table) == 256, "Expected hex_char_to_byte_table to have exactly 256 entries");
 
-        inline uint8_t hex_to_byte(char a, char b)
-        {
-            /*
-            auto hex_digit_to_int = [](char ch) -> uint8_t
-            {
-                if ('0' <= ch && ch <= '9') return ch - '0';
-                if ('a' <= ch && ch <= 'f') return ch - 'W';
-                if ('A' <= ch && ch <= 'F') return ch - '7';
-                return 0;
-            };
-            return (hex_digit_to_int(a) << 4) | hex_digit_to_int(b);
-            */
+inline uint8_t hex_to_byte(char a, char b)
+{
+    return (hex_char_to_byte_table[static_cast<size_t>(a)] << 4) | hex_char_to_byte_table[static_cast<size_t>(b)];
+}
 
-            // table-based implementation is much faster in tight loops
-            return (hex_char_to_byte_table[static_cast<size_t>(a)] << 4) | hex_char_to_byte_table[static_cast<size_t>(b)];
-        }
+static constexpr char byte_to_hex_table[] = "0123456789abcdef";
 
-        inline bool is_hexbytes_char(char ch)
-        {
-            return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
-        }
-    } // namespace detail
+inline void byte_to_hex(uint8_t value, char& out_char_a, char& out_char_b)
+{
+    out_char_a = byte_to_hex_table[value >> 4];
+    out_char_b = byte_to_hex_table[value & 0xF];
+}
 
-    // returns the number of characters that would be needed in a hexbytes string to store the specified number of bytes
-    inline size_t get_hexbytes_string_size(size_t num_bytes)
-    {
-        return num_bytes * 2;
-    }
-
-    // returns the number of bytes represented in a hexbytes string
-    inline size_t get_num_bytes_in_hexbytes_string(size_t hexbytes_str_len)
-    {
-        if (hexbytes_str_len % 2 != 0)
-        {
-            // Input data size is not a multiple of 2
-            return 0;
-        }
-        return hexbytes_str_len / 2;
-    }
-
-    // returns the number of bytes represented in a multiline hexbytes string (needs to scan the whole string to ignore whitespace)
-    size_t get_num_bytes_in_multiline_hexbytes_string(const char* hexbytes_str, size_t hexbytes_str_len);
-
-    void bytes_to_hexbytes(const uint8_t* bytes, size_t bytes_len, char* out_data, size_t out_size);
-    void hexbytes_to_bytes(const char* hexbytes_str, size_t hexbytes_str_len, uint8_t* out_data, size_t out_size);
-
-    // returns the number of bytes written
-    size_t hexbytes_multiline_to_bytes(const char* hexbytes_str, size_t hexbytes_str_len, uint8_t* out_data, size_t out_size);
-
-} // namespace hexbytes
+} // namespace detail
 
 
 struct OwnedTokenSpan

@@ -16,10 +16,9 @@ variables:
   number_start: '[\-\+0-9]'
   string_start: '{{quote_s}}|{{quote_d}}'
   string_raw_start: '{{str_prefix_raw}}{{quote_s}}|{{str_prefix_raw}}{{quote_d}}'
-  string_hex_start: '{{str_prefix_hex}}{{quote_s}}|{{str_prefix_hex}}{{quote_d}}'
   string_base64_start: '{{str_prefix_base64}}{{quote_s}}|{{str_prefix_base64}}{{quote_d}}'
 
-  value_start: '{{constant_value}}|{{number_start}}|{{string_start}}|{{string_raw_start}}|{{string_hex_start}}|{{string_base64_start}}|\[|\(|\{'
+  value_start: '{{constant_value}}|{{number_start}}|{{string_start}}|{{string_raw_start}}|{{string_base64_start}}|\[|\(|\{'
   
   bin_digit: '[01]+'
   oct_digit: '[0-7]+'
@@ -32,7 +31,6 @@ variables:
   quote_d: \"
   str_prefix_raw: 'r'
   str_prefix_base64: 'b64'
-  str_prefix_hex: 'bx'
   expr_combinable_operator: '[\|\&\!\=\+\-\*\/\%\^\?\~\<\>\;]'
 
   identifier: '[a-zA-Z_$][a-zA-Z0-9_$]*'
@@ -167,14 +165,6 @@ contexts:
 
   string_bytes_single_line:
     - meta_scope: meta.byte_string.jxc
-      # single-line hex-encoded byte string
-    - match: (bx)([\"\'])([a-fA-F0-9]{2}*)(\2)
-      captures:
-        1: storage.type.string.jxc
-        2: punctuation.definition.string.begin.jxc
-        3: constant.numeric.integer.hexadecimal.jxc
-        4: punctuation.definition.string.end.jxc
-
     # single-line base64-encoded byte string
     - match: (b64)([\"\'])([a-zA-Z0-9\+\/]*)(\={0,2})(\2)
       captures:
@@ -186,20 +176,6 @@ contexts:
 
   string_bytes_multi_line:
     - meta_scope: meta.byte_string.jxc
-    # multi-line hex-encoded byte string
-    - match: (bx)([\"\'])\(
-      captures:
-        1: storage.type.string.jxc
-        2: punctuation.definition.string.begin.jxc
-      push:
-        - match: '[a-fA-F0-9]{2}'
-          scope: constant.numeric.integer.hexadecimal.jxc
-        - match: '[^a-fA-F0-9\s\)]'
-          scope: invalid.illegal.jxc
-        - match: \)\2
-          scope: punctuation.definition.string.end.jxc
-          pop: true
-
     # multi-line base64-encoded byte string
     - match: (b64)([\"\'])(\()
       captures:

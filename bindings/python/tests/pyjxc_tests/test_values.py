@@ -110,8 +110,6 @@ class SimpleValueTests(unittest.TestCase):
         self.assertEqual(jxc.loads(r'''r"HEREDOC(this is a\n raw string\t\)HEREDOC"'''), "this is a\\n raw string\\t\\")
 
     def test_parse_bytes(self):
-        self.assertEqual(jxc.loads("bx\'\'"), b"")
-        self.assertEqual(jxc.loads("bx\'00ff\'"), b"\x00\xff")
         self.assertEqual(jxc.loads("b64\'\'"), b"")
         self.assertEqual(jxc.loads("b64\'anhjIGZvcm1hdA==\'"), b"jxc format")
 
@@ -197,7 +195,8 @@ class SimpleValueTests(unittest.TestCase):
         self.assertEqual(jxc.loads("(true)"), [True])
         self.assertEqual(jxc.loads("(true || false)"), [True, '|', '|', False])
         self.assertEqual(jxc.loads("('abc')"), ['abc'])
-        self.assertEqual(jxc.loads("(bx'00ff')"), [b'\x00\xff'])
+        self.assertEqual(jxc.loads("(b64'/xEiu/8=')"), [b'jxc'])
+        self.assertEqual(jxc.loads("(b64'( /xE iu/8= )')"), [b'jxc'])
 
     def test_enum_unhandled_exception_bug(self):
         class TestEnum(enum.Enum):

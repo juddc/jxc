@@ -19,7 +19,7 @@ basic_value_types: [
     # strings
     "", '', "abc", 'def', "\tzzzzzzz1234\n",
     # byte strings
-    bx'', bx"00ff", bx"( 00 ff )", b64"anhjIGZvcm1hdA==", b64"( anhjIGZ vcm1hdA== )",
+    b64"anhjIGZvcm1hdA==", b64"( anhjIGZ vcm1hdA== )",
     # arrays
     [], [1,2,3], [null, 3.141, true],
     # objects
@@ -56,7 +56,7 @@ expression_values: [
     (3.141)
     (25px)
     ("abc")
-    (bx"00ff")
+    (b64"/xEiu/8=")
     (true)
     (false)
     (null)
@@ -167,15 +167,11 @@ string_types: [
     # JXC supports binary data by encoding it as hex (generally useful for small values)
     # or base64 (generally useful for larger values).
 
-    # Hex-encoded byte-strings (two-character hex pair per byte)
-    bx"6a7863"
-
     # Base64-encoded byte strings
     b64"anhjIGZvcm1hdA=="
 
-    # Both byte string formats support adding an inner set of parentheses, which allows linebreaks
+    # Base64-encoded strings support adding an inner set of parentheses, which allows linebreaks
     # and whitespace that is ignored when decoding these values.
-    bx"( 6a 78 63 )"
     b64"(
         LV+SYQ94r4HjyDS+PyMBTGqnRwFIbLEXYaGhj8yQbAvpaHRLdvxNLvfyjXL
         Y4bZGdMLHQjsU0yVxl3vsMkBoMVUJoFlnvlyxIX3mf/GQKZ5FShhynSq33v
@@ -191,12 +187,12 @@ string_types: [
 
     # JXC does not support custom string prefixes to avoid conflicts with future format revisions.
     # Instead you can simply use type annotations to associate a tag or type. This also allows you
-    # to combine annotations with builtin prefixes (eg. `custom_str bx"0102"`).
+    # to combine annotations with builtin prefixes (eg. `custom_str b64"/xEiu/8="`).
     # Note that unlike container types, type annotations associated with single-value types MUST have
     # whitespace separating it from the first character in the value (in this case the quote character)
     # to avoid ambiguity.
     custom_string "abcdef"
-    custom_string bx"05ff"
+    custom_string b64"/xEiu/8="
     date "1998-03-11T17:14:12.456Z"
     #regex r'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
 

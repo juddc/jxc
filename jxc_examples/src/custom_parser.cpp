@@ -589,7 +589,7 @@ int main(int argc, const char** argv)
 
     // parse a byte array
     {
-        Parser parser("bx'0abf6c9fff'");
+        Parser parser("b64'( Cr9s n/8= )'");
         value_t value = parser.parse();
         assert(value.is_bytes());
         const auto& bytes = value.as<bytes_t>();
@@ -601,11 +601,6 @@ int main(int argc, const char** argv)
         assert(bytes[4] == 0xff);
 
         jxc::SerializerSettings settings{};
-
-        settings.encode_bytes_as_hexbytes = true;
-        assert(value.to_jxc(settings) == "bx\"0abf6c9fff\"");
-
-        settings.encode_bytes_as_hexbytes = false;
         assert(value.to_jxc(settings) == "b64\"Cr9sn/8=\"");
     }
 

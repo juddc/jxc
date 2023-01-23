@@ -24,9 +24,7 @@ JXC is a structured data language similar to JSON, but with a focus on being exp
 
 - **Raw strings**. Raw strings (`r'()'`) are strings without any escape characters, allowing a much greater range of possible values without dealing with escaping every single backslash or quote character. These are multi-line strings that support the heredoc syntax for even greater flexibility (`r'HEREDOC()HEREDOC'`). Raw strings are excellent for regular expressions or embedded scripting language snippets.
 
-- **Hexbyte strings**. JXC has support for hexadecimal strings in the form `bx"aaff00"` that can return byte arrays. If you add parentheses they also support whitespace, including line breaks (`bx"( aa ff 00 )"`).
-
-- **Base64 strings**. JXC has first-class support for base64 (`b64"anhjIGZvcm1hdA=="`) to make it easy to include binary data when needed. Like hexbyte strings, you can add parentheses to be able to add whitespace and linebreaks anywhere (`b64"(  anhjIGZvc  m1hdA==  )"`)
+- **Base64 strings**. JXC has first-class support for base64 (`b64"anhjIGZvcm1hdA=="`) to make it easy to include binary data when needed. You can add parentheses to allow whitespace and linebreaks anywhere (`b64"(  anhjIGZvc  m1hdA==  )"`)
 
 
 ## What does it look like?
@@ -37,8 +35,7 @@ JXC is a structured data language similar to JSON, but with a focus on being exp
   * Numbers (int, float, hex, octal, binary): `123`, `1.234`, `0xff`, `0o777`, `0b1011`
   * Strings: `"abc"`, `'abc'`
   * Raw strings: `r"(abc)"`, `r"HEREDOC(multi-line string)HEREDOC"`
-  * Hex-byte strings: `bx''`, `bx"00ff"`, `bx"( 00 ff )"`
-  * Base64-byte strings: `b64''`, `b64"/xEiu/8="`, `b64"( /xE iu/8= )"`
+  * Base64 strings: `b64''`, `b64"/xEiu/8="`, `b64"( /xE iu/8= )"`
   * Lists: `[]`, `[0, 1, 2]`, `[true, null, 1.25rem]`
   * Objects: `{}`, `{"x": 0, "y": 2, "z": 3}`, `{x: 0, y: 2, z: 3}`
   * Expressions: `()`
@@ -54,7 +51,7 @@ JXC is a structured data language similar to JSON, but with a focus on being exp
   * Annotations must start with a identifier:
   * `vec3{ x: 0, y: 0, z: 1 }`
   * `rgb[255, 255, 127]`
-  * `rgb bx'ffffcc'` (NB. Single-value types must have a space between the annotation and the value. Container types can omit the space.)
+  * `rgb 0xFF9ACC` (NB. Single-value types must have a space between the annotation and the value. Container types can omit the space.)
   * `hsva{ h: 1.0, s: 0.5, v: 0.5, a: 0.95 }`
   * `box{ top: 20%, left: 25%, width: 200px, height: 200px }`
   * Multiple identifiers can be used if you separate them with dots:

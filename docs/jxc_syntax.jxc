@@ -12,7 +12,6 @@ value: Choice[
         Choice[
             MatchGroupRef "string"
             MatchGroupRef "string_raw"
-            MatchGroupRef "string_hexbyte"
             MatchGroupRef "string_base64"
             MatchGroupRef "number"
             String "true"
@@ -47,7 +46,6 @@ annotation_inner: Choice<OptionalCommon>[
     MatchGroupRef<OneOrMore>[repeat('.'), "identifier"]
     MatchGroupRef "string"
     MatchGroupRef "string_raw"
-    MatchGroupRef "string_hexbyte"
     MatchGroupRef "number"
     String "true"
     String "false"
@@ -79,7 +77,6 @@ object: Sequence[
                 Choice[
                     MatchGroupRef<OneOrMore>[repeat('.'), "key_identifier"]
                     MatchGroupRef 'string'
-                    MatchGroupRef 'string_hexbyte'
                     MatchGroupRef 'number_integer'
                     String "null"
                     String "true"
@@ -135,7 +132,6 @@ expression_item: Choice[
     MatchGroupRef "identifier"
     MatchGroupRef "string"
     MatchGroupRef "string_raw"
-    MatchGroupRef "string_hexbyte"
     MatchGroupRef "string_base64"
     MatchGroupRef "number_unsigned"
     String "true"
@@ -315,42 +311,6 @@ heredoc: Sequence[
     Comment '(max 15 characters)'
 ]
 
-string_hexbyte: Sequence[
-    Choice[
-        Sequence[
-            String 'bx"'
-            Sequence<ZeroOrMore>[
-                MatchGroupRef "hex_digit"
-            ]
-            Character '"'
-        ]
-        Sequence[
-            String "bx'"
-            Sequence<ZeroOrMore>[
-                MatchGroupRef "hex_digit"
-            ]
-            Character "'"
-        ]
-        Sequence[
-            String 'bx"('
-            Choice<ZeroOrMore>[
-                MatchGroupRef "hex_digit"
-                Whitespace()
-            ]
-            String ')"'
-        ]
-        Sequence[
-            String "bx'("
-            Choice<ZeroOrMore>[
-                MatchGroupRef "hex_digit"
-                Whitespace()
-            ]
-            String ")'"
-        ]
-    ]
-    Comment "Digit count must be a multiple of 2"
-]
-
 string_base64: Sequence[
     Choice[
         Sequence[
@@ -447,7 +407,10 @@ number_unsigned_dec: Sequence[
 ]
 
 number_unsigned_hex: Sequence[
-    String "0x"
+    Choice[
+        String "0x"
+        String "0X"
+    ]
     MatchGroupRef<OneOrMore> "hex_digit"
     Sequence<OptionalCommon>[
         Character '_'
@@ -456,7 +419,10 @@ number_unsigned_hex: Sequence[
 ]
 
 number_unsigned_bin: Sequence[
-    String "0b"
+    Choice[
+        String "0b"
+        String "0B"
+    ]
     MatchGroupRef<OneOrMore> "bin_digit"
     Sequence<OptionalCommon>[
         Character<Optional> '_'
@@ -465,7 +431,10 @@ number_unsigned_bin: Sequence[
 ]
 
 number_unsigned_oct: Sequence[
-    String "0o"
+    Choice[
+        String "0o"
+        String "0O"
+    ]
     MatchGroupRef<OneOrMore> "oct_digit"
     Sequence<OptionalCommon>[
         Character<Optional> '_'
@@ -525,6 +494,5 @@ base64_digit: Choice[
     Character '/'
     Character '='
 ]
-
 
 }

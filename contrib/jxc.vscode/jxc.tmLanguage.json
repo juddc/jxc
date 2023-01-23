@@ -169,36 +169,6 @@
             ]
         },
 
-        "string_bytes_single_line": {
-            "match": "(bx)(['\"])([0-9a-fA-F]*)(\\2)",
-            "captures": {
-                "1": { "name": "storage.type.string.bytes.jxc" },
-                "2": { "name": "storage.type.string.quote.jxc" },
-                "3": { "name": "string.quoted.raw.jxc" },
-                "4": { "name": "storage.type.string.quote.jxc" }
-            }
-        },
-
-        "string_bytes_multi_line": {
-            "begin": "(bx)(['\"])(\\()",
-            "end": "(\\))(\\2)",
-            "beginCaptures": {
-                "1": { "name": "storage.type.string.bytes.jxc" },
-                "2": { "name": "storage.type.string.quote.jxc" },
-                "3": { "name": "storage.type.string.parens.jxc" }
-            },
-            "endCaptures": {
-                "1": { "name": "storage.type.string.parens.jxc" },
-                "2": { "name": "storage.type.string.quote.jxc" }
-            },
-            "patterns": [
-                {
-                    "match": "[0-9a-fA-F]+",
-                    "name": "string.quoted.raw.jxc"
-                }
-            ]
-        },
-
         "string_base64_single_line": {
             "begin": "(b64)(['\"])",
             "end": "(\\2)",
@@ -298,7 +268,6 @@
                 { "include": "#number_float" },
                 { "include": "#number_integer" },
                 { "include": "#string_single_line" },
-                { "include": "#string_bytes_single_line" },
                 { "include": "#string_base64_single_line" },
                 { "include": "#expr_operator" },
                 { "include": "#expr_identifier" }
@@ -346,7 +315,6 @@
                 },
                 { "include": "#constant_null" },
                 { "include": "#constant_bool" },
-                { "include": "#string_bytes_single_line" },
                 { "include": "#string_raw_single_line" },
                 {
                     "match": "[*?|&=]",
@@ -388,8 +356,6 @@
                 { "include": "#constant_bool" },
                 { "include": "#number_float" },
                 { "include": "#number_integer" },
-                { "include": "#string_bytes_multi_line" },
-                { "include": "#string_bytes_single_line" },
                 { "include": "#string_base64_multi_line" },
                 { "include": "#string_base64_single_line" },
                 { "include": "#string_raw_single_line" },
@@ -404,12 +370,12 @@
         "value": {
             "patterns": [
                 {
-                    "match": "(?=true|false|null|[\\-\\+]|[0-9]|['\"]|r['\"]|bx['\"]|b64['\"]|\\[|\\(|\\{)",
+                    "match": "(?=true|false|null|[\\-\\+]|[0-9]|['\"]|r['\"]|b64['\"]|\\[|\\(|\\{)",
                     "include": "#unannotated_value"
                 },
                 {
                     "begin": "(\\!)?([a-zA-Z_$][a-zA-Z0-9_$]*)",
-                    "end": "(?=true|false|null|[\\-\\+]|[0-9]|['\"]|r['\"]|bx['\"]|b64['\"]|\\[|\\(|\\{)",
+                    "end": "(?=true|false|null|[\\-\\+]|[0-9]|['\"]|r['\"]|b64['\"]|\\[|\\(|\\{)",
                     "captures": {
                         "1": { "name": "keyword.operator.jxc" },
                         "2": { "name": "entity.name.type.jxc" }

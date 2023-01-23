@@ -165,18 +165,6 @@ TEST(jxc_core, JumpParserSimple)
     EXPECT_PARSE_SINGLE("r\"HEREDOC(abc)HEREDOC\"", make_element(ElementType::String, make_token(TokenType::String, "r\"HEREDOC(abc)HEREDOC\"")));
     EXPECT_PARSE_SINGLE("r'HEREDOC(abc)HEREDOC'", make_element(ElementType::String, make_token(TokenType::String, "r'HEREDOC(abc)HEREDOC'")));
 
-    // hexbyte strings
-    EXPECT_PARSE_SINGLE("bx\"\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"\"")));
-    EXPECT_PARSE_SINGLE("bx''", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx''")));
-    EXPECT_PARSE_SINGLE("bx\"00acff\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"00acff\"")));
-    EXPECT_PARSE_SINGLE("bx'00acff'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx'00acff'")));
-
-    // hexbyte strings (with parens - allows whitespace)
-    EXPECT_PARSE_SINGLE("bx\"()\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"()\"")));
-    EXPECT_PARSE_SINGLE("bx'()'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx'()'")));
-    EXPECT_PARSE_SINGLE("bx\"( 00 ac ff )\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx\"( 00 ac ff )\"")));
-    EXPECT_PARSE_SINGLE("bx'( 00 ac ff )'", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "bx'( 00 ac ff )'")));
-
     // base64 strings
     EXPECT_PARSE_SINGLE("b64\"\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"\"")));
     EXPECT_PARSE_SINGLE("b64''", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64''")));
@@ -439,7 +427,7 @@ TEST(jxc_core, NumberParsing)
     EXPECT_PARSE_NUMBER("0", '+', "", "0", 0, "");
     EXPECT_PARSE_NUMBER("-1", '-', "", "1", 0, "");
     EXPECT_PARSE_NUMBER("1e20", '+', "", "1", 20, "");
-    EXPECT_PARSE_NUMBER("-0x4f_px", '-', "0x", "4f", 0, "_px");
+    EXPECT_PARSE_NUMBER("-0x4f_px", '-', "0x", "4f", 0, "px");
     EXPECT_PARSE_NUMBER("0x0", '+', "0x", "0", 0, "");
     EXPECT_PARSE_NUMBER("0x1", '+', "0x", "1", 0, "");
     EXPECT_PARSE_NUMBER("0b1", '+', "0b", "1", 0, "");
@@ -568,14 +556,6 @@ testing::AssertionResult test_parse_bytes(const char* jxc_string_str, const char
 
 TEST(jxc_core, BytesParsing)
 {
-    EXPECT_PARSE_BYTES("bx''");
-    EXPECT_PARSE_BYTES("bx'00'", 0x00);
-    EXPECT_PARSE_BYTES("bx'AF'", 0xaf);
-    EXPECT_PARSE_BYTES("bx'2a00ff'", 0x2a, 0x00, 0xff);
-    EXPECT_PARSE_BYTES("bx\"001abf001a\"", 0x00, 0x1a, 0xbf, 0x00, 0x1a);
-    EXPECT_PARSE_BYTES("bx\"( 00 1a bf 00 1a )\"", 0x00, 0x1a, 0xbf, 0x00, 0x1a);
-    EXPECT_PARSE_BYTES("bx\"(\n 0 0 \n 1 a \n b f \n 0 0 \n 1 a \n)\"", 0x00, 0x1a, 0xbf, 0x00, 0x1a);
-
     EXPECT_PARSE_BYTES("b64''");
     EXPECT_PARSE_BYTES("b64'AA=='", 0x00);
     EXPECT_PARSE_BYTES("b64'+g=='", 0xfa);
@@ -659,16 +639,11 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("abc", StringQuoteMode::Single); }), "'abc'");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("abc\ndef", StringQuoteMode::Single); }), "'abc\\ndef'");
 
-    /// raw strings
+    // raw strings
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("", StringQuoteMode::Single); }), "r'()'");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("", StringQuoteMode::Single, "HEREDOC"); }), "r'HEREDOC()HEREDOC'");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("abc\ndef", StringQuoteMode::Single); }), "r'(abc\ndef)'");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string_raw("abc\ndef", StringQuoteMode::Single, "HEREDOC"); }), "r'HEREDOC(abc\ndef)HEREDOC'");
-
-    // hexbyte strings
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_hex(BytesView(), StringQuoteMode::Single); }), "bx''");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_hex(BytesValue({ 0x0, 0xD, 0x7C }), StringQuoteMode::Single); }), "bx'000d7c'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_hex(BytesValue({ 0x0, 0xD, 0x7C, 0x4F }), StringQuoteMode::Single); }), "bx'000d7c4f'");
 
     // base64 strings
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesView(), StringQuoteMode::Single); }), "b64''");
