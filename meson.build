@@ -31,12 +31,17 @@ endif
 libjxc = static_library(
     'jxc',
     sources: libjxc_src,
-    dependencies: subproject('fast_float').get_variable('fast_float_dep'),
+    dependencies: [
+        subproject('fast_float').get_variable('fast_float_dep'),
+    ],
     include_directories: libjxc_inc,
     install: true)
 
 libjxc_dep = declare_dependency(
     include_directories: libjxc_inc,
+    dependencies: [
+        subproject('fast_float').get_variable('fast_float_dep')
+    ],
     link_with: libjxc)
 
 libjxc_cpp_inc = include_directories('jxc_cpp/include')
@@ -58,7 +63,13 @@ libjxc_cpp = static_library(
 
 libjxc_cpp_dep = declare_dependency(
     include_directories: libjxc_cpp_inc,
-    link_with: libjxc)
+    dependencies: [
+        subproject('unordered_dense').get_variable('unordered_dense_dep'),
+    ],
+    link_with: [
+        libjxc,
+        libjxc_cpp,
+    ])
 
 if not meson.is_subproject()
     install_headers('jxc/jxc_array.h', subdir: 'jxc')
