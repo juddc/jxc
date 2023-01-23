@@ -64,31 +64,20 @@ SiteGenerator{
     # ]
 
     code_styles: [
+        # dark
         'onemonokai'
-        'monokai'
         'solarized-dark'
-        'stata-dark'
-        'paraiso-dark'
-        'zenburn'
-        'gruvbox-dark'
+        'monokai'
         'dracula'
         'one-dark'
-        'nord'
         'github-dark'
-
+        # light
         'ayu'
-        'paraiso-light'
         'solarized-light'
-        'stata-light'
-        'gruvbox-light'
-        'lilypond'
-        'algol'
         'emacs'
         'perldoc'
-        'borland'
         'bw'
         'vs'
-        'tango'
     ]
     default_code_style: 'onemonokai'
 
@@ -120,6 +109,12 @@ SiteGenerator{
             source: 'introduction.md'
         }
         MarkdownPage{
+            title: 'Installing'
+            template: Template{ file: 'markdown.html' }
+            output: 'dependency.html'
+            source: 'dependency.md'
+        }
+        MarkdownPage{
             title: 'JXC Core Library'
             template: Template{ file: 'markdown.html' }
             output: 'jxc_core_library.html'
@@ -130,12 +125,6 @@ SiteGenerator{
             template: Template{ file: 'markdown.html' }
             output: 'jxc_cpp_library.html'
             source: 'jxc_cpp_library.md'
-        }
-        MarkdownPage{
-            title: 'Using JXC as a C++ Dependency'
-            template: Template{ file: 'markdown.html' }
-            output: 'dependency.html'
-            source: 'dependency.md'
         }
         MarkdownPage{
             title: 'JXC Python Library'

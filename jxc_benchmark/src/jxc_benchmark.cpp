@@ -7,8 +7,11 @@
 #include "jxc_cpp/jxc_document.h"
 
 
+#if !defined(COMPARE_AGAINST_NLOHMANN_JSON) && __has_include("nlohmann/json.hpp")
+#define COMPARE_AGAINST_NLOHMANN_JSON 1
+#else
 #define COMPARE_AGAINST_NLOHMANN_JSON 0
-
+#endif
 
 #if COMPARE_AGAINST_NLOHMANN_JSON
 #include <nlohmann/json.hpp>

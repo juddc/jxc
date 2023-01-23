@@ -9,7 +9,7 @@ The JXC Python library has two APIs - a simple one similar to `json.loads`/`json
 import jxc
 print(jxc.loads("[1, 2, true, null, {}]"))
 ```
-```python
+```
 [1, 2, True, None, {}]
 ```
 
