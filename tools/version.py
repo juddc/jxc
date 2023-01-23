@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+
 def find_defines(filename):
     """
     Generator that returns all #define lines in a file.
@@ -25,7 +30,13 @@ if __name__ == "__main__":
         'JXC_VERSION_PATCH': None,
     }
 
-    for def_name, def_value in find_defines('./jxc/include/jxc/jxc_core.h'):
+    repo_root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    jxc_core_path = os.path.join(repo_root, 'jxc', 'include', 'jxc', 'jxc_core.h')
+    if not os.path.exists(jxc_core_path):
+        print(f'Error: jxc_core.h not found. Tried {jxc_core_path!r}', file=sys.stderr)
+        sys.exit(1)
+
+    for def_name, def_value in find_defines(jxc_core_path):
         if def_name in version:
             version[def_name] = def_value
         if all(v is not None for v in version.values()):

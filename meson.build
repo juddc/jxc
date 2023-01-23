@@ -1,11 +1,11 @@
 project('jxc',
     'cpp',
     meson_version: '>= 0.56.0',
-    version: run_command(find_program('python', 'tools/version.py'), check: true).stdout().strip(),
+    version: run_command(find_program('tools/version.py'), check: true).stdout().strip(),
     default_options: ['warning_level=2', 'cpp_std=c++20'],
 )
 
-libjxc_inc = include_directories('include')
+libjxc_inc = include_directories('jxc/include')
 libjxc_src = [
     'jxc/src/jxc_core.cpp',
     'jxc/src/jxc_lexer.cpp',
@@ -17,7 +17,6 @@ libjxc_src = [
 
 re2c_exe = find_program('re2c', version: '>=3.0', required: false)
 if re2c_exe.found()
-    message('re2c found; regenerating lexer')
     re2c_generator = generator(
         re2c_exe,
         output: '@BASENAME@.cpp',

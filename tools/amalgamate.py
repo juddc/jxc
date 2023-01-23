@@ -600,7 +600,7 @@ if __name__ == "__main__":
             deps.add(name)
 
     if args.all_dependencies:
-        deps.add("fast_float.h")
+        deps.add("fastfloat.h")
         deps.add("unordered_dense.h")
 
     amalgamate(jxc_path, deps_path, args.output, jxc_cpp_dir=jxc_cpp_path, deps=deps)

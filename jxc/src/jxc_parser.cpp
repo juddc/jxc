@@ -1,5 +1,5 @@
 #include "jxc/jxc_parser.h"
-#include "fast_float.h"
+#include "fastfloat.h"
 
 
 namespace jxc
