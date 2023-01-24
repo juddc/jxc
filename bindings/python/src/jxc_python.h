@@ -19,7 +19,7 @@ inline size_t python_index(int64_t idx, size_t container_size)
     }
 
     // bounds check
-    if (idx < 0 || idx >= container_size)
+    if (idx < 0 || idx >= static_cast<int64_t>(container_size))
     {
         throw py::index_error(jxc::format("Index {} out of range for container of size {}", idx, container_size));
     }
