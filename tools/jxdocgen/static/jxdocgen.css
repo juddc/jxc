@@ -79,6 +79,19 @@ html {
     line-height: 1.5;
 }
 
+::-webkit-scrollbar {
+    width: max(1.2vmin, 8px);
+    height: max(1.2vmin, 8px);
+    background: var(--background-color-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--border-accent-color);
+    border-radius: var(--border-radius);
+    box-shadow: 0 0 1vmin rgba(0, 0, 0, 0.5) inset;
+}
+
 body {
     background-color: var(--background-color-secondary);
     color: var(--text-color-primary);
@@ -180,8 +193,9 @@ body.light .code {
 .code {
     position: relative;
     height: calc(100%);
-    overflow-x: scroll;
+    overflow-x: auto;
     padding: 0.7vmin;
+    scrollbar-width: thin;
 
     border-radius: var(--border-radius);
     border: 1px solid var(--border-accent-color);
