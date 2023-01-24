@@ -159,6 +159,8 @@ JXC_FORCEINLINE int32_t _jxc_internal_msvc_count_leading_zeros(uint32_t value)
 #define JXC_DEBUG_ASSERTF(...)
 #endif
 
+#define JXC_MAX_HEREDOC_LENGTH 15
+
 namespace jxc::detail
 {
 template<typename T, size_t ExpectedSize, size_t ActualSize = sizeof(T)>

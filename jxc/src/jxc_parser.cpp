@@ -1069,6 +1069,15 @@ bool string_token_to_value(const Token& string_token, std::string_view& out_view
         std::string_view heredoc = string_token.tag.as_view();
         if (heredoc.size() > 0)
         {
+            if (heredoc.size() > JXC_MAX_HEREDOC_LENGTH)
+            {
+                out_error = ErrorInfo(jxc::format("Invalid heredoc {} with length {} (max length is {})",
+                    detail::debug_string_repr(heredoc), heredoc.size(), JXC_MAX_HEREDOC_LENGTH),
+                    string_token.start_idx,
+                    string_token.end_idx);
+                return false;
+            }
+
             if (detail::string_view_starts_with(out_view, heredoc))
             {
                 out_view = out_view.substr(heredoc.size());
