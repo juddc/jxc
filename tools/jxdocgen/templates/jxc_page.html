@@ -9,14 +9,18 @@
 {% endblock %}
 
 {% block script %}
-
-
 {% endblock %}
 
 {% block toolbar %}
 {% endblock %}
 
 {% block nav %}
+{% endblock %}
+
+{% block toc %}
+{% if toc_html %}
+{{ toc_html }}
+{% endif %}
 {% endblock %}
 
 {% block main %}

@@ -8,27 +8,9 @@
 {% endblock %}
 </title>
 <link rel="stylesheet" type="text/css" href="static/jxdocgen.css" />
+<link rel="stylesheet" type="text/css" href="static/generated_styles.css" />
 <style>
-
-{# Code CSS styles from Pygments #}
-{% for style_name, (style_type, style_css) in code_styles.items() %}
-/* BEGIN {{ style_name }} ({{ style_type }}) */
-{%- for line in style_css.split('\n') -%}
-{%- if not line.startswith(".code") %}
-.code.{{ style_name }} {{ line.rstrip() }}
-{%- else -%}
-{{ line.rstrip() }}
-{% endif -%}
-{%- endfor -%}
-.code.{{ style_name }} pre { line-height: 150%; }
-/* END {{ style_name }} ({{ style_type }}) */
-{% endfor %}
-
-{# Diagram styles from railroad-diagrams #}
-{{ diagram_styles }}
-
 {{ css }}
-
 {% block style %}
 {% endblock %}
 </style>
@@ -65,6 +47,8 @@ for (let style of window.CODE_STYLES) {
 <script src="static/jxdocgen.js"></script>
 </head>
 <body class="{{ body_class }}">
+
+<dialog id="tooltip" class="" data-name=""></dialog>
 
 {% macro code_color_theme_select(select_id) %}
     <select class="code-theme" id="{{ select_id }}">

@@ -1,33 +1,27 @@
-function getDiagram(name) {
-    return document.getElementById(`diagram-${name}`);
-}
-
-function onClickDiagramInSidebar(name) {
-
-}
-
-function onClickDiagramMatchGroupRef(name) {
-    let found = false;
-    for (let diag of window.DIAGRAMS) {
-        if (diag === name) {
-            found = true;
-            break;
-        }
+function getDiagram(groupRefName) {
+    if (groupRefName.toLocaleLowerCase() === 'ws') {
+        groupRefName = 'whitespace';
+    } else if (groupRefName.toLocaleLowerCase() == 'ws?') {
+        groupRefName = 'whitespace_optional';
     }
 
-    if (!found) {
-        console.error(`Clicked unknown MatchGroupRef "${name}"`);
-        return;
+    if (!(groupRefName in window.DIAGRAMS)) {
+        console.error(`Unknown MatchGroupRef "${groupRefName}"`);
+        return null;
     }
 
-    window.location.hash = name;
+    return window.DIAGRAMS[groupRefName];
+}
+
+function getDiagramName(diagNode) {
+    return diagNode.hasAttribute('data-diagram-name') ? diagNode.getAttribute('data-diagram-name') : '';
 }
 
 function findAllDiagrams() {
-    let result = [];
+    let result = {};
     for (let node of document.querySelectorAll('.diagram')) {
         if (node && node.hasAttribute("data-diagram-name")) {
-            result.push(node.getAttribute('data-diagram-name'));
+            result[node.getAttribute('data-diagram-name')] = node;
         }
     }
     return result;
@@ -117,7 +111,181 @@ function languageTagToLabel(lang) {
 }
 
 
+/*
+class Tooltip {
+    constructor(nodeID) {
+        this.visible = false;
+        this.currentMouseX = 0;
+        this.currentMouseY = 0;
+        this.node = null;
+        this.nodeID = nodeID;
+        this.offsetY = 30;
+        this.fadeTimeMS = 150;
+
+        this._fadeOutTimeout = null;
+    }
+
+    onDOMReady() {
+        this.node = document.getElementById(this.nodeID);
+        if (!this.node) {
+            console.error(`No tooltip in page with id '${nodeID}'`);
+        }
+
+        //this.node.style.transitionDelay = `${this.fadeTimeMS}ms`;
+        this.node.style.animationDuration = `${this.fadeTimeMS}ms`;
+    }
+
+    onMouseMove(x, y) {
+        this.currentMouseX = x;
+        this.currentMouseY = y;
+        if (this.node && this.visible) {
+            let tooltipRect = this.node.getBoundingClientRect();
+            let centerX = tooltipRect.width / 2;
+
+            let newLeft = `${x - centerX}px`;
+            let newTop = `${y + this.offsetY}px`;
+            if (this.node.style.left !== newLeft) {
+                this.node.style.left = newLeft;
+            }
+            if (this.node.style.top !== newTop) {
+                this.node.style.top = newTop;
+            }
+        }
+    }
+
+    _hasAttr(name) {
+        return this.node && this.node.hasAttribute(name);
+    }
+
+    _getAttr(name, convertFunc = null) {
+        if (convertFunc) {
+            return (this.node && this.node.hasAttribute(name)) ? convertFunc(this.node.getAttribute(name)) : null;
+        }
+        return this.node ? this.node.getAttribute(name) : null;
+    }
+
+    _setAttr(name, value) {
+        if (this.node) {
+            this.node.setAttribute(name, `${value}`);
+        }
+    }
+
+    setVisible(newName, contentSelector) {
+        if (!this.node) {
+            return;
+        }
+
+        // use the name attribute to determine if we need to change the _contents_ of the tooltip
+        if (this._getAttr('data-name') !== newName) {
+            this._setAttr('data-name', newName);
+
+            // update tooltip content - get a document element from contentSelector
+            let contentEle = null;
+            if (typeof contentSelector === 'string') {
+                contentEle = document.querySelector(contentSelector);
+            } else if (typeof contentSelector === 'function') {
+                contentEle = contentSelector();
+            } else {
+                contentEle = contentSelector;
+            }
+
+            if (contentEle) {
+                this.node.innerHTML = contentEle.innerHTML;
+            } else {
+                this.node.innerHTML = '';
+            }
+        }
+
+        // fade in
+        this.node.classList.remove('hide');
+        this.node.classList.add('show');
+        this.visible = true;
+    }
+
+    setHidden() {
+        if (!this.node) {
+            return;
+        }
+
+        // fade out
+        this.node.classList.add('hide');
+        this.node.classList.remove('show');
+        this.visible = false;
+    }
+}
+*/
+
+
+window.TOOLTIP_VISIBLE = false;
+
+
+function updateTooltipPosition(x, y) {
+    if (!window.TOOLTIP_VISIBLE) {
+        return;
+    }
+
+    let tooltip = document.getElementById('tooltip');
+
+    let offsetY = 30;
+    let tooltipRect = tooltip.getBoundingClientRect();
+    let centerX = tooltipRect.width / 2;
+
+    let newLeft = `${x - centerX}px`;
+    let newTop = `${y + offsetY}px`;
+    if (tooltip.style.left !== newLeft) {
+        tooltip.style.left = newLeft;
+    }
+    if (tooltip.style.top !== newTop) {
+        tooltip.style.top = newTop;
+    }
+}
+
+
+function setTooltipContent(contentName, contentSelector) {
+    let tooltip = document.getElementById('tooltip');
+    let currentContentName = tooltip.getAttribute('data-name');
+
+    if (currentContentName !== contentName) {
+        tooltip.setAttribute('data-name', contentName);
+
+        // update tooltip content - get a document element from contentSelector
+        let contentEle = null;
+        if (typeof contentSelector === 'string') {
+            contentEle = document.querySelector(contentSelector);
+        } else if (typeof contentSelector === 'function') {
+            contentEle = contentSelector();
+        } else {
+            contentEle = contentSelector;
+        }
+
+        if (contentEle) {
+            tooltip.innerHTML = contentEle.innerHTML;
+        } else {
+            tooltip.innerHTML = '';
+        }
+    }
+}
+
+
+function setTooltipVisible(isVisible) {
+    let tooltip = document.getElementById('tooltip');
+    if (isVisible) {
+        tooltip.classList.remove('hide');
+        tooltip.classList.add('show');
+        window.TOOLTIP_VISIBLE = true;
+    } else {
+        tooltip.classList.add('hide');
+        tooltip.classList.remove('show');
+        window.TOOLTIP_VISIBLE = false;
+    }
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
+    document.getElementsByTagName('html')[0].onmousemove = (evt) => {
+        updateTooltipPosition(evt.clientX, evt.clientY);
+    };
+
     // add language labels for code language blocks
     let langPrefix = 'language-';
     for (let codeBlock of document.querySelectorAll('.code')) {
@@ -197,11 +365,35 @@ document.addEventListener('DOMContentLoaded', () => {
         urlDiagram = urlDiagram.substring(1);
     }
 
-    // allow clicking on match groups
+    // allow clicking on match groups, and add a tooltip on hover to preview them
     let groupLinks = document.querySelectorAll('.MatchGroupRef');
     for (let link of groupLinks) {
-        link.onclick = () => {
-            onClickDiagramMatchGroupRef(link.querySelector('text').innerHTML);
-        };
+        let textEle = link.querySelector('text');
+
+        // each text element has a rect element just before it - that rect is what we want to interact with
+        let rectEle = null;
+        if (textEle && textEle.previousSibling && textEle.previousSibling.nodeName === 'rect') {
+            rectEle = textEle.previousSibling;
+        }
+
+        let diagNode = getDiagram(textEle.innerHTML);
+        let diagName = getDiagramName(diagNode);
+
+        if (diagName in window.DIAGRAMS) {
+            rectEle.addEventListener('click', () => {
+                if (diagName) {
+                    window.location.hash = diagName;
+                }
+            });
+
+            rectEle.addEventListener('mouseover', () => {
+                setTooltipContent(diagName, () => window.DIAGRAMS[diagName].querySelector('.diagram-outer'));
+                setTooltipVisible(true);
+            });
+
+            rectEle.addEventListener('mouseout', (evt) => {
+                setTooltipVisible(false);
+            });
+        }
     }
 });

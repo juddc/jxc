@@ -34,11 +34,12 @@ def make_menu(pages: list[siteconfig.BasePage]) -> list[tuple[str, str]]:
     return menu
 
 
-def _jxc_page_to_html(docs_dir: str, site: siteconfig.SiteGenerator, page: siteconfig.JXCPage) -> tuple[str, str]:
+def _jxc_page_to_html(docs_dir: str, site: siteconfig.SiteGenerator, page: siteconfig.JXCPage) -> tuple[str, str, str]:
     with open(os.path.join(docs_dir, page.source), 'r') as fp:
         jxc_source = fp.read()
 
     page_header_html = ''
+    toc_html = ''
 
     if page.render_header_comments_as_markdown:
         # using JXC's lexer, parse out all the comments at the beginning of the file
@@ -56,13 +57,19 @@ def _jxc_page_to_html(docs_dir: str, site: siteconfig.SiteGenerator, page: sitec
                     # save the first non-comment index so we can strip the comments
                     first_non_comment_index = tok.start_idx
                     break
+        
+        # assume the comments at the top of the file is valid markdown
+        page_header_markdown = ''.join(comments)
 
         # remove the comments from the actual JXC source
         jxc_source = jxc_source[first_non_comment_index:]
 
         # assemble the page header from the stripped comments
         md_exts, md_ext_cfg = siteconfig.make_markdown_context(site, page)
-        page_header_html = markdown_util.markdown_to_html(''.join(comments), md_exts, md_ext_cfg, site)
+        page_header_html = markdown_util.markdown_to_html(page_header_markdown, md_exts, md_ext_cfg, site)
+
+        # also generate a table of contents from the header markdown
+        toc_html = markdown_util.render_markdown_table_of_contents(page_header_markdown)
     
     jxc_source_html = markdown_util.markdown_to_html(
         f'```jxc\n{jxc_source}\n```',
@@ -76,7 +83,7 @@ def _jxc_page_to_html(docs_dir: str, site: siteconfig.SiteGenerator, page: sitec
         site=site,
     )
 
-    return (page_header_html, jxc_source_html)
+    return (page_header_html, toc_html, jxc_source_html)
 
 
 def get_template_dir(site: siteconfig.SiteGenerator) -> str:
@@ -161,11 +168,8 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str) -> sitecon
             )
 
         elif isinstance(page, siteconfig.JXCPage):
-            # read in the JXC file
-            with open(os.path.join(docs_dir, page.source), 'r') as fp:
-                jxc_source = fp.read()
-
-            page_header_html, page_body_html = _jxc_page_to_html(docs_dir, site_cfg, page)
+            # read in the JXC data and convert to html
+            header_html, toc_html, body_html = _jxc_page_to_html(docs_dir, site_cfg, page)
 
             # write out the file
             builder.render_to_file(
@@ -173,8 +177,9 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str) -> sitecon
                 output=page.output,
                 ctx=siteconfig.make_template_context(site_cfg, page,
                     page_title=page.title,
-                    header_html=page_header_html,
-                    markdown_html=page_body_html,
+                    header_html=header_html,
+                    toc_html=toc_html,
+                    markdown_html=body_html,
             ))
 
         elif isinstance(page, siteconfig.RailroadDiagramsPage):
@@ -192,6 +197,19 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str) -> sitecon
             )
         else:
             raise TypeError(f'Unhandled page type {type(page).__name__}')
+
+    for page in site_cfg.generated_static:
+        if isinstance(page, siteconfig.GeneratedStaticPage):
+            # write out the file
+            builder.render_to_file(
+                template=page.template.file,
+                output=page.output,
+                ctx=siteconfig.make_template_context(site_cfg, page,
+                    page_title=page.title,
+                )
+            )
+        else:
+            raise TypeError(f'Unhandled static page type {type(page).__name__}')
 
     # copy all static files
     static_file_dest = os.path.join(output_dir, 'static')

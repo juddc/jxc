@@ -457,6 +457,21 @@ PYBIND11_MODULE(_pyjxc, m)
         }
     });
 
+    m.def("parse_string_token", [](py::str string_value) -> py::str
+    {
+        const Token tok = Token(TokenType::String, invalid_idx, invalid_idx, py::cast<FlexString>(string_value));
+        ErrorInfo err;
+        std::string result;
+        if (util::parse_string_token(tok, result, err))
+        {
+            return py::cast(result);
+        }
+        else
+        {
+            throw py::value_error(jxc::format("Failed parsing string token: {}", err.to_string()));
+        }
+    });
+
     m.def("parse_number_token", [](const Token& number_token) -> py::tuple
     {
         if (number_token.type != TokenType::Number)

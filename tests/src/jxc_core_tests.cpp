@@ -272,6 +272,69 @@ TEST(jxc_core, JumpParserExpressions)
 }
 
 
+TEST(jxc_core, JumpParserUnaryOperatorExpressions)
+{
+    using namespace jxc;
+
+    // Expressions do not currently support unary operators.
+    // It's very difficult to handle these in a way that makes sense for all use cases.
+    // Need to do more research in this area.
+
+    {
+        TestJumpParser parser("(1 - -1)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(1+1)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(1-1)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(+1++1)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(--1--1--)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+}
+
+
 TEST(jxc_core, JumpParserObjects)
 {
     using namespace jxc;

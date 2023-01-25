@@ -20,22 +20,33 @@ class ParseError(ValueError):
 
 
 def char_repr(ch: str, quote_char='`') -> str:
-    assert isinstance(ch, str)
-    assert len(ch) == 1
+    if not isinstance(ch, str) or len(ch) != 1:
+        raise ValueError(f"Expected single character, got {ch!r}")
+    pad = quote_char if quote_char != '\0' else ''
     match ch:
         case '\\':
-            return f'{quote_char}\\{quote_char}'
+            return f'{pad}\\{pad}'
         case ' ':
-            return f'{quote_char} {quote_char} (space)'
+            return f'{pad} {pad} (space)'
         case '\t':
-            return f'{quote_char}\\t{quote_char} (tab)'
+            return f'{pad}\\t{pad} (tab)'
         case '\n':
-            return f'{quote_char}\\n{quote_char} (line break)'
+            return f'{pad}\\n{pad} (line break)'
         case '\r':
-            return f'{quote_char}\\r{quote_char} (carriage return)'
+            return f'{pad}\\r{pad} (carriage return)'
         case _:
             return _pyjxc.debug_char_repr(ch, quote_char)
 
+
+def char_hex(ch: str) -> str:
+    if not isinstance(ch, str) or len(ch) != 1:
+        raise ValueError(f"Expected single character, got {ch!r}")
+    if ord(ch) <= 255:
+        return f'{ord(ch):#04x}'
+    elif ord(ch) <= 2**16:
+        return f'{ord(ch):#06x}'
+    else:
+        return f'{ord(ch):#08x}'
 
 
 class MatchType(Enum):
@@ -69,15 +80,18 @@ class CharRange:
     end: str
     exclusions: typing.Optional[set[str]] = None
 
-    def description(self) -> str:
+    def description(self, hex_mode=False) -> str:
         have_exc = self.exclusions is not None and len(self.exclusions) > 0
 
-        exc_repr: list[str] = [char_repr(ch) for ch in sorted(list(self.exclusions))] if have_exc else []
+        def repr(ch):
+            return char_hex(ch) if hex_mode else char_repr(ch, quote_char='\0')
+
+        exc_repr: list[str] = [repr(ch) for ch in sorted(list(self.exclusions))] if have_exc else []
 
         if not self.start and not self.end:
             result = 'Any UTF8 sequence'
             if have_exc:
-                result += f' except {(", ".join(exc_repr))}'
+                result += f' except {(" or ".join(exc_repr))}'
             return result
 
         if not self.start and self.end:
@@ -87,9 +101,12 @@ class CharRange:
 
         assert self.start and self.end
 
-        result = f'{char_repr(self.start)}..{char_repr(self.end)}'
+        start_repr = repr(self.start)
+        end_repr = repr(self.end)
+
+        result = f'{start_repr}-{end_repr}'
         if have_exc:
-            result += f' (except {(", ".join(exc_repr))})'
+            result += f' (except {(" or ".join(exc_repr))})'
         return ''.join(result)
 
     @classmethod
@@ -186,10 +203,9 @@ class TokenParser:
 
 @dataclass
 class PatternRepeat:
-    values: list[str | int]
+    values: list[typing.Union[str, int, 'Match']]
     group_name: typing.Optional[str] = None
     source: typing.Optional[tuple[int, int]] = None
-
 
     @staticmethod
     def _parse_count_number_token(tok: Token) -> int:
@@ -204,9 +220,15 @@ class PatternRepeat:
 
 
     @classmethod
-    def parse(cls, expr: _pyjxc.TokenSpan):
-        if len(expr) == 0:
-            raise ValueError("Expected repeat expression to contain strings")
+    def parse(cls, expr: list[typing.Any]):
+        if len(expr) == 0 or not isinstance(expr, list):
+            raise ValueError("Expected non-empty repeat expression or list")
+
+        # if we don't get tokens, assume we got a list of Matches
+        if not isinstance(expr[0], Token):
+            vals = [ match for match in expr ]
+            grp = vals.pop() if len(vals) > 1 and isinstance(vals[-1], str) else None
+            return cls(values=vals, group_name=grp)
 
         src_range = (expr[0].start_idx, expr[-1].end_idx)
 
@@ -297,7 +319,9 @@ class Match:
     @classmethod
     def from_pattern_repeat(cls, repeat: PatternRepeat):
         assert len(repeat.values) > 0
-        if len(repeat.values) == 1:
+        if all(isinstance(val, Match) for val in repeat.values):
+            return cls(MatchType.Choice, value=[ val for val in repeat.values ], group=repeat.group_name, source=repeat.source)
+        elif len(repeat.values) == 1:
             result = cls.from_value(repeat.values[0])
             result.source = repeat.source
             return result
@@ -331,6 +355,7 @@ class Match:
                 else:
                     match_value = value
             elif isinstance(value, list):
+                
                 if not all(isinstance(item, Match) for item in value):
                     raise TypeError(f'Expected a list containing all matches, got {value!r}')
                 match_value = value
@@ -349,6 +374,7 @@ class Match:
 
     def to_node(self) -> 'railroad.Node':
         result = None
+        pat = self.pattern
 
         match self.match_type:
             case MatchType.Start:
@@ -370,25 +396,38 @@ class Match:
                     raise ValueError(f"Expected list of values, got {self.value!r}")
                 result = railroad.HorizontalChoice(*[ val.to_node() for val in self.value ])
             case MatchType.String:
-                result = railroad.NonTerminal(_pyjxc.debug_string_repr(self.value, quote_char='`'), cls=self.match_type.name)
+                result = railroad.NonTerminal(
+                    _pyjxc.debug_string_repr(self.value, quote_char='\0'),
+                    cls=self.match_type.name,
+                    title='[' + ', '.join(char_hex(ch) for ch in self.value) + ']')
             case MatchType.Character:
                 if not isinstance(self.value, str) or len(self.value) != 1:
                     raise ValueError(f"Expected single character, got {self.value!r}")
-                result = railroad.NonTerminal(char_repr(self.value), cls=self.match_type.name)
+                result = railroad.NonTerminal(char_repr(self.value, quote_char='\0'), cls=self.match_type.name, title=char_hex(self.value))
             case MatchType.CharacterRange:
                 if not isinstance(self.value, CharRange):
                     raise ValueError(f"Expected CharRange, got {self.value!r}")
-                result = railroad.NonTerminal(text=self.value.description(), cls=self.match_type.name)
+                result = railroad.NonTerminal(text=self.value.description(), cls=self.match_type.name, title=self.value.description(hex_mode=True))
             case MatchType.Group:
                 result = railroad.Group(item=self.value.to_node(), label=self.group)
             case MatchType.Comment:
                 result = railroad.Comment(text=self.value)
             case MatchType.Whitespace:
-                result = railroad.NonTerminal(text='whitespace', cls=self.match_type.name)
+                label = 'ws'
+                desc = 'Whitespace'
+                regex = '[\\n\\r\\t ]'
+                if pat in (PatternType.Optional, PatternType.OptionalCommon):
+                    pat = None
+                    label += '?'
+                    desc += ' (Optional)'
+                    regex += '*'
+                else:
+                    regex += '+'
+                result = railroad.NonTerminal(text=label, cls=f'MatchGroupRef {self.match_type.name}', title=f'{desc} {regex}')
             case _:
                 raise TypeError(f'Unhandled match_type {self.match_type!r}')
 
-        match self.pattern:
+        match pat:
             case None:
                 pass
             case PatternType.OptionalCommon:

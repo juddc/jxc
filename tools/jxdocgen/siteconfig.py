@@ -57,9 +57,15 @@ class JXCPage(BasePage):
 
 
 @dataclass
+class GeneratedStaticPage(BasePage):
+    pass
+
+
+@dataclass
 class SiteGenerator:
     pages: list[BasePage]
     extra_static_files: typing.Optional[list[str]] = None
+    generated_static: typing.Optional[list[BasePage]] = None
     code_styles: typing.Optional[list[str]] = None
     default_code_style: typing.Optional[str] = None
     code_css_class: typing.Optional[str] = None
@@ -104,7 +110,7 @@ def make_markdown_context(site: SiteGenerator, page: BasePage) -> tuple[list[str
 def parse(docgen_path: str) -> SiteGenerator:
     annotation_classes = []
 
-    for dataclass_cls in (SiteGenerator, MarkdownPage, HTMLPage, RailroadDiagramsPage, JXCPage, Template):
+    for dataclass_cls in (SiteGenerator, MarkdownPage, HTMLPage, RailroadDiagramsPage, JXCPage, GeneratedStaticPage, Template):
         annotation_classes.append((dataclass_cls, jxc.ClassConstructMode.DictAsKeywordArgs))
 
     with open(docgen_path, 'r') as fp:

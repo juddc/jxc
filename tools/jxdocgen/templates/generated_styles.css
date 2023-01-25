@@ -1,0 +1,16 @@
+/* === Code CSS styles from Pygments === */
+{% for style_name, (style_type, style_css) in code_styles.items() %}
+/* BEGIN {{ style_name }} ({{ style_type }}) */
+{%- for line in style_css.split('\n') -%}
+{%- if not line.startswith(".code") %}
+.code.{{ style_name }} {{ line.rstrip() }}
+{%- else -%}
+{{ line.rstrip() }}
+{% endif -%}
+{%- endfor -%}
+.code.{{ style_name }} pre { line-height: 150%; }
+/* END {{ style_name }} ({{ style_type }}) */
+{% endfor %}
+
+/* === Diagram styles from railroad-diagrams === */
+{{ diagram_styles }}

@@ -233,6 +233,100 @@ code.inline-code {
     }
 }
 
+#tooltip {
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+
+    position: fixed;
+    /*top: 0;
+    left: 0;*/
+    z-index: 9999999;
+
+    margin: 0;
+    border: 1px solid var(--border-accent-color);
+    padding: 2vmin;
+    /*min-width: 10vmin;
+    min-height: 10vmin;*/
+
+    border-radius: var(--border-radius);
+    background-color: var(--default-diagram-background-color);
+    color: var(--default-diagram-text-color);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.75);
+
+    opacity: 0.0;
+    transition: ease-in-out opacity 150ms;
+}
+
+@media (prefers-color-scheme: light) {
+    #tooltip {
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.25);
+    }
+}
+
+@keyframes tooltip-fade-in {
+    0% {
+        opacity: 0.0;
+    }
+    100% {
+        opacity: 1.0;
+    }
+}
+
+@keyframes tooltip-fade-out {
+    0% {
+        visibility: visible;
+        opacity: 1.0;
+    }
+    99.95% {
+        visibility: visible;
+        opacity: 0.0;
+    }
+    100% {
+        visibility: hidden;
+        opacity: 0.0;
+    }
+}
+
+#tooltip.show {
+    visibility: visible;
+    animation: tooltip-fade-in 300ms ease-in-out 0s 1 forwards;
+}
+
+#tooltip.hide {
+    animation: tooltip-fade-out 300ms ease-in-out 0s 1 forwards;
+}
+
+/*
+@keyframes tooltip-fade {
+    0% {
+        display: none;
+        opacity: 0.0;
+    }
+
+    0.05% {
+        opacity: 0.0;
+    }
+
+    100% {
+        opacity: 1.0;
+    }
+}
+
+#tooltip.visible {
+    display: block;
+    opacity: 1.0;
+}
+
+#tooltip.show {
+    animation: tooltip-fade normal;
+}
+
+#tooltip.hide {
+    animation: tooltip-fade reverse;
+}
+*/
+
 .sidebar-toggle {
     appearance: none;
     border: 1px solid var(--border-accent-color);
@@ -604,6 +698,11 @@ footer .footer-link:hover {
     border: 1px solid var(--border-accent-color);
 }
 
+svg.railroad-diagram text {
+    /* fix mouse events for the rect element under the text elements */
+    pointer-events: none;
+}
+
 svg.railroad-diagram g.start > text,
 svg.railroad-diagram text.comment {
     fill: var(--default-diagram-text-color);
@@ -621,7 +720,6 @@ body.light svg.railroad-diagram text.comment {
 /* styles used when the user explicitly selects a dark code color theme */
 body.dark .diagram-outer {
     background-color: #484f5e;
-
 }
 body.dark svg.railroad-diagram g.start > text,
 body.dark svg.railroad-diagram text.comment {
@@ -646,4 +744,8 @@ svg.railroad-diagram .MatchGroupRef rect {
 
 svg.railroad-diagram .MatchGroupRef {
     cursor: pointer;
+}
+
+svg.railroad-diagram .Whitespace > rect {
+    fill: #fff !important;
 }

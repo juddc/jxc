@@ -83,6 +83,14 @@ SiteGenerator{
 
     extra_static_files: []
 
+    generated_static: [
+        GeneratedStaticPage{
+            title: ''
+            template: Template{ file: 'generated_styles.css' }
+            output: 'static/generated_styles.css'
+        }
+    ]
+
     markdown_extensions: {
         header_anchors: null
         toc: {
