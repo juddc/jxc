@@ -63,7 +63,7 @@ private:
     bool scan_utf16_escape(std::string& out_error_message);
     bool scan_utf32_escape(std::string& out_error_message);
     bool scan_string(std::string& out_error_message, uint8_t quote_char, std::string_view& out_string);
-    bool scan_raw_string(uint8_t quote_char, std::string_view& out_string, std::string_view& out_delim);
+    bool scan_raw_string(std::string& out_error_message, uint8_t quote_char, std::string_view& out_string, std::string_view& out_delim);
 
 public:
     inline void get_token_pos(size_t& out_start, size_t& out_end)
@@ -156,11 +156,6 @@ public:
     using detail::BaseHelperLexer::BaseHelperLexer; // inherit constructors
     bool next(Token& out_token);
 };
-
-
-JXC_BEGIN_NAMESPACE(detail)
-bool delimiter_matches(const uint8_t* start, const uint8_t* buf_end, const uint8_t* delimiter, size_t delimiter_len);
-JXC_END_NAMESPACE(detail)
 
 
 JXC_END_NAMESPACE(jxc)

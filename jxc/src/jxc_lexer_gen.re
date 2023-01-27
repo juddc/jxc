@@ -83,6 +83,16 @@ TokenType Lexer::expr_next(ErrorInfo& out_error, size_t& out_start_idx, size_t& 
         out_error = ErrorInfo(std::move(err), out_start_idx, out_end_idx);
     };
 
+    auto set_error = [&]()
+    {
+        // assumes out_error.message was already set
+        JXC_DEBUG_ASSERT(out_error.message.size() > 0);
+        this->get_token_pos(out_start_idx, out_end_idx);
+        out_error.is_err = true;
+        out_error.buffer_start_idx = out_start_idx;
+        out_error.buffer_end_idx = out_end_idx;
+    };
+
 expr_start:
     if (this->current > this->limit)
     {
@@ -129,9 +139,9 @@ expr_start:
     "null"                          { set_token(); return TokenType::Null; }
 
     // string
-    str_prefix_raw quote            { if (scan_raw_string(this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { return TokenType::Invalid; } }
+    str_prefix_raw quote            { if (scan_raw_string(out_error.message, this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
     str_base64                      { set_token(); return TokenType::ByteString; }
-    quote                           { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error_msg("Invalid string"); return TokenType::Invalid; } }
+    quote                           { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
 
     // identifiers
     identifier                      { set_token(); return TokenType::Identifier; }
@@ -189,6 +199,16 @@ TokenType Lexer::next(ErrorInfo& out_error, size_t& out_start_idx, size_t& out_e
         out_error = ErrorInfo(std::move(err), out_start_idx, out_end_idx);
     };
 
+    auto set_error = [&]()
+    {
+        // assumes out_error.message was already set
+        JXC_DEBUG_ASSERT(out_error.message.size() > 0);
+        this->get_token_pos(out_start_idx, out_end_idx);
+        out_error.is_err = true;
+        out_error.buffer_start_idx = out_start_idx;
+        out_error.buffer_end_idx = out_end_idx;
+    };
+
 regular:
     if (this->current > this->limit)
     {
@@ -228,9 +248,9 @@ regular:
     ")"                             { set_token(); --expr_paren_depth; if (expr_paren_depth < 0) { set_error_msg("Unmatched parentheses"); return TokenType::Invalid; } else { return TokenType::ParenClose; } }
 
     // string
-    str_prefix_raw quote            { if (scan_raw_string(this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { return TokenType::Invalid; } }
+    str_prefix_raw quote            { if (scan_raw_string(out_error.message, this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
     str_base64                      { set_token(); return TokenType::ByteString; }
-    quote				            { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error_msg("Invalid string"); return TokenType::Invalid; } }
+    quote				            { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
 
     // identifiers
     identifier                      { set_token(); return TokenType::Identifier; }

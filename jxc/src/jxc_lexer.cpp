@@ -2,6 +2,18 @@
 #include "jxc/jxc_format.h"
 
 
+static inline bool is_valid_heredoc_first_char(char ch)
+{
+    return ch == '_' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+}
+
+
+static inline bool is_valid_heredoc_char(char ch)
+{
+    return ch == '_' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9');
+}
+
+
 JXC_BEGIN_NAMESPACE(jxc)
 
 
@@ -246,28 +258,91 @@ bool Lexer::scan_string(std::string& out_error_message, uint8_t quote_char, std:
 }
 
 
-bool Lexer::scan_raw_string(uint8_t quote_char, std::string_view& out_string, std::string_view& out_delim)
+bool Lexer::scan_raw_string(std::string& out_error_message, uint8_t quote_char, std::string_view& out_string, std::string_view& out_delim)
 {
     JXC_DEBUG_ASSERT(*(this->current - 2) == 'r');
     JXC_DEBUG_ASSERT(*(this->current - 1) == quote_char);
 
+    out_string = std::string_view{};
+
     const uint8_t* raw_str_start = this->current - 2;
 
-    // find the delimiter string (if any)
+    // max delimiter/heredoc length
+    const size_t max_delimiter_length = 15;
+
+    // scan past the end of the delimiter if we don't find a `(` char - this is only to improve error messages.
+    const size_t max_delimiter_scan_length = 64;
+
     const uint8_t* delimiter = this->current;
     size_t delimiter_len = 0;
-    while (*this->current != '(' && this->current < this->limit)
+    if (*this->current != '(')
     {
-        ++this->current;
+        if (!is_valid_heredoc_first_char(static_cast<char>(*this->current)))
+        {
+            out_error_message = jxc::format("Failed parsing raw string: expected raw string delimiter or `(`, got {}",
+                detail::debug_char_repr(static_cast<uint32_t>(*this->current), '`'));
+            return false;
+        }
+
         ++delimiter_len;
+        ++this->current;
+
+        // find the rest of the delimiter string
+        bool delimiter_valid = true;
+        while (this->current < this->limit && *this->current != '(' && delimiter_len < max_delimiter_scan_length)
+        {
+            if (!is_valid_heredoc_char(static_cast<char>(*this->current)))
+            {
+                // don't break here - we want to report the full invalid delimiter in the error message
+                delimiter_valid = false;
+            }
+
+            ++this->current;
+            ++delimiter_len;
+        }
+
+        out_delim = std::string_view{ reinterpret_cast<const char*>(delimiter), delimiter_len };
+
+        if (!delimiter_valid)
+        {
+            out_error_message = jxc::format("Invalid raw string delimiter {}", detail::debug_string_repr(out_delim, '`'));
+            return false;
+        }
+        else if (out_delim.size() > max_delimiter_length)
+        {
+            out_error_message = jxc::format("Raw string delimiter length is {} (max length {})", out_delim.size(), max_delimiter_length);
+            return false;
+        }
+
+        JXC_DEBUG_ASSERT((*this->current) == '(');
+    }
+    else
+    {
+        out_delim = std::string_view{};
     }
 
-    out_string = std::string_view{};
-    out_delim = std::string_view{ reinterpret_cast<const char*>(delimiter), delimiter_len };
+    auto delimiter_matches = [this, &out_delim, &delimiter_len](const uint8_t* start)
+    {
+        if (start + delimiter_len > this->limit)
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < delimiter_len; ++i)
+        {
+            if (*(start + i) != out_delim[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    };
 
     // minimum number of chars remaining is 2: `)"`
     if (this->current + 2 > this->limit)
     {
+        out_error_message = "End of stream reached while parsing string";
         return false;
     }
 
@@ -276,12 +351,12 @@ bool Lexer::scan_raw_string(uint8_t quote_char, std::string_view& out_string, st
 
     // scan forward until we find `){delimiter}{quote_char}`
     size_t raw_string_len = 0;
-    bool found_end = false;
 
     if (delimiter_len > 0)
     {
         // scan for the delimiter
-        while (this->current < this->limit && !found_end)
+        bool found_rhs_delimiter = false;
+        while (this->current < this->limit)
         {
             // scan for the next close paren
             while (this->current < this->limit && *this->current != ')')
@@ -289,9 +364,10 @@ bool Lexer::scan_raw_string(uint8_t quote_char, std::string_view& out_string, st
                 ++this->current;
             }
 
-            if (detail::delimiter_matches(this->current + 1, this->limit, delimiter, delimiter_len))
+            if (delimiter_matches(this->current + 1))
             {
                 // found the closing delimiter
+                found_rhs_delimiter = true;
                 break;
             }
             else
@@ -301,36 +377,52 @@ bool Lexer::scan_raw_string(uint8_t quote_char, std::string_view& out_string, st
             }
         }
 
+        if (!found_rhs_delimiter)
+        {
+            out_error_message = jxc::format("Failed parsing raw string: delimiter {} not found at end of string",
+                detail::debug_string_repr(out_delim, '`'));
+            return false;
+        }
+
+        // validate the end of the string
         if (this->current < this->limit && *this->current == ')')
         {
             this->current += 1; // skip over close paren
             this->current += delimiter_len; // skip over delimiter
                 
             // we should now be at the closing quote char
-            if (this->current <= this->limit && *this->current == quote_char)
+            if (*this->current == quote_char)
             {
                 ++this->current;
                 const int64_t len = (int64_t)(this->current - raw_str_start);
                 raw_string_len = (len >= 0) ? (size_t)len : 0;
-                found_end = true;
             }
             else
             {
+                out_error_message = jxc::format("Failed parsing raw string: expected end quote character `{}`, got {}",
+                    (char)quote_char, detail::debug_char_repr((char)*this->current));
                 return false;
             }
+        }
+        else
+        {
+            out_error_message = jxc::format("Failed parsing raw string: end of string not found (expected `){}{}`)", out_delim, (char)quote_char);
+            return false;
         }
     }
     else
     {
-        // no delimiter - just scan for the end of the string, and also don't allow newlines in this case.
-        while (this->current < this->limit && *this->current != ')')
+        // no delimiter - just scan for the end of the string
+        while (this->current < this->limit)
         {
-            ++this->current;
-        }
+            const uint8_t prev_char = *this->current;
 
-        while (this->current < this->limit && *this->current != quote_char)
-        {
             ++this->current;
+
+            if (prev_char == ')' && *this->current == quote_char)
+            {
+                break;
+            }
         }
 
         if (*this->current == quote_char)
@@ -338,17 +430,18 @@ bool Lexer::scan_raw_string(uint8_t quote_char, std::string_view& out_string, st
             ++this->current;
             const int64_t len = (int64_t)(this->current - raw_str_start);
             raw_string_len = (len >= 0) ? (size_t)len : 0;
-            found_end = true;
+        }
+        else
+        {
+            out_error_message = "End of string not found";
+            return false;
         }
     }
 
-    if (found_end)
-    {
-        out_string = std::string_view{ reinterpret_cast<const char*>(raw_str_start), raw_string_len };
-        return true;
-    }
+    JXC_DEBUG_ASSERT(this->current <= this->limit && *(this->current - 1) == quote_char);
 
-    return false;
+    out_string = std::string_view{ reinterpret_cast<const char*>(raw_str_start), raw_string_len };
+    return true;
 }
 
 
@@ -457,27 +550,5 @@ bool ExpressionLexer::next(Token& out_token)
     return out_token.type != TokenType::EndOfStream && !lex_error.is_err;
 }
 
-
-JXC_BEGIN_NAMESPACE(detail)
-
-bool delimiter_matches(const uint8_t* start, const uint8_t* buf_end, const uint8_t* delimiter, size_t delimiter_len)
-{
-    if (start + delimiter_len > buf_end)
-    {
-        return false;
-    }
-
-    for (size_t i = 0; i < delimiter_len; ++i)
-    {
-        if (*(start + i) != *(delimiter + i))
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-JXC_END_NAMESPACE(detail)
 
 JXC_END_NAMESPACE(jxc)

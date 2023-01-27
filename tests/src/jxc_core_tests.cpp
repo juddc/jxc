@@ -505,8 +505,7 @@ TEST(jxc_core, NumberParsing)
 }
 
 
-testing::AssertionResult test_parse_string(const char* jxc_string_str, const char* expected_string_str,
-    const std::string& jxc_string, const std::string& expected_string)
+testing::AssertionResult test_parse_string_internal(const std::string& jxc_string, std::string& out_parsed_string)
 {
     jxc::JumpParser parser(jxc_string);
     if (!parser.next())
@@ -527,13 +526,26 @@ testing::AssertionResult test_parse_string(const char* jxc_string_str, const cha
         return testing::AssertionFailure() << jxc::format("Expected String token, got {}", jxc::token_type_to_string(tok.type));
     }
 
-    std::string parsed_string;
-
     jxc::ErrorInfo err;
 
-    if (!jxc::util::parse_string_token(tok, parsed_string, err))
+    if (!jxc::util::parse_string_token(tok, out_parsed_string, err))
     {
         return testing::AssertionFailure() << jxc::format("util::parse_string_token({}) failed: {}", tok.to_repr(), err.to_string(jxc_string));
+    }
+
+    return testing::AssertionSuccess();
+}
+
+
+testing::AssertionResult test_parse_string(const char* jxc_string_str, const char* expected_string_str,
+    const std::string& jxc_string, const std::string& expected_string)
+{
+    std::string parsed_string;
+
+    testing::AssertionResult result = test_parse_string_internal(jxc_string, parsed_string);
+    if (!result)
+    {
+        return result;
     }
 
     if (parsed_string != expected_string)
@@ -547,8 +559,24 @@ testing::AssertionResult test_parse_string(const char* jxc_string_str, const cha
 }
 
 
-#define EXPECT_PARSE_STRING(JXC_STRING, EXPECTED_STRING) EXPECT_PRED_FORMAT2(test_parse_string, JXC_STRING, (EXPECTED_STRING))
+testing::AssertionResult test_parse_string_fail(const char* jxc_string_str, const std::string& jxc_string)
+{
+    std::string parsed_string;
 
+    testing::AssertionResult result = test_parse_string_internal(jxc_string, parsed_string);
+    if (result)
+    {
+        return testing::AssertionFailure()
+            << jxc::format("Expected string {} to cause a parse failure, but it parsed successfully. ", jxc::detail::debug_string_repr(jxc_string))
+            << result.message();
+    }
+
+    return testing::AssertionSuccess() << "String parse failure: " << result.message();
+}
+
+
+#define EXPECT_PARSE_STRING(JXC_STRING, EXPECTED_STRING) EXPECT_PRED_FORMAT2(test_parse_string, JXC_STRING, (EXPECTED_STRING))
+#define EXPECT_PARSE_STRING_FAIL(JXC_STRING) EXPECT_PRED_FORMAT1(test_parse_string_fail, JXC_STRING)
 
 
 TEST(jxc_core, StringParsing)
@@ -556,13 +584,33 @@ TEST(jxc_core, StringParsing)
     EXPECT_PARSE_STRING("''", "");
     EXPECT_PARSE_STRING("'abc'", "abc");
     EXPECT_PARSE_STRING("'\\nabc\\n'", "\nabc\n");
-    EXPECT_PARSE_STRING("r'HEREDOC()HEREDOC'", "");
-    EXPECT_PARSE_STRING("r'HEREDOC(abc)HEREDOC'", "abc");
+}
+
+
+TEST(jxc_core, RawStringParsing)
+{
+    EXPECT_PARSE_STRING(R"JXC(r'()')JXC", "");
+    EXPECT_PARSE_STRING(R"JXC(r"()")JXC", "");
+    EXPECT_PARSE_STRING(R"JXC(r"(abc)")JXC", "abc");
+    EXPECT_PARSE_STRING(R"JXC(r"(\nabc\t)")JXC", "\\nabc\\t");
     EXPECT_PARSE_STRING(R"JXC(r'(
 
 !abc!
 
 )')JXC", "\n\n!abc!\n\n");
+    EXPECT_PARSE_STRING("r'HEREDOC()HEREDOC'", "");
+    EXPECT_PARSE_STRING("r'HEREDOC(abc)HEREDOC'", "abc");
+    EXPECT_PARSE_STRING(R"JXC(r'HEREDOC(
+
+!abc!
+
+)HEREDOC')JXC", "\n\n!abc!\n\n");
+
+    EXPECT_PARSE_STRING_FAIL("r''") << "missing parens";
+    EXPECT_PARSE_STRING_FAIL("r')'") << "missing open paren";
+    EXPECT_PARSE_STRING_FAIL("r'('") << "missing trailing paren";
+    EXPECT_PARSE_STRING_FAIL("r'HEREDOC_111()HEREDOC_999'") << "heredoc does not match";
+    EXPECT_PARSE_STRING_FAIL("r'HEREDOC_HEREDOC_HEREDOC()HEREDOC_HEREDOC_HEREDOC'") << "heredoc too long";
 }
 
 
