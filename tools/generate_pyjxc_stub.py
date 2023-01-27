@@ -31,6 +31,7 @@ DEBUG_DOCSTRINGS = False
 FUNC_SIG_REGEX = re.compile(r'([\w.]+)?\((.*)\)(?:\s*->\s*([\w\:\<\>\,\.\'\"]+))?')
 FUNC_ARG_REGEX = re.compile(r'(\w+)(\s*:\s*[^=:]+)?(\s*=\s*[^=:]+)?')
 ENUM_VALUE_REGEX = re.compile(r'<([\w\.]+): ([0-9]+)>')
+FUNC_OVERLOAD_DOCSTR_REGEX = re.compile(r'([0-9]+)\.(?:\s*)([a-zA-Z0-9_]+)')
 
 INVALID_IDX_CONSTANT = _pyjxc.invalid_idx
 
@@ -303,6 +304,7 @@ class FunctionSig:
     name: str
     args: typing.Optional[list[typing.Optional[FunctionArg]]] = None
     ret_type: typing.Optional[str] = None
+    is_overload: bool = False
 
     def to_string(self, is_method=False):
         func_args = []
@@ -466,6 +468,32 @@ def parse_function_sig(sig: str) -> typing.Optional[FunctionSig]:
     return FunctionSig(name=sig_name, args=_parse_args(sig_args), ret_type=sig_rettype)
 
 
+
+def strip_overloads_from_docstring(doc: str) -> str:
+    """
+    Strips the "Overloaded function" and following function signatures data from a docstring.
+    """
+    result = []
+    overload_block = False
+    for line in doc.split('\n'):
+        stripped_line = line.strip()
+        if not overload_block and stripped_line == 'Overloaded function.':
+            overload_block = True
+            continue
+
+        if overload_block:
+            if sig := FUNC_OVERLOAD_DOCSTR_REGEX.match(stripped_line):
+                continue
+            elif len(stripped_line) > 0:
+                overload_block = False
+
+        if not overload_block:
+            result.append(line)
+
+    return '\n'.join(result)
+
+
+
 def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, orig_docstring: bool = False) -> tuple[list[FunctionSig], str]:
     if not hasattr(item, "__doc__") or not isinstance(item.__doc__, str) or len(item.__doc__) == 0:
         return [], ''
@@ -487,14 +515,35 @@ def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, or
                 docstr_lines.append(line_clean)
             elif "Overloaded function." in line_clean:
                 is_overloaded = True
+                print(item, item_name)
                 docstr_lines.append(line)
             elif func_sig := parse_function_sig(line_clean):
                 sigs.append(func_sig)
             else:
                 docstr_lines.append(line)
 
-        # if is_overloaded:
-        #     sigs.append(FunctionSig(name=item_name, args=[FunctionArg(name="*args"), FunctionArg(name="**kwargs")]))
+        if is_overloaded:
+            overloads = []
+            in_overloads = False
+            for line in docstr.split("\n"):
+                line = line.strip()
+                if "Overloaded function." in line:
+                    in_overloads = True
+                elif in_overloads and len(line) > 0 and line[0].isnumeric():
+                    if func_matches := FUNC_OVERLOAD_DOCSTR_REGEX.match(line):
+                        assert func_matches.groups()[1] == item_name
+                        expected_prefix = f'{func_matches.groups()[0]}. '
+                        assert line.startswith(expected_prefix)
+                        line = line[len(expected_prefix):]
+                        overloads.append(line)
+
+            # replace single function sig with all overloads
+            if len(sigs) == 1 and len(overloads) > 0:
+                sigs = []
+            for overload in overloads:
+                if overload_sig := parse_function_sig(overload):
+                    overload_sig.is_overload = True
+                    sigs.append(overload_sig)
 
         # strip empty lines from the front
         while len(docstr_lines) > 0 and len(docstr_lines[0].strip()) == 0:
@@ -504,6 +553,10 @@ def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, or
             docstr_lines = docstr_lines[:-1]
         # recombine docstring without the function signatures
         docstr = '\n'.join(docstr_lines)
+
+    # clean up docstring so we're not duplicating the overload data in each overloaded function
+    if is_overloaded:
+        docstr = strip_overloads_from_docstring(docstr)
 
     # strip out worthless docstrings like "return self<value" for __lt__
     if '\n' not in docstr.strip():
@@ -572,6 +625,8 @@ def write_func(parent: typing.Any, fp: InterfaceFile, name: str, item: typing.Ca
         for sig in sigs:
             if not sig.name:
                 continue
+            if sig.is_overload:
+                fp.writeln("@typing.overload", indent=func_is_method)
             if func_is_static_method:
                 fp.writeln("@staticmethod", indent=func_is_method)
             fp.write(f'def {sig.to_string(func_is_method)}:', indent=True)

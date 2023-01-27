@@ -143,10 +143,10 @@ string_types: [
     fourth line)"
 
     # Can accept a character sequence as a heredoc
-    r"CUSTOM_DELIMITER(first line
+    r"CUSTOM_HEREDOC(first line
     second line
     this is a multi-line raw string that allows anything at all
-    fourth line)CUSTOM_DELIMITER"
+    fourth line)CUSTOM_HEREDOC"
 
     # The delimiter character sequence can be anything you want, but similar to Markdown, IDEs can apply
     # syntax-highlighting for snippets of other languages if they want to. This is very useful for

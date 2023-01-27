@@ -15,11 +15,19 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 __version__ = subprocess.check_output(['python', './tools/version.py']).decode('utf-8').strip()
 
 
+repo_root_dir = os.path.normpath(os.path.dirname(os.path.abspath(__file__)))
+
+
 def find_re2c() -> str | None:
     re2c_path = None
     if os.name == 'nt':
-        re2c_path = './tools/re2c.exe'
+        re2c_path = os.path.join(repo_root_dir, 'tools', 're2c.exe')
     else:
+        # first, see if there's a re2c binary in the tools directory
+        re2c_path = os.path.join(repo_root_dir, 'tools', 're2c')
+        if os.path.exists(re2c_path) and os.access(re2c_path, os.X_OK):
+            return re2c_path
+        # if that doesn't exist, ask the shell if we have one available
         try:
             re2c_path = subprocess.check_output(['which', 're2c']).decode('utf-8').strip()
         except subprocess.CalledProcessError:
@@ -28,6 +36,10 @@ def find_re2c() -> str | None:
 
 
 def run_re2c(re2c_path: str, input_file: str):
+    assert os.path.exists(input_file)
+    input_file = os.path.relpath(input_file, start=repo_root_dir)
+    assert os.path.exists(input_file)
+
     args = [re2c_path, '-W', '--verbose', '--utf8', '--input-encoding', 'utf8']
     if os.name == 'nt':
         args += ['--location-format', 'msvc']
@@ -82,8 +94,8 @@ class build_ext_jxc(build_ext):
     def build_extension(self, ext):
         re2c_path = find_re2c()
         if re2c_path is not None:
-            run_re2c(re2c_path, './jxc/src/jxc_lexer_gen.re')
-        assert os.path.exists('./jxc/src/jxc_lexer_gen.re.cpp')
+            run_re2c(re2c_path, os.path.join(repo_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re'))
+        assert os.path.exists(os.path.join(repo_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re.cpp'))
         if extra_args := self.per_platform_compile_args.get(ext.name, None):
             if args := extra_args.get(self.compiler.compiler_type, None):
                 if not ext.extra_compile_args:

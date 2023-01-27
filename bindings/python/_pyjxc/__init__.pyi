@@ -185,13 +185,11 @@ class ErrorInfo:
 
     def __hash__(self) -> int: ...
 
-    def __init__(*args, **kwargs):
-        """
-        Overloaded function.
-        1. __init__(self: _pyjxc.ErrorInfo) -> None
-        2. __init__(self: _pyjxc.ErrorInfo, message: str, start_idx: int = invalid_idx,
-        end_idx: int = invalid_idx) -> None
-        """
+    @typing.overload
+    def __init__(self: ErrorInfo): ...
+
+    @typing.overload
+    def __init__(self: ErrorInfo, message: str, start_idx: int = invalid_idx, end_idx: int = invalid_idx): ...
 
     def __le__(self, rhs: ErrorInfo) -> bool: ...
 
@@ -1025,7 +1023,11 @@ def parse_number_token(number_token: Token) -> tuple:
     form (value_or_errorinfo, number_suffix)
     """
 
+@typing.overload
 def parse_string_token(arg0: Token): ...
+
+@typing.overload
+def parse_string_token(arg0: str) -> str: ...
 
 def set_custom_assert_handler(arg0): ...
 

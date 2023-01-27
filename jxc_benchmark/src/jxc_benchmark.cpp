@@ -177,7 +177,8 @@ int main(int argc, const char** argv)
         }
     }
 
-    jxc::print("Total File Size = {} bytes\n", file_data_size);
+    const double file_data_size_mb = (double)file_data_size / 1024.0 / 1024.0;
+    jxc::print("Total File Size = {} bytes ({:.2f} MB)\n", file_data_size, file_data_size_mb);
 
     jxc::print("\n");
 
@@ -223,7 +224,6 @@ int main(int argc, const char** argv)
         {
             if (!path.ends_with(".json"))
             {
-                jxc::print("Skipping nlohmann_json comparison benchmark - input file {} is not a json file\n", path);
                 all_json_files = false;
                 break;
             }
