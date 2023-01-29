@@ -1,0 +1,38 @@
+<svg version="1.1" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <radialGradient id="jxc-logo-a" cx="125.9" cy="-53.584" r="126.87" gradientTransform="matrix(.49971 0 0 .5113 -.0094072 -31.323)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#606577" offset="0"/>
+   <stop stop-color="#3b404c" offset=".5"/>
+   <stop stop-color="#272c34" offset="1"/>
+  </radialGradient>
+  <filter id="jxc-logo-d" x="-.13082" y="-.083371" width="1.2616" height="1.1667" color-interpolation-filters="sRGB">
+   <feFlood flood-color="rgb(0,0,0)" flood-opacity=".8" result="flood"/>
+   <feComposite in="flood" in2="SourceGraphic" operator="in" result="composite1"/>
+   <feGaussianBlur in="composite1" result="blur" stdDeviation="2"/>
+   <feOffset dx="0" dy="-1.52656e-15" result="offset"/>
+   <feComposite in="SourceGraphic" in2="offset" result="composite2"/>
+  </filter>
+  <filter id="jxc-logo-c" x="-.16402" y="-.049038" width="1.328" height="1.0981" color-interpolation-filters="sRGB">
+   <feFlood flood-color="rgb(0,0,0)" flood-opacity=".8" result="flood"/>
+   <feComposite in="flood" in2="SourceGraphic" operator="in" result="composite1"/>
+   <feGaussianBlur in="composite1" result="blur" stdDeviation="2"/>
+   <feOffset dx="0" dy="-1.52656e-15" result="offset"/>
+   <feComposite in="SourceGraphic" in2="offset" result="composite2"/>
+  </filter>
+  <filter id="jxc-logo-b" x="-.16402" y="-.049038" width="1.328" height="1.0981" color-interpolation-filters="sRGB">
+   <feFlood flood-color="rgb(0,0,0)" flood-opacity=".8" result="flood"/>
+   <feComposite in="flood" in2="SourceGraphic" operator="in" result="composite1"/>
+   <feGaussianBlur in="composite1" result="blur" stdDeviation="2"/>
+   <feOffset dx="0" dy="-1.52656e-15" result="offset"/>
+   <feComposite in="SourceGraphic" in2="offset" result="composite2"/>
+  </filter>
+ </defs>
+ <g>
+  <rect transform="scale(1,-1)" x="1.9809" y="-126.02" width="124.04" height="124.04" ry="23.635" fill="url(#jxc-logo-a)" style="paint-order:stroke fill markers"/>
+  <g fill="#f2f6f7">
+   <path d="m88.898 14.748c3.2712 0 6.3379 0.45363 9.2002 1.3609 2.8624 0.90727 5.1114 2.5034 6.7469 4.7884 1.6356 2.2514 2.2489 5.4436 1.84 9.5767l-1.7524 19.254c-0.32128 3.4275 0.45271 6.0485 2.3219 7.863 1.8692 1.8145 5.5055 3.7227 10.909 3.7227v4.7523c-5.3741 0-9.0103 1.925-10.909 3.7731-1.8692 1.8481-2.6432 4.4859-2.3219 7.9134l1.7524 19.153c0.37968 4.1331-0.24826 7.3253-1.8838 9.5767-1.6064 2.285-3.8407 3.8811-6.7031 4.7884-2.8623 0.90726-5.929 1.3609-9.2002 1.3609v-6.6533c2.1321 0 4.0597-0.23523 5.783-0.70566 1.7524-0.47043 3.1105-1.2937 4.0744-2.4698 0.96382-1.1761 1.3582-2.8058 1.1829-4.8892l-1.8401-20.666c-0.4089-4.4691 0.11683-7.6782 1.5772-9.6271 1.4897-1.9489 4.0161-3.2258 7.5793-3.8307-3.4464-0.67206-5.929-2.0498-7.4479-4.1331-1.5188-2.117-2.0883-5.2924-1.7086-9.5263l1.8401-20.666c0.17526-2.0498-0.21907-3.6627-1.1829-4.8388-0.96384-1.1761-2.3073-1.9994-4.0306-2.4698-1.7232-0.50404-3.6655-0.75605-5.8268-0.75605z" filter="url(#jxc-logo-b)" style="paint-order:normal"/>
+   <path d="m38.858 14.748v6.6533c-2.1321 0-4.0744 0.25202-5.8268 0.75605-1.7232 0.47044-3.0667 1.2937-4.0305 2.4698-0.96383 1.1761-1.3581 2.789-1.1829 4.8388l1.84 20.666c0.37969 4.2339-0.14604 7.3926-1.5772 9.4759-1.4019 2.0834-3.6071 3.4443-6.6154 4.0827 3.0667 0.63845 5.301 1.9489 6.703 3.9315 1.4019 1.9489 1.8984 5.158 1.4896 9.6271l-1.84 20.666c-0.17524 2.0834 0.21905 3.7131 1.1829 4.8892 0.96383 1.1761 2.3073 1.9994 4.0305 2.4698 1.7232 0.47043 3.6655 0.70566 5.8268 0.70566v6.6533c-3.2712 0-6.3379-0.45363-9.2002-1.3609-2.8623-0.90727-5.1112-2.5034-6.7468-4.7884-1.6356-2.2514-2.2489-5.4436-1.84-9.5767l1.7524-19.153c0.23366-2.285 0.04375-4.2171-0.56953-5.7964-0.58414-1.6129-1.8692-2.8226-3.8553-3.6291-1.9569-0.84007-4.8921-2.261-8.8059-2.261v-4.7523c3.9137 0 6.849-1.4042 8.8059-2.2106 1.9861-0.80646 3.2712-1.9993 3.8553-3.5787 0.61334-1.5793 0.80319-3.5115 0.56953-5.7964l-1.7524-19.254c-0.37969-4.1331 0.23365-7.3254 1.84-9.5767 1.6356-2.285 3.8845-3.8811 6.7468-4.7884 2.8623-0.90727 5.929-1.3609 9.2002-1.3609z" filter="url(#jxc-logo-c)" style="paint-order:normal"/>
+   <path d="m82.345 38.288v37.141q0 5.4462-2.0884 10.114-2.0884 4.6272-6.6337 7.4937-4.5044 2.8255-11.875 2.8255-4.6682 0-8.6402-1.3513-3.972-1.3513-7.4527-3.8492l3.8902-6.0604q3.3578 2.1703 6.1833 2.9893 2.8664 0.77803 5.651 0.77803 5.3234 0 8.3945-3.3988 3.1121-3.3988 3.1121-9.7459v-29.647h-16.994v-7.2889z" filter="url(#jxc-logo-d)" stroke-opacity=".5061" stroke-width="3.327" style="paint-order:stroke fill markers"/>
+  </g>
+ </g>
+</svg>

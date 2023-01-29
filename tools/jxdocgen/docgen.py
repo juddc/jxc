@@ -106,23 +106,7 @@ def get_static_dir(site: siteconfig.SiteGenerator) -> str:
     return static_dir
 
 
-def get_all_static_files(site: siteconfig.SiteGenerator, static_dir: typing.Optional[str]) -> typing.Iterable[str]:
-    if static_dir is not None:
-        for name in os.listdir(static_dir):
-            if any(name.endswith(f'.{ext}') for ext in ('css', 'js', 'jpg', 'gif', 'png')):
-                yield os.path.abspath(os.path.join(static_dir, name))
-
-    # then, pull any additional static files that were specified explicitly
-    if site.extra_static_files:
-        for file_path in site.extra_static_files:
-            file_path = os.path.abspath(file_path)
-            if os.path.exists(file_path):
-                yield file_path
-            else:
-                raise FileNotFoundError(file_path)
-
-
-def build_docs(site_config_file: str, docs_dir: str, output_dir: str) -> siteconfig.SiteGenerator:
+def build_docs(site_config_file: str, docs_dir: str, output_dir: str, dev_server: bool = False) -> siteconfig.SiteGenerator:
     # read in what docs pages to convert from docgen.jxc
     site_cfg: siteconfig.SiteGenerator = siteconfig.parse(site_config_file)
 
@@ -143,6 +127,8 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str) -> sitecon
     builder.ctx['default_code_style'] = site_cfg.default_code_style
     builder.ctx['menu'] = make_menu(site_cfg.pages)
     builder.ctx['default_dark_or_light'] = code_style.get_style_type(site_cfg.default_code_style).name.lower()
+
+    site_cfg.resolve_static_file_instances(static_dir, dev_server)
 
     # passthrough global template vars
     for key, val in site_cfg.global_template_vars.items():
@@ -215,34 +201,9 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str) -> sitecon
     static_file_dest = os.path.join(output_dir, 'static')
     os.makedirs(static_file_dest, exist_ok=True)
 
-    # # get list of all relevant static files
-    # static_file_list = list(get_all_static_files(site_cfg, static_dir))
-
-    # # first, pull all the base static files from the specified static file directory
-    # static_file_list = []
-    # for name in os.listdir(static_dir):
-    #     if any(name.endswith(f'.{ext}') for ext in ('css', 'js', 'jpg', 'gif', 'png')):
-    #         static_file_list.append(os.path.abspath(os.path.join(static_dir, name)))
-
-    # # then, pull any additional static files that were specified explicitly
-    # if site_cfg.extra_static_files:
-    #     for file_path in site_cfg.extra_static_files:
-    #         file_path = os.path.abspath(file_path)
-    #         if os.path.exists(file_path):
-    #             static_file_list.append(file_path)
-    #         else:
-    #             raise FileNotFoundError(file_path)
-
     # copy all static files
-    for path in get_all_static_files(site_cfg, static_dir):
+    for path in site_cfg.all_static_files(static_dir):
         shutil.copy2(src=path, dst=os.path.join(static_file_dest, os.path.basename(path)))
-
-    # if static_dir:
-    #     for filename in os.listdir(static_dir):
-    #         static_file_path = os.path.join(static_dir, filename)
-    #         if not os.path.exists(static_file_path):
-    #             raise FileNotFoundError(static_file_path)
-    #         shutil.copy2(src=static_file_path, dst=os.path.join(static_file_dest, filename))
 
     return site_cfg
 

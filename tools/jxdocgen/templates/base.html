@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/x-icon" href="/static/favicon.svg" />
 <title>
 {% block title %}
 {{ main_title }} - {{ page_title }}
@@ -78,8 +79,9 @@ for (let style of window.CODE_STYLES) {
 
 <header id="header">
     <div id="header-left">
-        <button class="sidebar-toggle small-screen-only">&equiv;</button>
-        <div id="page-title">
+        <button title="Show Menu" class="header-item square button-effect sidebar-toggle small-screen-only">{{ hamburger_svg }}</button>
+        <a href="/" class="header-item square">{{ logo_svg }}</a>
+        <div id="page-title" class="header-item">
             <h1>{{ main_title }}</h1>
             <h2>{{ page_title }}</h2>    
         </div>
@@ -97,7 +99,7 @@ for (let style of window.CODE_STYLES) {
         <nav id="sidebar">
             <div class="menu-header small-screen-only">
                 <h1>Menu</h1>
-                <button class="sidebar-toggle">&times;</button>
+                <button class="sidebar-toggle button-effect">&times;</button>
             </div>
 
             <div class="menu">
@@ -112,7 +114,7 @@ for (let style of window.CODE_STYLES) {
                 <h1>Code Style</h1>
             </div>
 
-            <div class="small-screen-only">
+            <div class="menu small-screen-only">
                 {{ code_color_theme_select("code-style-select-sidebar") }}
             </div>
 

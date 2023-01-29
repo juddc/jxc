@@ -5,8 +5,8 @@
     --background-color-secondary: #202224;
     --text-color-secondary: #d8dfe7;
 
-    --header-left-text-color: #18191a;
-    --header-right-text-color: #fff;
+    --header-left-text-color: #fff;
+    --header-right-text-color: #18191a;
 
     --border-radius: 0.35rem;
     --border-accent-color: #91979c;
@@ -32,9 +32,9 @@
     --code-syntax-label-offset: 0.5vmin;
     --code-syntax-label-font-size: 0.8rem;
 
-    --color-1: #78f5b3;
-    --color-2: #3ed2b4;
-    --color-3: #0dafac;
+    --color-1: #49bb7e;
+    --color-2: #36aa93;
+    --color-3: #119492;
     --color-4: #168b99;
     --color-5: #2a687c;
 
@@ -50,8 +50,8 @@
         --background-color-secondary: #FAF8F5;
         --text-color-secondary: #161938;
 
-        --header-left-text-color: #161938;
-        --header-right-text-color: #fff;
+        --header-left-text-color: #fff;
+        --header-right-text-color: #161938;
 
         --border-accent-color: #E8DAC1;
         --border-accent-style: dotted;
@@ -297,45 +297,32 @@ code.inline-code {
     animation: tooltip-fade-out 300ms ease-in-out 0s 1 forwards;
 }
 
-/*
-@keyframes tooltip-fade {
-    0% {
-        display: none;
-        opacity: 0.0;
-    }
-
-    0.05% {
-        opacity: 0.0;
-    }
-
-    100% {
-        opacity: 1.0;
-    }
+.button-effect {
+    transition: ease-in-out transform 0.1s, ease-in-out box-shadow 0.2s;
+    box-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
-#tooltip.visible {
-    display: block;
-    opacity: 1.0;
+.button-effect:hover {
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
-#tooltip.show {
-    animation: tooltip-fade normal;
+.button-effect:active {
+    transform: translate(2px, 2px);
 }
-
-#tooltip.hide {
-    animation: tooltip-fade reverse;
-}
-*/
 
 .sidebar-toggle {
     appearance: none;
-    border: 1px solid var(--border-accent-color);
-    border-radius: var(--border-radius);
-    background-color: var(--highlight-background-color);
-    color: var(--highlight-text-color);
-    margin: 0.5rem;
-    margin-right: 1.0rem;
     padding: 0;
+    border: 0;
+    background: none;
+}
+
+button.sidebar-toggle {
+    appearance: none;
+    border: 2px solid rgba(255, 255, 255, 0.75);
+    border-radius: 0.6rem;
+    color: #fff;
+    padding: 0 !important;
     width: 2.5rem;
     height: 2.5rem;
     font-size: 1.5rem;
@@ -358,7 +345,7 @@ code.inline-code {
     text-shadow: 0 0 0.6rem rgba(0, 0, 0, 0.5);
 
     background: linear-gradient(
-        90deg,
+        270deg,
         var(--color-1),
         var(--color-2),
         var(--color-3),
@@ -370,6 +357,7 @@ code.inline-code {
     flex: 2;
     display: flex;
     flex-direction: row;
+    align-items: center;
     color: var(--header-left-text-color);
 }
 
@@ -379,7 +367,37 @@ code.inline-code {
     flex-direction: row;
     justify-content: right;
     align-items: baseline;
-    color: var(--header-right-text-color);
+    color: var(--header-left-text-color);
+    white-space: nowrap;
+}
+
+.header-item {
+    --header-item-size: 2.75rem;
+    --header-item-padding: 0.35rem;
+
+    display: block;
+    padding: 0;
+    margin: 0.5rem;
+}
+
+.header-item:last-of-type {
+    margin-right: 1rem;
+}
+
+.header-item.square {
+    width: var(--header-item-size);
+    height: var(--header-item-size);
+}
+
+button.header-item.square > svg {
+    width: calc(100% - (var(--header-item-padding) * 2));
+    height: auto;
+    padding: var(--header-item-padding);
+}
+
+a.header-item.square > svg {
+    width: 100%;
+    height: auto;
 }
 
 #page-title {
@@ -442,12 +460,33 @@ nav#sidebar select {
     width: 100%;
 }
 
+nav#sidebar > .menu-header:first-child {
+    margin-top: 0;
+    margin-bottom: min(1vw, 2rem);
+    border-bottom: 2px solid var(--color-3);
+
+    z-index: 500;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
+
+    color: var(--header-left-text-color);
+    text-shadow: 0 0 0.6rem rgba(0, 0, 0, 0.5);
+
+    background: linear-gradient(
+        270deg,
+        var(--color-1),
+        var(--color-2),
+        var(--color-3),
+        var(--color-4),
+        var(--color-5));    
+}
+
 .menu-header {
     display: flex;
     flex-direction: row;
     align-items: center;
     border-bottom: 1px solid var(--border-accent-color);
-    padding: 1vmin;
+    padding: 1vmin 2.5vmin;
 
     margin: 0.25rem 0;
 }
@@ -468,6 +507,7 @@ nav#sidebar select {
 
 .menu-header > button {
     margin: 0;
+    margin-right: 1vmin;
 }
 
 #toc-small-menu {
@@ -502,6 +542,7 @@ main {
 .menu ul {
     padding-left: 1.75vmin;
     font-size: 0.95rem;
+    list-style-type: none;
 }
 
 .menu ul > li > a {

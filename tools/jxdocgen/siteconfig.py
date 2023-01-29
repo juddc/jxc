@@ -1,3 +1,4 @@
+import os
 import typing
 from enum import Enum
 from dataclasses import dataclass
@@ -61,6 +62,27 @@ class GeneratedStaticPage(BasePage):
     pass
 
 
+_STATIC_FILE_INSTANCES = set()
+_STATIC_FILE_DATA = {}
+
+
+@dataclass
+class StaticFile:
+    path: str
+
+    def __post_init__(self):
+        _STATIC_FILE_INSTANCES.add(self.path)
+
+    def __str__(self):
+        if self.path in _STATIC_FILE_DATA:
+            return _STATIC_FILE_DATA[self.path]
+        else:
+            return f'(STATIC FILE {self.path})'
+
+
+_DEFAULT_STATIC_FILE_EXTENSIONS = { 'css', 'js', 'jpg', 'gif', 'png', 'svg' }
+
+
 @dataclass
 class SiteGenerator:
     pages: list[BasePage]
@@ -73,6 +95,40 @@ class SiteGenerator:
     static_dir: typing.Optional[str] = None
     markdown_extensions: typing.Optional[dict[str, dict[str, typing.Any]]] = None
     global_template_vars: typing.Optional[dict[str, typing.Any]] = None
+    static_file_extensions: typing.Optional[list[str]] = None
+
+
+    def all_static_files(self, static_dir: typing.Optional[str]) -> typing.Iterable[str]:
+        static_exts = set(self.static_file_extensions) if self.static_file_extensions is not None else _DEFAULT_STATIC_FILE_EXTENSIONS
+        if static_dir is not None:
+            for name in os.listdir(static_dir):
+                if any(name.endswith(f'.{ext}') for ext in static_exts):
+                    yield os.path.abspath(os.path.join(static_dir, name))
+
+        # then, pull any additional static files that were specified explicitly
+        if self.extra_static_files:
+            for file_path in self.extra_static_files:
+                file_path = os.path.abspath(file_path)
+                if os.path.exists(file_path):
+                    yield file_path
+                else:
+                    raise FileNotFoundError(file_path)
+
+
+    def resolve_static_file_instances(self, static_dir: typing.Optional[str], dev_server: bool = False):
+        if len(_STATIC_FILE_INSTANCES) == 0:
+            return
+        all_static_file_paths = list(self.all_static_files(static_dir))
+        for inst_path in _STATIC_FILE_INSTANCES:
+            assert isinstance(inst_path, str)
+            if not dev_server and inst_path in _STATIC_FILE_DATA:
+                continue
+            # find the actual full path that the StaticFile path is referring to
+            for path in all_static_file_paths:
+                if os.path.normpath(path).replace('\\', '/').endswith(inst_path.replace('\\', '/')):
+                    with open(path, 'r') as fp:
+                        _STATIC_FILE_DATA[inst_path] = fp.read()
+                    break
 
 
 def make_template_context(site: SiteGenerator, page: BasePage, **kwargs) -> dict[str, typing.Any]:
@@ -110,8 +166,11 @@ def make_markdown_context(site: SiteGenerator, page: BasePage) -> tuple[list[str
 def parse(docgen_path: str) -> SiteGenerator:
     annotation_classes = []
 
-    for dataclass_cls in (SiteGenerator, MarkdownPage, HTMLPage, RailroadDiagramsPage, JXCPage, GeneratedStaticPage, Template):
-        annotation_classes.append((dataclass_cls, jxc.ClassConstructMode.DictAsKeywordArgs))
+    for cls in (SiteGenerator, MarkdownPage, HTMLPage, RailroadDiagramsPage, JXCPage, GeneratedStaticPage, Template):
+        annotation_classes.append((cls, jxc.ClassConstructMode.DictAsKeywordArgs))
+
+    for cls in (StaticFile, ):
+        annotation_classes.append((cls, jxc.ClassConstructMode.ListAsArgs))
 
     with open(docgen_path, 'r') as fp:
         result = jxc.loads(

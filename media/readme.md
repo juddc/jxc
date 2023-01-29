@@ -1,0 +1,1 @@
+This directory contains the source media for images used in JXC documentation.

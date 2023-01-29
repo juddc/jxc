@@ -17,15 +17,15 @@ def build_docs(cfg_path: str, docs_dir: str, output_dir: str):
 def run_dev_server(listen_host: str, listen_port: int, cfg_path: str, docs_dir: str, output_dir: str):
     from jxdocgen import devserver
 
-    site: siteconfig.SiteGenerator = docgen.build_docs(cfg_path, docs_dir, output_dir)
+    site: siteconfig.SiteGenerator = docgen.build_docs(cfg_path, docs_dir, output_dir, dev_server=True)
     watch_paths = [docs_dir, docgen.get_template_dir(site), docgen.get_static_dir(site), cfg_path]
 
-    for path in docgen.get_all_static_files(site, None):
+    for path in site.all_static_files(None):
         watch_paths.append(path)
 
     def rebuild_docs_callback():
         dev_server_log.info("Source changed, regenerating...")
-        site = docgen.build_docs(cfg_path, docs_dir, output_dir)
+        site = docgen.build_docs(cfg_path, docs_dir, output_dir, dev_server=True)
 
     server = devserver.LiveReloadServer(rebuild_docs_callback, listen_host, listen_port, root=args.output)
 

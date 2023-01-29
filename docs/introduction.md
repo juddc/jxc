@@ -142,7 +142,7 @@ box{ top: 20%, left: 25%, width: 200px, height: 200px }
 Single-value types must have a space between the annotation and the value. Container types may omit the space.
 ```jxc
 rgb[255, 255, 127]  # space optional
-rgb 0xFF9ACC  # space required
+rgb 0xFF9ACC        # space required
 ```
 
 Multiple identifiers can be used if you separate them with dots:

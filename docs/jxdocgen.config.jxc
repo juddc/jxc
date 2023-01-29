@@ -6,6 +6,8 @@ SiteGenerator{
         footer_links: [
             #{ href: '', css_class: '', label: 'Github' }
         ]
+        logo_svg: StaticFile("jxc-header-logo.svg")
+        hamburger_svg: StaticFile("jxc-icon-hamburger-web.svg")
     }
 
     # full code style list:
@@ -80,6 +82,8 @@ SiteGenerator{
         'vs'
     ]
     default_code_style: 'onemonokai'
+
+    static_file_extensions: ['css', 'js', 'jpg', 'gif', 'png', 'svg']
 
     extra_static_files: []
 
