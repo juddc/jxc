@@ -625,6 +625,9 @@ PYBIND11_MODULE(_pyjxc, m)
         .def("set_find_construct_from_number_suffix_callback", &PyParser::set_find_construct_from_number_suffix_callback,
             py::arg("callback"))
 
+        .def("set_custom_list_type", &PyParser::set_custom_list_type, py::arg("list_type"))
+        .def("set_custom_dict_type", &PyParser::set_custom_dict_type, py::arg("dict_type"))
+
         .def("parse", &PyParser::parse)
         .def("has_error", &PyParser::has_error)
         .def("get_error", &PyParser::get_error)

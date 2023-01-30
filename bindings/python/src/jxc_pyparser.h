@@ -152,6 +152,8 @@ private:
     bool ignore_unknown_annotations = true;
     bool ignore_unknown_number_suffixes = true;
     ExpressionParseMode default_expr_parse_mode = ExpressionParseMode::ValueList;
+    std::optional<py::type> custom_list_type;
+    std::optional<py::type> custom_dict_type;
 
     FindConstructAnnotationFunc find_construct_from_annotation;
     FindConstructNumberSuffixFunc find_construct_from_number_suffix;
@@ -182,6 +184,9 @@ public:
     void set_find_construct_from_annotation_callback(py::object callback);
     void set_find_construct_from_number_suffix_callback(py::object callback);
 
+    void set_custom_list_type(py::object new_type);
+    void set_custom_dict_type(py::object new_type);
+
     bool has_error() const { return parse_error.is_err || parser.has_error(); }
     const ErrorInfo& get_error() const { return parse_error.is_err ? parse_error : parser.get_error(); }
 
@@ -193,11 +198,13 @@ public:
     py::object parse_string_element(const Element& ele);
     py::object parse_bytes_element(const Element& ele);
     py::object parse_list();
+    py::object parse_list_custom();
     py::object parse_expr_value(const Element& ele);
     py::object parse_expr_token(const Element& ele);
     py::object parse_expr(ExpressionParseMode parse_mode);
     py::object parse_key(const Element& ele);
     py::object parse_dict();
+    py::object parse_dict_custom();
 };
 
 } // namespace jxc

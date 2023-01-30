@@ -285,6 +285,38 @@ void PyParser::set_find_construct_from_number_suffix_callback(py::object callbac
 }
 
 
+void PyParser::set_custom_list_type(py::object new_type)
+{
+    if (new_type.is_none())
+    {
+        if (custom_list_type)
+        {
+            custom_list_type.reset();
+        }
+    }
+    else
+    {
+        custom_list_type = py::type(new_type);
+    }
+}
+
+
+void PyParser::set_custom_dict_type(py::object new_type)
+{
+    if (new_type.is_none())
+    {
+        if (custom_dict_type)
+        {
+            custom_dict_type.reset();
+        }
+    }
+    else
+    {
+        custom_dict_type = py::type(new_type);
+    }
+}
+
+
 bool PyParser::advance()
 {
     if (parser.next())
@@ -347,7 +379,7 @@ py::object PyParser::parse_value(const Element& ele)
         result = parse_bytes_element(ele);
         break;
     case ElementType::BeginArray:
-        result = parse_list();
+        result = custom_list_type ? parse_list_custom() : parse_list();
         break;
     case ElementType::BeginExpression:
     {
@@ -360,7 +392,7 @@ py::object PyParser::parse_value(const Element& ele)
         break;
     }
     case ElementType::BeginObject:
-        result = parse_dict();
+        result = custom_dict_type ? parse_dict_custom() : parse_dict();
         break;
     default:
         parse_error = ErrorInfo(jxc::format("Unexpected element type {}", element_type_to_string(ele.type)),
@@ -519,6 +551,28 @@ py::object PyParser::parse_list()
             break;
         }
         result.append(parse_value(ele));
+    }
+
+    return result;
+}
+
+
+py::object PyParser::parse_list_custom()
+{
+    JXC_DEBUG_ASSERT(custom_list_type.has_value());
+
+    const Element& start_ele = parser.value();
+
+    py::object result = (*custom_list_type)();
+    JXC_ASSERT(start_ele.type == ElementType::BeginArray);
+    while (advance())
+    {
+        const Element& ele = parser.value();
+        if (ele.type == ElementType::EndArray)
+        {
+            break;
+        }
+        result.attr("append")(parse_value(ele));
     }
 
     return result;
@@ -756,6 +810,34 @@ py::object PyParser::parse_dict()
         {
             break;
         }
+        result[key] = parse_value(parser.value());
+    }
+
+    return result;
+}
+
+
+py::object PyParser::parse_dict_custom()
+{
+    JXC_DEBUG_ASSERT(custom_dict_type.has_value());
+
+    const Element& start_ele = parser.value();
+    JXC_ASSERT(start_ele.type == ElementType::BeginObject);
+
+    py::object result = (*custom_dict_type)();
+    while (advance())
+    {
+        const Element& key_ele = parser.value();
+        if (key_ele.type == ElementType::EndObject)
+        {
+            break;
+        }
+        py::object key = parse_key(key_ele);
+        if (!advance())
+        {
+            break;
+        }
+
         result[key] = parse_value(parser.value());
     }
 
