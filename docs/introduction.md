@@ -52,7 +52,7 @@ All value types supported by JXC
     * String escapes: JXC supports the same set of escape types that Python supports, which itself is a super-set of what JSON supports. Notably, JXC and Python support utf32 escapes, which JSON lacks.
         - `" \n \t \xFF \u2192 \U0001F601 "`
 * **Raw strings**
-    - Raw strings always start and end with an inner set of parentheses. The heredoc is optional for single-line strings.
+    - Raw strings always start and end with an inner set of parentheses. The heredoc is optional.
     - `r"()"`
     - `r"([a-zA-Z0-9\W\s]*)"`
     - `r"HEREDOC(multi-line string)HEREDOC"`
@@ -164,44 +164,71 @@ std.unordered_map<std.string, vec3<int32_t>>{ 'a': [1, 2, 3], 'b': [4, 5, 6] }
 list<int | float | str>[ 0, 1, -5.12, "abc" ]
 ```
 
-Inside an annotation's angle brackets, you can also use the non-container value types: null, bool, integer, float, and string
+Inside an annotation's angle brackets, you can also use the non-container value types: null, bool, integer, float, and string.
 ```jxc
 fixed_array<int32_t, 8, FixedSize=true, name="numbers", meta=null>[]
 ```
 
 ## Objects
-There are several types of valid object keys - null, bool, integer literals, string literals, as well as unquoted identifiers. These identifiers can contain alphanumeric characters, `_`, `$`, and `*`. You may also use multiple identifiers separated by dots (`.`).
+There are several types of valid object keys - null, bool, integers, strings, and unquoted identifiers. These identifiers can contain alphanumeric characters, `_`, `$`, and `*`. You may also use multiple identifiers separated by dots (`.`).
 
 (Specifically, unquoted object key identifiers must match the regular expression `[a-zA-Z_$*][a-zA-Z0-9_$*]*`).
 
 Null or boolean literals as object keys:
 ```jxc
-{ null: 123, true: 456, false: 789 }
+{
+    null: 123
+    true: 456
+    false: 789
+}
 ```
 
-Integer object keys (numeric suffixes are not allowed):
+Integer object keys, including hex, octal, and binary integers (note that floating point numbers and numeric suffixes are not allowed):
 ```jxc
-{ 0: 'abc', 1: 'def', 432: 'ghi', -7: 'xyz' }
+{
+    0: 'abc'
+    231: 'def'
+    -7: 'xyz'
+    0xff: true
+    0o644: null
+    0b011011: false
+}
 ```
 
 Quoted strings:
 ```jxc
-{ "abc": [], 'def': [] }
+{
+    "abc": []
+    'def': []
+}
 ```
 
 Unquoted identifiers:
 ```jxc
-{ abc: [], def: [], $abc: [], abc$: [], $abc$: [] }
+{
+    abc: []
+    def: []
+    $abc: []
+    abc$: []
+    $abc$: []
+}
 ```
 
 Unquoted dotted identifiers:
 ```jxc
-{ abc.def: [], aaa.bbb.ccc.ddd.eee.fff: null }
+{
+    abc.def: []
+    aaa.bbb.ccc.ddd.eee.fff: null
+}
 ```
 
 Asterisks:
 ```jxc
-{ *: [], *.*: [], *.abc.*: [] }
+{
+    *: []
+    *.*: []
+    *.abc.*: []
+}
 ```
 
 ## Expressions

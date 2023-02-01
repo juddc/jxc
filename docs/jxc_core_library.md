@@ -6,7 +6,7 @@ The core library (`libjxc`) contains the lexer and a first-stage parser that att
 
 If you want a higher-level API that integrates with the C++ standard library, see [libjxc_cpp](jxc_cpp_library.md).
 
-If you want to integrate JXC into a codebase that does not use the C++ standard library, or if you just want a higher degree of control over parsing and serialization, then you can skip `libjxc_cpp` and just use `libjxc`. For example, if you're integrating JXC into an Unreal Engine game project, you can write your own second-stage parser that parses directly to types like `FString` rather than `std::string`.
+If you want to integrate JXC into a codebase that does not use the C++ standard library, or if you just want a higher degree of control over parsing and serialization, then you can skip `libjxc_cpp` and just use `libjxc`. For example, if you're integrating JXC into an Unreal Engine game project, you can write your own second-stage parser that parses directly to types like `FString` rather than `std::string`. There is an example custom second-stage parser in the JXC repository located at `jxc_examples/src/custom_parser.cpp`.
 
 
 ## Parsing

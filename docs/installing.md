@@ -62,7 +62,7 @@ $ ninja -C build
 
 The JXC Python library will eventually be in the [Python Package Index](https://pypi.org), but until then, the simplest way to install the JXC Python module is to use `setup.py` by running `pip install .` from the repository root directory. If you activate a virtualenv first, it will be installed into your virtual environment.
 
-NB. You can clone the JXC repo anywhere, but if it's near your Python source files, be careful not to have the directory named `jxc`, as this can sometimes confuse the Python interpreter when you run `import jxc`.
+NB. You can clone the JXC repo anywhere, but if it's near your Python source files, be careful not to name the repository directory `jxc`, as this can sometimes confuse the Python interpreter when you run `import jxc`.
 
 Optional: create a virtualenv first:
 ```console

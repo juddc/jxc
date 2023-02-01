@@ -281,6 +281,13 @@ function setTooltipVisible(isVisible) {
 }
 
 
+// Hacky way of checking if we're on a touch device.
+// Without this, the diagram tooltips show up on click after scrolling down the page.
+function isTouchscreenDevice() {
+    return 'ontouchstart' in document.documentElement || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementsByTagName('html')[0].onmousemove = (evt) => {
         updateTooltipPosition(evt.clientX, evt.clientY);
@@ -386,14 +393,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            rectEle.addEventListener('mouseover', () => {
-                setTooltipContent(diagName, () => window.DIAGRAMS[diagName].querySelector('.diagram-outer'));
-                setTooltipVisible(true);
-            });
+            if (!isTouchscreenDevice()) {
+                rectEle.addEventListener('mouseover', () => {
+                    setTooltipContent(diagName, () => window.DIAGRAMS[diagName].querySelector('.diagram-outer'));
+                    setTooltipVisible(true);
+                });
 
-            rectEle.addEventListener('mouseout', (evt) => {
-                setTooltipVisible(false);
-            });
+                rectEle.addEventListener('mouseout', (evt) => {
+                    setTooltipVisible(false);
+                });
+            }
         }
     }
 });

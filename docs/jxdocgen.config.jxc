@@ -123,8 +123,8 @@ SiteGenerator{
         MarkdownPage{
             title: 'Installing'
             template: Template{ file: 'markdown.html' }
-            output: 'dependency.html'
-            source: 'dependency.md'
+            output: 'installing.html'
+            source: 'installing.md'
         }
         MarkdownPage{
             title: 'JXC Core Library'
