@@ -111,111 +111,6 @@ function languageTagToLabel(lang) {
 }
 
 
-/*
-class Tooltip {
-    constructor(nodeID) {
-        this.visible = false;
-        this.currentMouseX = 0;
-        this.currentMouseY = 0;
-        this.node = null;
-        this.nodeID = nodeID;
-        this.offsetY = 30;
-        this.fadeTimeMS = 150;
-
-        this._fadeOutTimeout = null;
-    }
-
-    onDOMReady() {
-        this.node = document.getElementById(this.nodeID);
-        if (!this.node) {
-            console.error(`No tooltip in page with id '${nodeID}'`);
-        }
-
-        //this.node.style.transitionDelay = `${this.fadeTimeMS}ms`;
-        this.node.style.animationDuration = `${this.fadeTimeMS}ms`;
-    }
-
-    onMouseMove(x, y) {
-        this.currentMouseX = x;
-        this.currentMouseY = y;
-        if (this.node && this.visible) {
-            let tooltipRect = this.node.getBoundingClientRect();
-            let centerX = tooltipRect.width / 2;
-
-            let newLeft = `${x - centerX}px`;
-            let newTop = `${y + this.offsetY}px`;
-            if (this.node.style.left !== newLeft) {
-                this.node.style.left = newLeft;
-            }
-            if (this.node.style.top !== newTop) {
-                this.node.style.top = newTop;
-            }
-        }
-    }
-
-    _hasAttr(name) {
-        return this.node && this.node.hasAttribute(name);
-    }
-
-    _getAttr(name, convertFunc = null) {
-        if (convertFunc) {
-            return (this.node && this.node.hasAttribute(name)) ? convertFunc(this.node.getAttribute(name)) : null;
-        }
-        return this.node ? this.node.getAttribute(name) : null;
-    }
-
-    _setAttr(name, value) {
-        if (this.node) {
-            this.node.setAttribute(name, `${value}`);
-        }
-    }
-
-    setVisible(newName, contentSelector) {
-        if (!this.node) {
-            return;
-        }
-
-        // use the name attribute to determine if we need to change the _contents_ of the tooltip
-        if (this._getAttr('data-name') !== newName) {
-            this._setAttr('data-name', newName);
-
-            // update tooltip content - get a document element from contentSelector
-            let contentEle = null;
-            if (typeof contentSelector === 'string') {
-                contentEle = document.querySelector(contentSelector);
-            } else if (typeof contentSelector === 'function') {
-                contentEle = contentSelector();
-            } else {
-                contentEle = contentSelector;
-            }
-
-            if (contentEle) {
-                this.node.innerHTML = contentEle.innerHTML;
-            } else {
-                this.node.innerHTML = '';
-            }
-        }
-
-        // fade in
-        this.node.classList.remove('hide');
-        this.node.classList.add('show');
-        this.visible = true;
-    }
-
-    setHidden() {
-        if (!this.node) {
-            return;
-        }
-
-        // fade out
-        this.node.classList.add('hide');
-        this.node.classList.remove('show');
-        this.visible = false;
-    }
-}
-*/
-
-
 window.TOOLTIP_VISIBLE = false;
 
 
@@ -282,7 +177,7 @@ function setTooltipVisible(isVisible) {
 
 
 // Hacky way of checking if we're on a touch device.
-// Without this, the diagram tooltips show up on click after scrolling down the page.
+// Without this, the diagram tooltips show up on tap on touch devices after scrolling down the page.
 function isTouchscreenDevice() {
     return 'ontouchstart' in document.documentElement || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
 }

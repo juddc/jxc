@@ -1,4 +1,8 @@
 ![JXC Logo](/media/jxc-logo-wide.svg)
+
+* [JXC Documentation](https://jxc.juddnet.com/)
+* [JXC Syntax Diagrams](https://jxc.juddnet.com/syntax_diagrams.html)
+
 # What is JXC?
 
 JXC is a structured data language similar to JSON, but with a focus on being expressive, extensible, and human-friendly. It's fantastic in many use-cases that can be awkward in other data formats. It's a perfect fit for config files, especially ones with more complex needs. It also does not sacrifice speed - benchmarks show that the reference implementation is about as fast as many commonly used C++ JSON libraries.

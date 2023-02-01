@@ -239,15 +239,11 @@ code.inline-code {
     pointer-events: none;
 
     position: fixed;
-    /*top: 0;
-    left: 0;*/
     z-index: 9999999;
 
     margin: 0;
     border: 1px solid var(--border-accent-color);
     padding: 2vmin;
-    /*min-width: 10vmin;
-    min-height: 10vmin;*/
 
     border-radius: var(--border-radius);
     background-color: var(--default-diagram-background-color);
@@ -451,8 +447,6 @@ nav#sidebar {
 
 nav#sidebar > .toc-small {
     display: none; /* only used for tablet-sized and smaller */
-    border-top: 1px solid var(--page-border-color);
-
     position: relative;
 }
 
@@ -486,9 +480,8 @@ nav#sidebar > .menu-header:first-child {
     flex-direction: row;
     align-items: center;
     border-bottom: 1px solid var(--border-accent-color);
-    padding: 1vmin 2.5vmin;
-
-    margin: 0.25rem 0;
+    padding: 1vmin;
+    margin-top: 0.25vmin;
 }
 
 .menu-header > h1 {

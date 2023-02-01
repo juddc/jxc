@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" type="image/x-icon" href="/static/favicon.svg" />
 <title>
@@ -148,6 +149,17 @@ for (let style of window.CODE_STYLES) {
                     {{ self.toc() }}
                 </div>
             </div>
+
+            {% if footer_links %}
+            <div class="menu-header"><h1>Links</h1></div>
+            <div class="menu">
+                <ul>
+                {% for link in footer_links %}
+                    <li><a href="{{ link.get('href', '') }}" class="footer-link {{ link.get('css_class', '') }}">{{ link.get('label', 'Link') }}</a></li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </nav>
 
         <main>

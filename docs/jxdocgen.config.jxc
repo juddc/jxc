@@ -4,7 +4,9 @@ SiteGenerator{
         main_title: 'JXC Language'
         copyright: '&copy; 2023 Judd Cohen'
         footer_links: [
-            #{ href: '', css_class: '', label: 'Github' }
+            { href: 'https://github.com/juddc/jxc', css_class: '', label: 'GitHub' }
+            { href: 'https://github.com/juddc/jxc/issues', css_class: '', label: 'Bug Tracker' }
+            { href: 'https://github.com/juddc/jxc/blob/main/LICENSE.MIT', css_class: '', label: 'MIT License' }
         ]
         logo_svg: StaticFile("jxc-header-logo.svg")
         hamburger_svg: StaticFile("jxc-icon-hamburger-web.svg")
