@@ -119,6 +119,10 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str, dev_server
     if site_cfg.default_code_style not in code_style.CODE_STYLES:
         raise ValueError(f'Invalid default code style {site_cfg.default_code_style} (styles = {list(code_style.CODE_STYLES.keys())!r})')
 
+    # make a static dir for generated or copied static files
+    static_file_dest = os.path.join(output_dir, 'static')
+    os.makedirs(static_file_dest, exist_ok=True)
+
     builder = PageBuilder(template_dir, output_dir)
     builder.ctx['code_styles'] = code_style.get_code_style_css_data(
         styles=site_cfg.code_styles or ['onemonokai'],
@@ -196,10 +200,6 @@ def build_docs(site_config_file: str, docs_dir: str, output_dir: str, dev_server
             )
         else:
             raise TypeError(f'Unhandled static page type {type(page).__name__}')
-
-    # copy all static files
-    static_file_dest = os.path.join(output_dir, 'static')
-    os.makedirs(static_file_dest, exist_ok=True)
 
     # copy all static files
     for path in site_cfg.all_static_files(static_dir):
