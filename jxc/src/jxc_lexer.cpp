@@ -20,7 +20,7 @@ JXC_BEGIN_NAMESPACE(jxc)
 bool Lexer::scan_comment(size_t comment_token_len, std::string_view& out_comment)
 {
     const char* start = reinterpret_cast<const char*>(this->current - comment_token_len);
-    JXC_DEBUG_ASSERT(start[0] == '#' || (start[0] == '/' && start[1] == '/'));
+    JXC_DEBUG_ASSERT(start[0] == '#');
     while (this->current < this->limit && *this->current != '\n')
     {
         ++this->current;
