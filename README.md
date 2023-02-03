@@ -1,4 +1,4 @@
-![JXC Logo](/media/jxc-logo-wide.svg)
+![JXC Logo](https://raw.githubusercontent.com/juddc/jxc/main/media/jxc-logo-wide.svg)
 
 * [JXC Documentation](https://jxc.juddnet.com/)
 * [JXC Syntax Diagrams](https://jxc.juddnet.com/syntax_diagrams.html)
@@ -59,10 +59,26 @@ Until 1.0 is released, expect a few language and API changes.
 # Reference Implementation Details
 The JXC reference implementation library has a two-stage parser. The first parsing stage handles JXC's syntax and yields a clear list of elements without allocating any memory for your data. The second-stage parser takes these elements and converts them into the appropriate data types, allocating memory however is needed for your environment. This means that language bindings are very efficient because each scripting language can have its own second-stage parser that allows that language to manage memory and data types appropriately. There are several second-stage parsers you can use depending on your use-case. If your application uses the C++ stdlib, you can use the C++ second-stage parser that uses a union type (`jxc::Value`) which can contain any valid JXC value as well as their associated annotations and numeric suffixes. If you have more complex needs (such as integrating with a game engine), writing a custom second-stage parser is not difficult (there is an example custom parser in `jxc_examples/src/custom_parser.cpp`).
 
+# Python Usage
+JXC includes first-class, fully featured Python bindings. It has two APIs - a more flexible but verbose one, and one that's similar to `json.loads` and `json.dumps`.
+
+## Parsing in Python
+```python-repl
+>>> import jxc
+>>> print(jxc.loads("[1, 2, true, null, {}]"))
+[1, 2, True, None, {}]
+```
+
+### Serializing in Python
+```python-repl
+>>> print(jxc.dumps([1, 2, True, None, {}]))
+[1,2,true,null,{}]
+```
+
 # Editor Integration
 
 ## Visual Studio Code
-Copy the directory `contrib/jxc.vscode/` into the `extensions` directory in your Visual Studio Code user data directory (on Windows, this is `%USERPROFILE%/.vscode/extensions`).
+Copy the directory `contrib/jxc.vscode` into the `extensions` directory in your Visual Studio Code user data directory (on Windows, this is `%USERPROFILE%/.vscode/extensions`).
 
 ## Sublime Text and Sublime Merge
 Copy the directory `contrib/JXC.sublime-package` into the `Packages` directory in your Sublime Text user data directory (on Windows, this is `%APPDATA%/Sublime Text/Packages`). You can open this directory by opening the `Preferences` menu in Sublime Text and clicking `Browse Packages`.

@@ -10,6 +10,7 @@ CLEAN_FILES = [
     "*.make",
     "obj/",
     "build/",
+    "dist/",
     "_pyjxc.*.so",
     "jxc.egg-info/",
     "*.pyc",

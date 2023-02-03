@@ -1,0 +1,10 @@
+# This file lists files needed to build the Python bindings.
+
+include tools/version.py
+
+include jxc/src/jxc_lexer_gen.re
+
+include jxc/include/jxc/*.h
+include bindings/python/src/*.h
+include subprojects/fast_float/include/fastfloat.h
+include subprojects/unordered_dense/include/ankerl/unordered_dense.h

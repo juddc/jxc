@@ -1,16 +1,17 @@
 [project]
 name = "jxc"
-version = "0.8.2"
+version = "0.8.3"
 authors = [
     { name="Judd Cohen", email="jcohen@juddnet.com" },
 ]
-description = "JXC parsing and serialization library"
+description = "JXC is a structured data language similar to JSON, but with a focus on being expressive, extensible, and human-friendly."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
 ]
 
 [project.urls]

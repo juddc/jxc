@@ -1,5 +1,6 @@
 import os
 import sys
+import typing
 import subprocess
 from setuptools import setup
 
@@ -12,32 +13,49 @@ except ImportError:
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 
-__version__ = subprocess.check_output(['python', './tools/version.py']).decode('utf-8').strip()
+
+jxc_version = subprocess.check_output(['python', './tools/version.py']).decode('utf-8').strip()
+
+assert len(jxc_version) > 0 and '.' in jxc_version and len(jxc_version.split('.')) == 3
 
 
-repo_root_dir = os.path.normpath(os.path.dirname(os.path.abspath(__file__)))
+build_root_dir = os.path.normpath(os.path.dirname(os.path.abspath(__file__)))
+
+
+def executable_exists(path):
+    return os.path.exists(path) and os.access(path, os.X_OK)
 
 
 def find_re2c() -> str | None:
     re2c_path = None
     if os.name == 'nt':
-        re2c_path = os.path.join(repo_root_dir, 'tools', 're2c.exe')
+        re2c_path = os.path.join(build_root_dir, 'tools', 're2c.exe')
     else:
         # first, see if there's a re2c binary in the tools directory
-        re2c_path = os.path.join(repo_root_dir, 'tools', 're2c')
-        if os.path.exists(re2c_path) and os.access(re2c_path, os.X_OK):
+        re2c_path = os.path.join(build_root_dir, 'tools', 're2c')
+
+    # we have a bundled re2c executable
+    if executable_exists(re2c_path):
+        return re2c_path
+
+    # if that doesn't exist, ask the shell if we have one available
+    try:
+        if os.name == 'nt':
+            search_cmd = ['where', 're2c.exe']
+        else:
+            search_cmd = ['which', 're2c']
+        re2c_path = subprocess.check_output(search_cmd).decode('utf-8').strip()
+        if executable_exists(re2c_path):
             return re2c_path
-        # if that doesn't exist, ask the shell if we have one available
-        try:
-            re2c_path = subprocess.check_output(['which', 're2c']).decode('utf-8').strip()
-        except subprocess.CalledProcessError:
-            return None
-    return re2c_path if os.path.exists(re2c_path) else None
+    except subprocess.CalledProcessError:
+        pass
+
+    return None
 
 
 def run_re2c(re2c_path: str, input_file: str):
     assert os.path.exists(input_file)
-    input_file = os.path.relpath(input_file, start=repo_root_dir)
+    input_file = os.path.relpath(input_file, start=build_root_dir)
     assert os.path.exists(input_file)
 
     args = [re2c_path, '-W', '--verbose', '--utf8', '--input-encoding', 'utf8']
@@ -45,7 +63,10 @@ def run_re2c(re2c_path: str, input_file: str):
         args += ['--location-format', 'msvc']
     else:
         args += ['--location-format', 'gnu']
-    subprocess.check_call(args + ['-o', f'{input_file}.cpp', input_file])
+    
+    re2c_args = args + ['-o', f'{input_file}.cpp', input_file]
+    print(' '.join(re2c_args))
+    subprocess.check_call(re2c_args)
 
 
 ext_modules = [
@@ -92,10 +113,17 @@ class build_ext_jxc(build_ext):
     }
 
     def build_extension(self, ext):
+        generated_lexer_path = os.path.join(build_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re.cpp')
+
         re2c_path = find_re2c()
         if re2c_path is not None:
-            run_re2c(re2c_path, os.path.join(repo_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re'))
-        assert os.path.exists(os.path.join(repo_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re.cpp'))
+            run_re2c(re2c_path, os.path.join(build_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re'))
+        elif os.path.exists(generated_lexer_path):
+            print('Warning: re2c not found, but generated lexer source already exists. Using pre-generated lexer source file.')
+        else:
+            raise FileNotFoundError(f'{generated_lexer_path!r} not found, and re2c could not be found to generate it.')
+
+        assert os.path.exists(generated_lexer_path)
         if extra_args := self.per_platform_compile_args.get(ext.name, None):
             if args := extra_args.get(self.compiler.compiler_type, None):
                 if not ext.extra_compile_args:
@@ -106,12 +134,8 @@ class build_ext_jxc(build_ext):
 
 setup(
     name="jxc",
-    version=__version__,
-    author="Judd Cohen",
-    author_email="jcohen@juddnet.com",
-    url="https://github.com/juddc/jxc",
-    description="JXC file format parsing and serialization library",
-    long_description="",
+    version=jxc_version,
+    #long_description="",
     cmdclass={'build_ext': build_ext_jxc},
     ext_modules=ext_modules,
     packages=['_pyjxc', 'jxc'],

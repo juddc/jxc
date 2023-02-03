@@ -1,10 +1,23 @@
 # JXC Python Library
 
+## Installing
+
+The fastest way to start using JXC from Python is with pip. If you're already comfortable installing other Python packages, you can simply run `pip install jxc` and you're good to go.
+
+The recommended approach is to set up a virtualenv first, for example:
+```bash
+$ virtualenv venv
+$ source venv/bin/activate
+(venv) $ pip install jxc
+(venv) $ python -c "import jxc; print(jxc.loads('[1, 2, 3]'))"
+[1, 2, 3]
+```
+
+## Basic Usage
+
 The JXC Python library has two APIs - a simple one similar to `json.loads`/`json.dumps`, and a more complex but more flexible one.
 
-## Simple API
-
-### Parsing
+### Simple API: Parsing
 ```python
 import jxc
 print(jxc.loads("[1, 2, true, null, {}]"))
@@ -13,7 +26,7 @@ print(jxc.loads("[1, 2, true, null, {}]"))
 [1, 2, True, None, {}]
 ```
 
-### Serializing
+### Simple API: Serializing
 ```python
 import jxc
 print(jxc.dumps([1, 2, True, None, {}]))

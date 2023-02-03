@@ -60,25 +60,10 @@ $ ninja -C build
 
 # Using JXC in Python Projects
 
-The JXC Python library will eventually be in the [Python Package Index](https://pypi.org), but until then, the simplest way to install the JXC Python module is to use `setup.py` by running `pip install .` from the repository root directory. If you activate a virtualenv first, it will be installed into your virtual environment.
+JXC has first-class Python bindings that work out of the box. See the [JXC Python Library](jxc_python_library.md) documentation page for how to get started.
 
-NB. You can clone the JXC repo anywhere, but if it's near your Python source files, be careful not to name the repository directory `jxc`, as this can sometimes confuse the Python interpreter when you run `import jxc`.
+The fastest way to start using JXC is by installing it with **pip**: simply run `pip install jxc` to install the Python JXC package.
 
-Optional: create a virtualenv first:
-```console
-$ virtualenv venv
-$ source venv/bin/activate
-```
+If you want to work on the JXC library itself, you can also install the Python bindings by running `pip install .` from the repository root directory.
 
-Download and install the JXC Python module:
-```console
-(venv) $ git clone https://github.com/juddc/jxc libjxc
-(venv) $ cd libjxc
-(venv) $ pip install .
-```
-
-To verify that the `jxc` Python module works correctly, you can run:
-```console
-(venv) $ python -c "import jxc; print(jxc.loads('[1, 2, 3]'))"
-[1, 2, 3]
-```
+For either installation method, if you activate a virtualenv first, it will be installed into your virtual environment.
