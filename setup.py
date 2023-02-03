@@ -14,19 +14,38 @@ except ImportError:
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 
-jxc_version = subprocess.check_output(['python', './tools/version.py']).decode('utf-8').strip()
-
-assert len(jxc_version) > 0 and '.' in jxc_version and len(jxc_version.split('.')) == 3
-
-
+jxc_version = subprocess.check_output([sys.executable, './tools/version.py']).decode('utf-8').strip()
 build_root_dir = os.path.normpath(os.path.dirname(os.path.abspath(__file__)))
+
+
+def parse_version(ver: str) -> typing.Tuple[int, int, typing.Union[int, str]]:
+    parts = list(ver.split('.'))
+    if len(parts) == 1 and parts[0].isnumeric():
+        return (int(parts[0]), 0, 0)
+    elif len(parts) in (2, 3) and parts[0].isnumeric() and parts[1].isnumeric():
+        patch_ver = 0
+        if len(parts) > 2:
+            patch_ver = int(parts[2]) if parts[2].isnumeric() else parts[2]
+        return (int(parts[0]), int(parts[1]), patch_ver)
+    raise ValueError(f'Value {ver!r} is not a version number')
 
 
 def executable_exists(path):
     return os.path.exists(path) and os.access(path, os.X_OK)
 
 
-def find_re2c() -> str | None:
+def get_re2c_version(re2c_path: str) -> str:
+    assert executable_exists(re2c_path)
+    try:
+        re2c_version = subprocess.check_output([re2c_path, '--version']).decode('utf-8').strip()
+    except subprocess.CalledProcessError:
+        return ''
+    if re2c_version.startswith('re2c'):
+        re2c_version = re2c_version[4:].strip()
+    return re2c_version
+
+
+def find_re2c() -> typing.Optional[str]:
     re2c_path = None
     if os.name == 'nt':
         re2c_path = os.path.join(build_root_dir, 'tools', 're2c.exe')
@@ -116,8 +135,11 @@ class build_ext_jxc(build_ext):
         generated_lexer_path = os.path.join(build_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re.cpp')
 
         re2c_path = find_re2c()
-        if re2c_path is not None:
+        re2c_ver = get_re2c_version(re2c_path) if re2c_path else ''
+        if re2c_path and parse_version(re2c_ver)[0] >= 3:
             run_re2c(re2c_path, os.path.join(build_root_dir, 'jxc', 'src', 'jxc_lexer_gen.re'))
+        elif re2c_path:
+            print(f'Warning: re2c version {re2c_ver} found, but JXC requires re2c >= 3.0. Using pre-generated lexer source file.')
         elif os.path.exists(generated_lexer_path):
             print('Warning: re2c not found, but generated lexer source already exists. Using pre-generated lexer source file.')
         else:
@@ -130,6 +152,13 @@ class build_ext_jxc(build_ext):
                     ext.extra_compile_args = []
                 ext.extra_compile_args += args
         return super().build_extension(ext)
+
+
+# verify that jxc_version is a valid version number
+try:
+    parse_version(jxc_version)
+except ValueError as e:
+    raise Exception(f'Invalid JXC version {jxc_version!r}: {e}')
 
 
 setup(
