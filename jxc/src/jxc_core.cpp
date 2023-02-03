@@ -6,6 +6,19 @@
 #include <unordered_map>
 #endif
 
+#if JXC_DEBUG
+// abort function that can auto-trigger a breakpoint when a debugger is attached
+#if defined(_WIN32)
+static inline void _jxc_abort() { __debugbreak(); std::abort(); }
+#else
+#include <signal.h>
+static inline void _jxc_abort() { raise(SIGTRAP); std::abort(); }
+#endif
+#else
+// release build verion - just call std::abort()
+static inline void _jxc_abort() { std::abort(); }
+#endif
+
 
 JXC_BEGIN_NAMESPACE(jxc)
 
@@ -85,10 +98,7 @@ void _jxc_assert_failed_msg(const char* file, int line, const char* cond, std::s
     else
     {
         JXC_ERROR("Assert failed [{}:{}]: {} ({})", jxc::detail::get_base_filename(file), line, cond, std::move(msg));
-#if _WIN32
-        __debugbreak();
-#endif
-        std::abort();
+        _jxc_abort();
     }
 }
 
@@ -102,10 +112,7 @@ void _jxc_assert_failed(const char* file, int line, const char* cond)
     else
     {
         JXC_ERROR("Assert failed [{}:{}]: {}", jxc::detail::get_base_filename(file), line, cond);
-#if _WIN32
-        __debugbreak();
-#endif
-        std::abort();
+        _jxc_abort();
     }
 }
 

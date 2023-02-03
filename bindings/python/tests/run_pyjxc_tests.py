@@ -15,6 +15,11 @@ except ImportError:
 import _pyjxc
 assert isinstance(_pyjxc.__version__, str)
 
+import jxc
+
+print(f'[INFO] _pyjxc loaded from {_pyjxc.__file__!r}')
+print(f'[INFO] jxc loaded from {jxc.__file__!r}')
+
 import unittest
 from pyjxc_tests.test_values import *
 

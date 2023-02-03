@@ -45,7 +45,7 @@
 
     str_prefix_raw = "r";
 
-    str_base64 = "b64" quote ((base64_digit*) | ("(" (base64_digit | whitespace)* ")")) quote;
+    str_base64 = "b64\"(" | "b64'(" | "b64\"" | "b64'";
 
     object_key_identifier = [a-zA-Z_$*][a-zA-Z0-9_$*]*;
     object_key_sep = ".";
@@ -140,7 +140,7 @@ expr_start:
 
     // string
     str_prefix_raw quote            { if (scan_raw_string(out_error.message, this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
-    str_base64                      { set_token(); return TokenType::ByteString; }
+    str_base64                      { if (scan_base64_string(out_error.message, out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::ByteString; } else { set_error(); return TokenType::Invalid; } }
     quote                           { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
 
     // identifiers
@@ -249,7 +249,7 @@ regular:
 
     // string
     str_prefix_raw quote            { if (scan_raw_string(out_error.message, this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
-    str_base64                      { set_token(); return TokenType::ByteString; }
+    str_base64                      { if (scan_base64_string(out_error.message, out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::ByteString; } else { set_error(); return TokenType::Invalid; } }
     quote				            { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
 
     // identifiers

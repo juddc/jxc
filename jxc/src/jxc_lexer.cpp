@@ -445,6 +445,126 @@ bool Lexer::scan_raw_string(std::string& out_error_message, uint8_t quote_char, 
 }
 
 
+bool Lexer::scan_base64_string(std::string& out_error_message, std::string_view& out_string_token)
+{
+    JXC_DEBUG_ASSERT(this->current - 1 >= this->start);
+    const bool is_multiline = static_cast<char>(*(this->current - 1)) == '(';
+    const uint8_t* str_start = nullptr;
+    const uint8_t* base64_data_start = this->current;
+    char quote_char = '\0';
+    size_t num_base64_chars = 0;
+
+    auto error_invalid_base64_char = [&out_error_message](char ch) -> bool
+    {
+        out_error_message = jxc::format("Invalid base64 string: {} is not a valid base64 character.", detail::debug_char_repr(ch));
+        return false;
+    };
+
+    if (is_multiline)
+    {
+        JXC_DEBUG_ASSERT(this->current - 5 >= this->start);
+        JXC_DEBUG_ASSERT(*(this->current - 5) == 'b');
+        JXC_DEBUG_ASSERT(*(this->current - 4) == '6');
+        JXC_DEBUG_ASSERT(*(this->current - 3) == '4');
+        JXC_DEBUG_ASSERT(*(this->current - 2) == '\'' || *(this->current - 2) == '\"');
+        JXC_DEBUG_ASSERT(*(this->current - 1) == '(');
+
+        str_start = this->current - 5;
+        quote_char = static_cast<char>(*(this->current - 2));
+
+        while (this->current < this->limit)
+        {
+            const char ch = static_cast<char>(*this->current);
+            switch (ch)
+            {
+            case ' ':
+            case '\t':
+            case '\r':
+            case '\n':
+                // skip over whitespace
+                break;
+            case ')':
+                // got a close paren followed by the correct quote char, so we're done
+                if (this->current < this->limit && static_cast<char>(*(this->current + 1)) == quote_char)
+                {
+                    ++this->current;
+                    goto parse_success;
+                }
+                else
+                {
+                    return error_invalid_base64_char(ch);
+                }
+            default:
+                if (base64::is_base64_char(ch))
+                {
+                    ++num_base64_chars;
+                }
+                else
+                {
+                    return error_invalid_base64_char(ch);
+                }
+                break;
+            }
+
+            ++this->current;
+        }
+    }
+    else
+    {
+        JXC_DEBUG_ASSERT(this->current - 4 >= this->start);
+        JXC_DEBUG_ASSERT(*(this->current - 4) == 'b');
+        JXC_DEBUG_ASSERT(*(this->current - 3) == '6');
+        JXC_DEBUG_ASSERT(*(this->current - 2) == '4');
+        JXC_DEBUG_ASSERT(*(this->current - 1) == '\'' || *(this->current - 1) == '\"');
+
+        str_start = this->current - 4;
+        quote_char = static_cast<char>(*(this->current - 1));
+
+        // no inner set of parens means no whitespace allowed
+        while (this->current < this->limit)
+        {
+            const char ch = static_cast<char>(*this->current);
+            if (ch == quote_char)
+            {
+                const int64_t data_len = (int64_t)(this->current - base64_data_start);
+                JXC_ASSERT(data_len >= 0);
+                num_base64_chars = static_cast<size_t>(data_len);
+                goto parse_success;
+            }
+            else if (!base64::is_base64_char(ch))
+            {
+                return error_invalid_base64_char(ch);
+            }
+
+            ++this->current;
+        }
+    }
+
+    // if we fell off the end of the parsing while loop without finding the end of the string, then this can't be valid
+    out_error_message = "Unexpected end of stream while parsing base64 string";
+    return false;
+
+parse_success:
+    // this->current should point at the end quote character now.
+    // Advance exactly once so that current points to the character just AFTER this token.
+    JXC_DEBUG_ASSERT(this->current > str_start && this->current < this->limit && static_cast<char>(*this->current) == quote_char);
+    ++this->current;
+
+    const int64_t len = (int64_t)(this->current - str_start);
+    const size_t string_token_len = (len >= 0) ? (size_t)len : 0;
+    out_string_token = std::string_view{ reinterpret_cast<const char*>(str_start), string_token_len };
+
+    // valid base64 strings consist of sets of 4 characters, where each set of 4 characters is 3 bytes (or less than 3 bytes with some padding)
+    if ((num_base64_chars % 4) != 0)
+    {
+        out_error_message = jxc::format("Invalid base64 string: length must be a multiple of 4 (got {} base64 chars)", num_base64_chars);
+        return false;
+    }
+
+    return true;
+}
+
+
 bool AnnotationLexer::next(Token& out_token)
 {
     const size_t token_idx = num_tokens;

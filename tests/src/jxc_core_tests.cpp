@@ -94,6 +94,46 @@ testing::AssertionResult _jxc_expect_jump_parse_next(
 } while(0)
 
 
+testing::AssertionResult _jxc_expect_jump_parse_error(
+    const char* jxc_value_str, const char* error_substring_match_str,
+    const std::string& jxc_value, const std::string& error_substring_match)
+{
+    TestJumpParser parser(jxc_value);
+
+    // skip to end, we don't care about any values, we just want to see if an error occurs
+    while (parser.parser->next())
+    {
+    }
+
+    if (parser.parser->has_error())
+    {
+        const jxc::ErrorInfo& err = parser.parser->get_error();
+        JXC_ASSERT(err.is_err);
+        if (err.message.find_first_of(error_substring_match) != std::string::npos)
+        {
+            return testing::AssertionSuccess();
+        }
+        else
+        {
+            return testing::AssertionFailure()
+                << "Parser does contain an error, as expected, but the error message does not match. "
+                << "\n\tError message: " << jxc::detail::debug_string_repr(err.message)
+                << "\n\tRequired substring: " << jxc::detail::debug_string_repr(error_substring_match);
+        }
+    }
+    else
+    {
+        return testing::AssertionFailure()
+            << "Parse successful, but an error matching "
+            << jxc::detail::debug_string_repr(error_substring_match)
+            << " was expected";
+    }
+}
+
+
+#define EXPECT_PARSE_FAILURE(JXC_VALUE, EXPECTED_ERROR_SUBSTRING) EXPECT_PRED_FORMAT2(_jxc_expect_jump_parse_error, (JXC_VALUE), (EXPECTED_ERROR_SUBSTRING))
+
+
 template<typename Lambda>
 std::string test_serialize(Lambda&& callback)
 {
@@ -213,6 +253,44 @@ TEST(jxc_core, JumpParserArrays)
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bool, make_token(TokenType::True)));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndArray, make_token(TokenType::SquareBracketClose)));
     }
+}
+
+
+TEST(jxc_core, JumpParserByteStrings)
+{
+    using namespace jxc;
+
+    EXPECT_PARSE_SINGLE("b64\"anhj\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"anhj\"")));
+    EXPECT_PARSE_SINGLE("b64\"( a n h j )\"", make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"( a n h j )\"")));
+
+    {
+        TestJumpParser parser("[0xFF,b64\"anhj\",0xAA]");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginArray, make_token(TokenType::SquareBracketOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0xFF")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"anhj\"")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0xAA")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndArray, make_token(TokenType::SquareBracketClose)));
+    }
+
+    {
+        TestJumpParser parser("[0xFF,b64\"(        a n h j         )\",0xAA]");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginArray, make_token(TokenType::SquareBracketOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0xFF")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bytes, make_token(TokenType::ByteString, "b64\"(        a n h j         )\"")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0xAA")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndArray, make_token(TokenType::SquareBracketClose)));
+    }
+
+    // invalid base64 strings
+    EXPECT_PARSE_FAILURE("b64\"a\"", "length must be a multiple of 4");
+    EXPECT_PARSE_FAILURE("b64\"an\"", "length must be a multiple of 4");
+    EXPECT_PARSE_FAILURE("b64\"anh\"", "length must be a multiple of 4");
+    EXPECT_PARSE_FAILURE("b64\"( a )\"", "length must be a multiple of 4");
+    EXPECT_PARSE_FAILURE("b64\"(           a           n             )\"", "length must be a multiple of 4");
+    EXPECT_PARSE_FAILURE("b64\"( anh )\"", "length must be a multiple of 4");
+    EXPECT_PARSE_FAILURE("b64\"( a n h j = )\"", "length must be a multiple of 4");
+    EXPECT_PARSE_FAILURE("b64\"(*)\"", "`*` is not a valid base64 character");
+    EXPECT_PARSE_FAILURE("[0xFF,b64\"(        a n h j !         )\",0xAA]", "`!` is not a valid base64 character");
 }
 
 
@@ -668,12 +746,17 @@ testing::AssertionResult test_parse_bytes(const char* jxc_string_str, const char
 TEST(jxc_core, BytesParsing)
 {
     EXPECT_PARSE_BYTES("b64''");
+    EXPECT_PARSE_BYTES("b64'()'");
+    EXPECT_PARSE_BYTES("b64'(                      )'");
+    EXPECT_PARSE_BYTES("b64'(   \n\t       \n\t      )'");
     EXPECT_PARSE_BYTES("b64'AA=='", 0x00);
     EXPECT_PARSE_BYTES("b64'+g=='", 0xfa);
     EXPECT_PARSE_BYTES("b64'+gBKDw=='", 0xfa, 0x00, 0x4a, 0x0f);
     EXPECT_PARSE_BYTES("b64'anhj'", 'j', 'x', 'c');
     EXPECT_PARSE_BYTES("b64'(anhj)'", 'j', 'x', 'c');
     EXPECT_PARSE_BYTES("b64'( anhj )'", 'j', 'x', 'c');
+    EXPECT_PARSE_BYTES("b64'(\n            anhj\n          \n)'", 'j', 'x', 'c');
+    EXPECT_PARSE_BYTES("b64'(  \t      \na        \nn   \t      \nh   \t   \nj   \t\t\n)'", 'j', 'x', 'c');
     EXPECT_PARSE_BYTES("b64\"(\n  anhjIGZ\n  vcm1hdA==\n  )\"", 'j', 'x', 'c', ' ', 'f', 'o', 'r', 'm', 'a', 't');
 }
 

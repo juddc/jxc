@@ -64,6 +64,7 @@ private:
     bool scan_utf32_escape(std::string& out_error_message);
     bool scan_string(std::string& out_error_message, uint8_t quote_char, std::string_view& out_string);
     bool scan_raw_string(std::string& out_error_message, uint8_t quote_char, std::string_view& out_string, std::string_view& out_delim);
+    bool scan_base64_string(std::string& out_error_message, std::string_view& out_string_token);
 
 public:
     inline void get_token_pos(size_t& out_start, size_t& out_end)

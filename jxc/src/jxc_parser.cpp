@@ -1448,11 +1448,13 @@ bool parse_bytes_token(const Token& bytes_token, uint8_t* out_data_buffer, size_
         if (value[0] == '(')
         {
             // multiline version (whitespace inside the string is allowed)
-            if (value.size() < 2 || value[value.size() - 1] != ')')
+            if (value.size() < 2 || value.back() != ')')
             {
                 out_error = ErrorInfo("Expected multiline base64 string to end with ')'", bytes_token.start_idx, bytes_token.end_idx);
                 return false;
             }
+
+            // strip inner parens
             value = value.substr(1, value.size() - 2);
 
             const size_t req_buffer_size = base64::get_num_bytes_in_base64_multiline_string(value.data(), value.size());
@@ -1460,6 +1462,12 @@ bool parse_bytes_token(const Token& bytes_token, uint8_t* out_data_buffer, size_
             {
                 out_error = ErrorInfo("Output buffer too small while parsing bytes token", bytes_token.start_idx, bytes_token.end_idx);
                 return false;
+            }
+
+            // string is empty or all whitespace
+            if (req_buffer_size == 0)
+            {
+                return true;
             }
 
             num_result_bytes = base64::base64_multiline_to_bytes(value.data(), value.size(), out_data_buffer, req_buffer_size);
