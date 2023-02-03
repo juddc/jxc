@@ -466,7 +466,7 @@ bool Lexer::scan_base64_string(std::string& out_error_message, std::string_view&
         JXC_DEBUG_ASSERT(*(this->current - 5) == 'b');
         JXC_DEBUG_ASSERT(*(this->current - 4) == '6');
         JXC_DEBUG_ASSERT(*(this->current - 3) == '4');
-        JXC_DEBUG_ASSERT(*(this->current - 2) == '\'' || *(this->current - 2) == '\"');
+        JXC_DEBUG_ASSERT(*(this->current - 2) == '\'' || *(this->current - 2) == '"');
         JXC_DEBUG_ASSERT(*(this->current - 1) == '(');
 
         str_start = this->current - 5;
@@ -515,7 +515,7 @@ bool Lexer::scan_base64_string(std::string& out_error_message, std::string_view&
         JXC_DEBUG_ASSERT(*(this->current - 4) == 'b');
         JXC_DEBUG_ASSERT(*(this->current - 3) == '6');
         JXC_DEBUG_ASSERT(*(this->current - 2) == '4');
-        JXC_DEBUG_ASSERT(*(this->current - 1) == '\'' || *(this->current - 1) == '\"');
+        JXC_DEBUG_ASSERT(*(this->current - 1) == '\'' || *(this->current - 1) == '"');
 
         str_start = this->current - 4;
         quote_char = static_cast<char>(*(this->current - 1));
