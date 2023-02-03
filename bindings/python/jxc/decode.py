@@ -75,22 +75,25 @@ def elements(value: str) -> typing.Iterable[Element]:
         raise ParseError(err.to_string(value), err)
 
 
-TokenLike = None | str | TokenType | tuple[str, TokenType]
-ValueConstructorCallable = type | typing.Callable[[typing.Any], typing.Any]
-ValueConstructor = (None | ValueConstructorCallable
-    | tuple[ValueConstructorCallable, ClassConstructMode]
-    | tuple[ValueConstructorCallable, ExpressionParseMode]
-    | tuple[ValueConstructorCallable, ClassConstructMode, ExpressionParseMode])
+TokenLike = typing.Union[None, str, TokenType, tuple[str, TokenType]]
+ValueConstructorCallable = typing.Union[type, typing.Callable[[typing.Any], typing.Any]]
+ValueConstructor = typing.Union[
+    None,
+    ValueConstructorCallable,
+    tuple[ValueConstructorCallable, ClassConstructMode],
+    tuple[ValueConstructorCallable, ExpressionParseMode],
+    tuple[ValueConstructorCallable, ClassConstructMode, ExpressionParseMode]
+]
 
 
-def loads(buf: str | bytes, *,
+def loads(buf: typing.Union[str, bytes], *,
         decode_inline=False,
         decode_enum=False,
         decode_dataclass=False,
         default_expr_parse_mode=ExpressionParseMode.ValueList,
         ignore_unknown_annotations=True,
         ignore_unknown_number_suffixes=True,
-        annotation_hooks: typing.Optional[typing.Iterable[tuple[TokenLike | typing.Iterable[TokenLike], ValueConstructor]]] = None,
+        annotation_hooks: typing.Optional[typing.Iterable[tuple[typing.Union[TokenLike, typing.Iterable[TokenLike]], ValueConstructor]]] = None,
         number_suffix_hooks: typing.Optional[typing.Iterable[tuple[str, ValueConstructor]]] = None):
     parser = Parser(buf,
         default_expr_parse_mode=default_expr_parse_mode,
