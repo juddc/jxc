@@ -147,6 +147,14 @@ Verify that the project works correctly for all common use cases. For this, crea
 * Verify that basic parsing works correctly
     * `python3 -c 'import jxc; print(jxc.loads("[1,2,3]"))'`
 
+# Deployment
+
+## Repository
+Make sure the repository is up to date with all changes needed for the release.
+* `git push`
+* Create a git tag for the release, eg. `0.8.3`
+* Push the tag as well
+
 ## Upload to PyPi
 * `cd /path/to/jxc_repo`
 * `source venv/bin/activate`
@@ -171,4 +179,11 @@ Verify that the project works correctly for all common use cases. For this, crea
     - Use the **tested** amalgamated builds from above.
     - The `make_release_archive` script automatically appends the JXC version from `jxc_core.h` to the end of the output filename.
 * Upload the generated release zip archive to GitHub.
+    - Reference the created git tag and name the release `v` plus the version number, eg. `"v0.8.3"`.
+
+## Update the Documentation Website
+* SSH into the documentation VPS
+* `apt update && apt upgrade`
+* Reboot if there was a kernel upgrade
+* Run the `update_docs.py` script in the home directory, which will automatically do a `git pull`, regenerate the documentation, back up the old docs to allow for a rollback, and swap in the new documentation data.
 
