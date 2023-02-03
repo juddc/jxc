@@ -1,6 +1,6 @@
 [project]
 name = "jxc"
-version = "0.8.1"
+version = "0.8.2"
 authors = [
     { name="Judd Cohen", email="jcohen@juddnet.com" },
 ]
@@ -12,6 +12,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+
+[project.urls]
+"Homepage" = "https://jxc.juddnet.com"
+"Documentation" = "https://jxc.juddnet.com/jxc_python_library.html"
+"Bug Tracker" = "https://github.com/juddc/jxc/issues"
 
 [build-system]
 requires = [
