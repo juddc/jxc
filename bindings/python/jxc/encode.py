@@ -142,15 +142,14 @@ def dumps(obj, *,
 
     if encode_nan:
         def encode_float_literal(doc: Serializer, enc: Encoder, val: FloatLiteralType):
-            match val:
-                case FloatLiteralType.NotANumber:
-                    doc.annotation("float").expression_begin().identifier("NaN").expression_end()
-                case FloatLiteralType.PosInfinity:
-                    doc.annotation('float').expression_begin().identifier("Infinity").expression_end()
-                case FloatLiteralType.NegInfinity:
-                    doc.annotation('float').expression_begin().identifier("-Infinity").expression_end()
-                case _:
-                    raise ValueError(f"Unhandled float literal type {type(val)}")
+            if val == FloatLiteralType.NotANumber:
+                doc.annotation("float").expression_begin().identifier("NaN").expression_end()
+            elif val == FloatLiteralType.PosInfinity:
+                doc.annotation('float').expression_begin().identifier("Infinity").expression_end()
+            elif val == FloatLiteralType.NegInfinity:
+                doc.annotation('float').expression_begin().identifier("-Infinity").expression_end()
+            else:
+                raise ValueError(f"Unhandled float literal type {type(val)}")
         encoder.set_nan_encoder_callback(encode_float_literal)
 
     encoder.encode_value(obj)

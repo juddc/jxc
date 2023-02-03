@@ -22,6 +22,7 @@ print(f'[INFO] jxc loaded from {jxc.__file__!r}')
 
 import unittest
 from pyjxc_tests.test_values import *
+from pyjxc_tests.test_classes import *
 
 
 if __name__ == "__main__":

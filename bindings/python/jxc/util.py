@@ -27,14 +27,12 @@ def get_class_path(cls: type) -> str:
     Returns a string representing a class that can be used to retrieve that class
     from a string using find_class.
     """
-    match cls.__module__:
-        case "__main__":
-            #return f"{_MAIN_MODULE_NAME}.{cls.__name__}"
-            return cls.__name__
-        case "builtins":
-            return cls.__name__
-        case _:
-            return f"{cls.__module__}.{cls.__name__}"
+    if cls.__module__ == "__main__":
+        return cls.__name__
+    elif cls.__module__ == "builtins":
+        return cls.__name__
+    else:
+        return f"{cls.__module__}.{cls.__name__}"
 
 
 _FIND_CLASS_CACHE: dict[str, tuple[str, str]] = {}
@@ -57,35 +55,36 @@ def find_class(path: str) -> typing.Optional[type]:
         return getattr(__import__(module_path, fromlist=[class_name]), class_name, None)
 
     # no cache entry exists - slow path
-    match path.split("."):
-        case []:
-            return None
-
-        case [class_name]:
-            # no module listed, assume it's in the __main__ or builtins module
-            if (main_module := sys.modules.get('__main__', None)) and (cls := getattr(main_module, class_name, None)):
-                _FIND_CLASS_CACHE[path] = ('__main__', class_name)
-                return cls
-            else:
-                _FIND_CLASS_CACHE[path] = ('builtins', class_name)
-                return getattr(sys.modules['builtins'], class_name, None)
-
-        case ["builtins", class_name]:
-            # get the class from the builtins module
+    parts = path.split(".")
+    num_parts = len(parts)
+    if num_parts == 0:
+        return None
+    elif num_parts == 1:
+        class_name = parts[0]
+        # no module listed, assume it's in the __main__ or builtins module
+        if (main_module := sys.modules.get('__main__', None)) and (cls := getattr(main_module, class_name, None)):
+            _FIND_CLASS_CACHE[path] = ('__main__', class_name)
+            return cls
+        else:
             _FIND_CLASS_CACHE[path] = ('builtins', class_name)
             return getattr(sys.modules['builtins'], class_name, None)
-
-        case [main_module_name, class_name] if main_module_name in _MAIN_MODULES:
-            # get the class from the __main__ module
-            if main_module := sys.modules.get('__main__', None):
-                _FIND_CLASS_CACHE[path] = ('__main__', class_name)
-                return getattr(main_module, class_name, None)
-            return None
-
-        case [*module_parts, class_name]:
-            module_path = ".".join(module_parts)
-            _FIND_CLASS_CACHE[path] = (module_path, class_name)
-            return getattr(__import__(module_path, fromlist=[class_name]), class_name, None)
+    elif num_parts == 2 and parts[0] == "builtins":
+        class_name = parts[1]
+        # get the class from the builtins module
+        _FIND_CLASS_CACHE[path] = ('builtins', class_name)
+        return getattr(sys.modules['builtins'], class_name, None)
+    elif num_parts == 2 and parts[0] in _MAIN_MODULES:
+        class_name = parts[1]
+        # get the class from the __main__ module
+        if main_module := sys.modules.get('__main__', None):
+            _FIND_CLASS_CACHE[path] = ('__main__', class_name)
+            return getattr(main_module, class_name, None)
+        return None
+    elif num_parts >= 2:
+        module_path = ".".join(parts[:-1])
+        class_name = parts[-1]
+        _FIND_CLASS_CACHE[path] = (module_path, class_name)
+        return getattr(__import__(module_path, fromlist=[class_name]), class_name, None)
 
     return None
 
