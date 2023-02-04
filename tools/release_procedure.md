@@ -175,7 +175,7 @@ Make sure the repository is up to date with all changes needed for the release.
 
 ## Upload to GitHub
 * `cd /path/to/jxc_repo`
-* `python3 ./tools/./tools/make_release_archive.py --source . --amalgamated-core ./build/amalgamated_core --amalgamated-cpp ./build/amalgamated_cpp --output "./build/jxc_release.zip`
+* `python3 ./tools/./tools/make_release_archive.py --source . --amalgamated-core ./build/amalgamated_core --amalgamated-cpp ./build/amalgamated_cpp --output ./build/jxc.zip`
     - Use the **tested** amalgamated builds from above.
     - The `make_release_archive` script automatically appends the JXC version from `jxc_core.h` to the end of the output filename.
 * Upload the generated release zip archive to GitHub.

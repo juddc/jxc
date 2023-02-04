@@ -143,6 +143,8 @@ class FileData:
         return includes
 
     def fixup_line_indicators(self, new_filename: str) -> list[tuple[str, str]]:
+        fix_path = lambda p: p.replace("\\\\", "/")
+        new_filename = fix_path(new_filename)
         new_lines: list[str] = []
         cur_line = 1
         for line in self.lines:
@@ -151,7 +153,7 @@ class FileData:
                 line_num, path = preproc_value.split(" ")
                 line_num = int(line_num)
                 assert path.startswith('"') and path.endswith('"')
-                path = path[1:-1]
+                path = fix_path(path[1:-1])
                 if path.endswith('jxc_lexer_gen.re.cpp'):
                     new_lines.append(f'#line {cur_line + 1} "{new_filename}"')
                 else:

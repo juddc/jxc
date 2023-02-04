@@ -42,6 +42,8 @@ def get_re2c_version(re2c_path: str) -> str:
         return ''
     if re2c_version.startswith('re2c'):
         re2c_version = re2c_version[4:].strip()
+    if re2c_version.endswith('(debug)'):
+        re2c_version = re2c_version[:-7].strip()
     return re2c_version
 
 
