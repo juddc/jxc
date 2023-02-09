@@ -5,8 +5,33 @@
 #include "jxc_pyserializer.h"
 
 
-namespace jxc
+JXC_BEGIN_NAMESPACE(jxc)
+
+JXC_BEGIN_NAMESPACE(detail)
+
+bool is_python_date(py::handle value)
 {
+    // lazy initialization for the PyDateTime API
+    if (!PyDateTimeAPI)
+    {
+        PyDateTime_IMPORT;
+    }
+
+    return value && PyDate_Check(value.ptr());
+}
+
+bool is_python_datetime(py::handle value)
+{
+    // lazy initialization for the PyDateTime API
+    if (!PyDateTimeAPI)
+    {
+        PyDateTime_IMPORT;
+    }
+
+    return value && PyDateTime_Check(value.ptr());
+}
+
+JXC_END_NAMESPACE(detail)
 
 template<typename T>
 auto bind_tokenspan(py::module_& m, const char* name)
@@ -116,7 +141,7 @@ auto bind_element(py::module_& m, const char* name)
     return cls;
 }
 
-} // namespace jxc
+JXC_END_NAMESPACE(jxc)
 
 
 
@@ -211,6 +236,7 @@ PYBIND11_MODULE(_pyjxc, m)
         .value("Number", TokenType::Number)
         .value("String", TokenType::String)
         .value("ByteString", TokenType::ByteString)
+        .value("DateTime", TokenType::DateTime)
         .value("ExpressionOperator", TokenType::ExpressionOperator)
         .value("Colon", TokenType::Colon)
         .value("Equals", TokenType::Equals)
@@ -363,6 +389,7 @@ PYBIND11_MODULE(_pyjxc, m)
         .value("Null", ElementType::Null)
         .value("Bytes", ElementType::Bytes)
         .value("String", ElementType::String)
+        .value("DateTime", ElementType::DateTime)
         .value("ExpressionIdentifier", ElementType::ExpressionIdentifier)
         .value("ExpressionOperator", ElementType::ExpressionOperator)
         .value("ExpressionToken", ElementType::ExpressionToken)
@@ -540,6 +567,52 @@ PYBIND11_MODULE(_pyjxc, m)
             return py::cast(error);
         }
     });
+
+    m.def("datetime_token_is_date", &util::datetime_token_is_date,
+        py::arg("token"),
+        py::doc("Checks if the given datetime token is just a date (no time data)"));
+
+    m.def("datetime_token_is_datetime", &util::datetime_token_is_datetime,
+        py::arg("token"),
+        py::doc("Checks if the given datetime token includes both date and time data"));
+    
+    m.def("date_to_iso8601", [](const jxc::Date& date) { jxc::datetime_to_iso8601(date); });
+    m.def("datetime_to_iso8601", [](const jxc::DateTime& date) { jxc::datetime_to_iso8601(date); });
+
+    m.def("parse_date_token", [](const Token& date_token)
+    {
+        jxc::Date result;
+        jxc::ErrorInfo err;
+        if (util::parse_date_token(date_token, result, err))
+        {
+            return py::cast(result);
+        }
+        else
+        {
+            return py::cast(err);
+        }
+    },
+        py::arg("token"),
+        py::doc("Parses a date token into a Date value. This will return an error if the token includes time data."));
+
+    m.def("parse_datetime_token", [](const Token& datetime_token, bool require_time_data)
+    {
+        jxc::DateTime result;
+        jxc::ErrorInfo err;
+        if (util::parse_datetime_token(datetime_token, result, err, require_time_data))
+        {
+            return py::cast(result);
+        }
+        else
+        {
+            return py::cast(err);
+        }
+    },
+        py::arg("token"),
+        py::arg("require_time_data") = false,
+        py::doc(R"DOC(Parses a date token into a DateTime value.
+If require_time_data is true, this will return an error if the token does not include time info.
+If require_time_data is false and the token does not include time data, out_datetime will have a time of 00:00:00Z.)DOC"));
 
     m.def("is_valid_identifier", &is_valid_identifier);
     m.def("is_valid_identifier_first_char", &is_valid_identifier_first_char);
@@ -724,6 +797,8 @@ PYBIND11_MODULE(_pyjxc, m)
         },
             py::arg("value"),
             py::arg("quote") = StringQuoteMode::Auto)
+        .def("value_date", &PySerializer::value_date, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
+        .def("value_datetime", &PySerializer::value_datetime, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
         .def("identifier", &PySerializer::identifier)
         .def("identifier_or_string", &PySerializer::identifier_or_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("comment", &PySerializer::comment)
@@ -771,6 +846,8 @@ PYBIND11_MODULE(_pyjxc, m)
         },
             py::arg("value"),
             py::arg("quote") = StringQuoteMode::Auto)
+        .def("value_date", &ExpressionProxy::value_date, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
+        .def("value_datetime", &ExpressionProxy::value_datetime, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
         .def("identifier", &ExpressionProxy::identifier)
         .def("identifier_or_string", &ExpressionProxy::identifier_or_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("op", &ExpressionProxy::op)

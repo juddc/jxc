@@ -550,6 +550,211 @@ FloatLiteralType get_float_literal_type(double value)
 }
 
 
+template<size_t BufSize>
+static inline void char_buffer_write_char(detail::MiniBuffer<char, BufSize>& out_buf, char value, size_t& inout_index)
+{
+    // NB. MiniBuffer already has a JXC_ASSERT on operator[]. This extra assert is just for debugging use.
+    JXC_DEBUG_ASSERT(inout_index < out_buf.capacity());
+    out_buf[inout_index] = value;
+    ++inout_index;
+}
+
+
+template<uint32_t MinNumDigits, uint32_t MaxNumDigits, typename IntType, size_t BufSize>
+static void char_buffer_write_integer(detail::MiniBuffer<char, BufSize>& out_buf, IntType value, size_t& inout_index)
+{
+    static_assert(std::is_integral_v<IntType>, "write_value only supports integer types");
+    static_assert(BufSize >= MaxNumDigits, "output buffer too small to hold even one value of this size");
+
+    JXC_ASSERT(inout_index + MaxNumDigits < BufSize);
+
+    // we only write unsigned values, but we only need to actually check for signed types
+    if constexpr (std::is_signed_v<IntType>)
+    {
+        // flip to positive and write it without any sign chars
+        if (value < 0)
+        {
+            value = -value;
+        }
+    }
+
+    char* start = &out_buf[inout_index];
+    char* end = nullptr;
+
+    // count the number of digits we need to write
+    uint32_t num_digits_in_value = 0;
+
+    if (value == 0)
+    {
+        num_digits_in_value = 1;
+    }
+    else
+    {
+        uint64_t val = static_cast<uint64_t>(value);
+        while (val > 0)
+        {
+            ++num_digits_in_value;
+            val /= 10;
+        }
+    }
+
+    JXC_DEBUG_ASSERT(num_digits_in_value != 0);
+
+    // clamp number of digits to the maximum (we assume validation occurs before this is called)
+    JXC_DEBUG_ASSERT(num_digits_in_value <= MaxNumDigits);
+    if (num_digits_in_value > MaxNumDigits)
+    {
+        num_digits_in_value = MaxNumDigits;
+    }
+
+    size_t num_padding_zeroes = 0;
+    uint32_t target_num_digits_to_write = num_digits_in_value;
+    if (MinNumDigits > target_num_digits_to_write)
+    {
+        target_num_digits_to_write = MinNumDigits;
+        num_padding_zeroes = MinNumDigits - num_digits_in_value;
+    }
+
+    const size_t end_index = inout_index + target_num_digits_to_write;
+    JXC_DEBUG_ASSERTF(end_index < BufSize, "Expected end_index={} to be valid for a buffer of size {}", end_index, BufSize);
+
+    // pointer to one char AFTER the last valid char, because that's what std::to_chars wants
+    end = (char*)((&out_buf[end_index]) + 1);
+    JXC_DEBUG_ASSERT(start < end);
+
+    size_t num_digits_written = 0;
+
+    // add zero padding
+    while (num_digits_written < num_padding_zeroes)
+    {
+        JXC_DEBUG_ASSERT(inout_index < out_buf.capacity());
+        out_buf[inout_index] = '0';
+        ++inout_index;
+        ++start;
+        ++num_digits_written;
+    }
+
+    JXC_DEBUG_ASSERT(start < end);
+    JXC_DEBUG_ASSERT(static_cast<int64_t>(end - start) >= num_digits_in_value);
+
+    const std::to_chars_result chars_result = std::to_chars(start, end, value);
+    JXC_DEBUG_ASSERT(chars_result.ec == std::errc{ 0 });
+    if (chars_result.ec == std::errc{ 0 })
+    {
+        const size_t num_chars_written = static_cast<size_t>(chars_result.ptr - start);
+        inout_index += num_chars_written;
+    }
+}
+
+
+std::string datetime_to_iso8601(const Date& dt)
+{
+    detail::MiniBuffer<char, 32> date_buf;
+    size_t buf_index = 0;
+    if (dt.year < 0)
+    {
+        // handle negative year values
+        char_buffer_write_char(date_buf, '-', buf_index);
+        char_buffer_write_integer<4, 6>(date_buf, -dt.year, buf_index);
+    }
+    else
+    {
+        char_buffer_write_integer<4, 6>(date_buf, dt.year, buf_index);
+    }
+    char_buffer_write_char(date_buf, '-', buf_index);
+    char_buffer_write_integer<2, 2>(date_buf, dt.month, buf_index);
+    char_buffer_write_char(date_buf, '-', buf_index);
+    char_buffer_write_integer<2, 2>(date_buf, dt.day, buf_index);
+    return std::string(date_buf.as_view(buf_index));
+}
+
+
+std::string datetime_to_iso8601(const DateTime& dt)
+{
+    detail::MiniBuffer<char, 64> datetime_buf;
+    const bool is_local = dt.is_timezone_local();
+    const bool is_utc = dt.is_timezone_utc();
+    size_t buf_index = 0;
+
+    // date
+    if (dt.year < 0)
+    {
+        // handle negative year values
+        char_buffer_write_char(datetime_buf, '-', buf_index);
+        char_buffer_write_integer<4, 6>(datetime_buf, -dt.year, buf_index);
+    }
+    else
+    {
+        char_buffer_write_integer<4, 6>(datetime_buf, dt.year, buf_index);
+    }
+    char_buffer_write_char(datetime_buf, '-', buf_index);
+    char_buffer_write_integer<2, 2>(datetime_buf, dt.month, buf_index);
+    char_buffer_write_char(datetime_buf, '-', buf_index);
+    char_buffer_write_integer<2, 2>(datetime_buf, dt.day, buf_index);
+
+    // time sep
+    char_buffer_write_char(datetime_buf, 'T', buf_index);
+
+    // time
+    char_buffer_write_integer<2, 2>(datetime_buf, dt.hour, buf_index);
+    char_buffer_write_char(datetime_buf, ':', buf_index);
+    char_buffer_write_integer<2, 2>(datetime_buf, dt.minute, buf_index);
+    char_buffer_write_char(datetime_buf, ':', buf_index);
+    char_buffer_write_integer<2, 2>(datetime_buf, dt.second, buf_index);
+
+    if (dt.nanosecond > 0)
+    {
+        char_buffer_write_char(datetime_buf, '.', buf_index);
+
+        if ((dt.nanosecond % 1000000) == 0)
+        {
+            // If the value in nanoseconds can be converted to milliseconds with no data loss, write out the value in milliseconds
+            const uint32_t dt_milli = dt.nanosecond / 1000000;
+            char_buffer_write_integer<3, 3>(datetime_buf, dt_milli, buf_index);
+        }
+        else if ((dt.nanosecond % 1000) == 0)
+        {
+            // If the value in nanoseconds can be converted to microseconds with no data loss, write out the value in microseconds
+            const uint32_t dt_micro = dt.nanosecond / 1000;
+            char_buffer_write_integer<6, 6>(datetime_buf, dt_micro, buf_index);
+        }
+        else
+        {
+            // Write the full nanosecond value
+            char_buffer_write_integer<9, 9>(datetime_buf, dt.nanosecond, buf_index);
+        }
+    }
+
+    // time zone
+    if (is_local)
+    {
+        // for local times, don't write time zone info
+    }
+    else if (is_utc)
+    {
+        char_buffer_write_char(datetime_buf, 'Z', buf_index);
+    }
+    else
+    {
+        if (dt.tz_hour < 0)
+        {
+            char_buffer_write_char(datetime_buf, '-', buf_index);
+            char_buffer_write_integer<2, 2>(datetime_buf, -dt.tz_hour, buf_index);
+        }
+        else
+        {
+            char_buffer_write_char(datetime_buf, '+', buf_index);
+            char_buffer_write_integer<2, 2>(datetime_buf, dt.tz_hour, buf_index);
+        }
+
+        char_buffer_write_char(datetime_buf, ':', buf_index);
+        char_buffer_write_integer<2, 2>(datetime_buf, dt.tz_minute, buf_index);
+    }
+
+    return std::string(datetime_buf.as_view(buf_index));
+}
+
+
 const char* token_type_to_string(TokenType type)
 {
     switch (type)
@@ -564,6 +769,7 @@ const char* token_type_to_string(TokenType type)
     case JXC_ENUMSTR(TokenType, Number);
     case JXC_ENUMSTR(TokenType, String);
     case JXC_ENUMSTR(TokenType, ByteString);
+    case JXC_ENUMSTR(TokenType, DateTime);
     case JXC_ENUMSTR(TokenType, ExpressionOperator);
     case JXC_ENUMSTR(TokenType, Colon);
     case JXC_ENUMSTR(TokenType, Equals);
@@ -606,6 +812,7 @@ const char* token_type_to_symbol(TokenType type)
     case TokenType::Null: return "null";
     //case TokenType::Number: break;
     //case TokenType::String: break;
+    //case TokenType::DateTime: break;
     //case TokenType::ByteString: break;
     //case TokenType::ExpressionOperator: break;
     case TokenType::Colon: return ":";
@@ -653,6 +860,7 @@ TokenType token_type_from_symbol(std::string_view sym)
         //case TokenType::Null: return "null";
         //case TokenType::Number: break;
         //case TokenType::String: break;
+        //case TokenType::DateTime: break;
         //case TokenType::ByteString: break;
         //case TokenType::ExpressionOperator: break;
         case ':': return TokenType::Colon;
@@ -703,10 +911,13 @@ TokenType token_type_from_symbol(std::string_view sym)
     {
         return TokenType::String;
     }
-    else if ((sz >= 4 && sym[0] == 'b' && sym[1] == 'x' && sym[2] == sym.back() && is_quote_char(sym[2]))
-        || (sz >= 5 && sym[0] == 'b' && sym[1] == '6' && sym[2] == '4' && sym[3] == sym.back() && is_quote_char(sym[3])))
+    else if (sz >= 5 && sym[0] == 'b' && sym[1] == '6' && sym[2] == '4' && sym[3] == sym.back() && is_quote_char(sym[3]))
     {
         return TokenType::ByteString;
+    }
+    else if (sz >= 4 && sym[0] == 'd' && sym[1] == 't' && sym[2] == sym.back() && is_quote_char(sym[2]))
+    {
+        return TokenType::DateTime;
     }
     else if (is_valid_identifier(sym))
     {
@@ -759,6 +970,7 @@ FlexString detail::concat_token_values(const Token* first_token, size_t token_co
             case TokenType::Number:
             case TokenType::String:
             case TokenType::ByteString:
+            case TokenType::DateTime:
             case TokenType::Colon:
             case TokenType::Comma:
                 append_char(' ');

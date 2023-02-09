@@ -761,6 +761,109 @@ TEST(jxc_core, BytesParsing)
 }
 
 
+TEST(jxc_core, DateToISO8601)
+{
+    using jxc::Date, jxc::datetime_to_iso8601;
+    EXPECT_EQ(datetime_to_iso8601(Date()), "1970-01-01");
+    EXPECT_EQ(datetime_to_iso8601(Date(1970, 1, 1)), "1970-01-01");
+    EXPECT_EQ(datetime_to_iso8601(Date(-1, 1, 1)), "-0001-01-01");
+    EXPECT_EQ(datetime_to_iso8601(Date(0, 1, 1)), "0000-01-01");
+    EXPECT_EQ(datetime_to_iso8601(Date(1, 1, 1)), "0001-01-01");
+    EXPECT_EQ(datetime_to_iso8601(Date(-10000, 1, 1)), "-10000-01-01");
+    EXPECT_EQ(datetime_to_iso8601(Date(-10000, 12, 31)), "-10000-12-31");
+    EXPECT_EQ(datetime_to_iso8601(Date(2012, 12, 12)), "2012-12-12");
+    EXPECT_EQ(datetime_to_iso8601(Date(3012, 12, 12)), "3012-12-12");
+    EXPECT_EQ(datetime_to_iso8601(Date(10000, 12, 12)), "10000-12-12");
+}
+
+
+TEST(jxc_core, DateTimeToISO8601)
+{
+    using jxc::DateTime, jxc::datetime_to_iso8601;
+    EXPECT_EQ(datetime_to_iso8601(DateTime()), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(1970, 1, 1)), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(-1, 1, 1)), "-0001-01-01T00:00:00Z");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(0, 1, 1)), "0000-01-01T00:00:00Z");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(1, 1, 1, 1, 1, 1, 1)), "0001-01-01T01:01:01.000000001Z");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(-10000, 1, 1)), "-10000-01-01T00:00:00Z");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(-10000, 12, 31)), "-10000-12-31T00:00:00Z");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(2012, 12, 12)), "2012-12-12T00:00:00Z");
+
+    EXPECT_EQ(datetime_to_iso8601(DateTime::make_utc(2007, 11, 22, 12, 21, 49, ms_to_ns(332))), "2007-11-22T12:21:49.332Z");
+
+    EXPECT_EQ(datetime_to_iso8601(DateTime::make_local(2000, 1, 1, 12, 35, 22, ms_to_ns(250))), "2000-01-01T12:35:22.250");
+    EXPECT_EQ(datetime_to_iso8601(DateTime::make_local(2023, 2, 10, 8, 22, 59, ms_to_ns(777))), "2023-02-10T08:22:59.777");
+    EXPECT_EQ(datetime_to_iso8601(DateTime::make_local(-50, 12, 31, 14, 49, 10, ms_to_ns(205))), "-0050-12-31T14:49:10.205");
+}
+
+
+testing::AssertionResult test_parse_datetime(const char* jxc_string_str, const char* expected_datetime_str,
+    const std::string& jxc_string, const jxc::DateTime& expected_datetime)
+{
+    jxc::JumpParser parser(jxc_string);
+    if (!parser.next())
+    {
+        return testing::AssertionFailure() << parser.get_error().to_string(jxc_string);
+    }
+
+    const jxc::Element& ele = parser.value();
+
+    if (ele.type != jxc::ElementType::DateTime)
+    {
+        return testing::AssertionFailure() << jxc::format("Expected DateTime element, got {}", jxc::element_type_to_string(ele.type));
+    }
+
+    const jxc::Token& tok = ele.token;
+    if (tok.type != jxc::TokenType::DateTime)
+    {
+        return testing::AssertionFailure() << jxc::format("Expected DateTime token, got {}", jxc::token_type_to_string(tok.type));
+    }
+
+    jxc::DateTime parsed_datetime;
+    jxc::ErrorInfo err;
+    if (!jxc::util::parse_datetime_token(tok, parsed_datetime, err))
+    {
+        return testing::AssertionFailure() << jxc::format("util::parse_datetime_token({}) failed: {}", tok.to_repr(), err.to_string(jxc_string));
+    }
+
+    if (parsed_datetime != expected_datetime)
+    {
+        return testing::AssertionFailure()
+            << jxc::format("{} != {}",
+                jxc::datetime_to_iso8601(expected_datetime),
+                jxc::datetime_to_iso8601(parsed_datetime));
+    }
+
+    return testing::AssertionSuccess();
+}
+
+
+#define EXPECT_PARSE_DATETIME(JXC_STRING, DATETIME_VALUE) EXPECT_PRED_FORMAT2(test_parse_datetime, JXC_STRING, (DATETIME_VALUE))
+
+
+TEST(jxc_core, DateTimeParsing)
+{
+    EXPECT_PARSE_DATETIME("dt'2023-06-15'", jxc::DateTime(2023, 6, 15));
+    EXPECT_PARSE_DATETIME("dt'1600-01-01'", jxc::DateTime(1600, 1, 1));
+    EXPECT_PARSE_DATETIME("dt'1600-12-31'", jxc::DateTime(1600, 12, 31));
+    EXPECT_PARSE_DATETIME("dt'0000-01-01'", jxc::DateTime(0, 1, 1));
+    EXPECT_PARSE_DATETIME("dt'-0001-01-01'", jxc::DateTime(-1, 1, 1));
+    EXPECT_PARSE_DATETIME("dt'-2000-10-12'", jxc::DateTime(-2000, 10, 12));
+    EXPECT_PARSE_DATETIME("dt'+4200-04-22'", jxc::DateTime(4200, 4, 22));
+
+    // tests for fractional second to nanosecond conversion
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.383201024Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383201024));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.38320102Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383201020));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.3832017Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383201700));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.383201Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383201000));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.38320Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383200000));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.3832Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383200000));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.383Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383000000));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.38Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 380000000));
+    EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.4Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 400000000));
+}
+
+
 TEST(jxc_core, SerializerSimple)
 {
     using namespace jxc;
@@ -842,6 +945,25 @@ TEST(jxc_core, SerializerSimple)
     // base64 strings
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesView(), StringQuoteMode::Single); }), "b64''");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesValue{ 'j','x','c',' ','f','o','r','m','a','t' }, StringQuoteMode::Single); }), "b64'anhjIGZvcm1hdA=='");
+
+    // date
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_date(jxc::Date(1970, 1, 1), StringQuoteMode::Single); }), "dt'1970-01-01'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_date(jxc::Date(2025, 8, 21), StringQuoteMode::Single); }), "dt'2025-08-21'");
+
+    // datetime
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_local(2025, 8, 21, 10, 25), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:00'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_local(2025, 8, 21, 10, 25, 5), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 1), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000000001Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 100000000), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.100Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383201024), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.383201024Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(24)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.024Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(602)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.602Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(500)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.500Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(1)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000001Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(123)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000123Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(8765)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.008765Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime(2025, 8, 21, 10, 25, 5, 0, -8, 0), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05-08:00'");
 
     // arrays
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.array_begin().array_end(); }), "[]");

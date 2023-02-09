@@ -320,6 +320,9 @@ public:
     inline Serializer& value_bytes(BytesView data, StringQuoteMode quote = StringQuoteMode::Auto) { return value_bytes(data.data(), data.size(), quote); }
     inline Serializer& value_bytes_base64(BytesView data, StringQuoteMode quote = StringQuoteMode::Auto) { return value_bytes_base64(data.data(), data.size(), quote); }
 
+    Serializer& value_date(Date value, StringQuoteMode quote = StringQuoteMode::Auto);
+    Serializer& value_datetime(DateTime value, StringQuoteMode quote = StringQuoteMode::Auto);
+
     Serializer& identifier(std::string_view value);
 
     // if the string is a valid identifier, calls identifier(), otherwise calls value_string()
@@ -392,6 +395,8 @@ public:
     inline ExpressionProxy& value_string_raw(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_string_raw(value, quote)); }
     inline ExpressionProxy& value_bytes(const uint8_t* data, size_t data_len, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_bytes(data, data_len, quote)); }
     inline ExpressionProxy& value_bytes_base64(const uint8_t* data, size_t data_len, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_bytes_base64(data, data_len, quote)); }
+    inline ExpressionProxy& value_date(Date value, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_date(value, quote)); }
+    inline ExpressionProxy& value_datetime(DateTime value, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_datetime(value, quote)); }
     inline ExpressionProxy& identifier(std::string_view value) { JXC_EXPR_TOK(parent.identifier(value)); }
     inline ExpressionProxy& identifier_or_string(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto, bool decode_unicode = true) { JXC_EXPR_TOK(parent.identifier_or_string(value, quote, decode_unicode)); }
     inline ExpressionProxy& op(std::string_view op_value) { JXC_EXPR_TOK(parent.write(op_value)); }

@@ -20,19 +20,19 @@ The JXC Python library has two APIs - a simple one similar to `json.loads`/`json
 ### Simple API: Parsing
 ```python
 import jxc
-print(jxc.loads("[1, 2, true, null, {}]"))
+print(jxc.loads("[1, 2, true, null, {}, dt'1999-07-18']"))
 ```
 ```
-[1, 2, True, None, {}]
+[1, 2, True, None, {}, datetime.date(1999, 7, 18)]
 ```
 
 ### Simple API: Serializing
 ```python
-import jxc
-print(jxc.dumps([1, 2, True, None, {}]))
+import jxc, datetime
+print(jxc.dumps([1, 2, True, None, {}, datetime.date(1999, 7, 18)]))
 ```
 ```jxc
-[1,2,true,null,{}]
+[1,2,true,null,{},dt"1999-07-18"]
 ```
 
 ### Handling Annotations

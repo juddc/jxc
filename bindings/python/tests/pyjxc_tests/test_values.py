@@ -4,6 +4,7 @@ import jxc
 import _pyjxc
 import enum
 import base64
+import datetime
 
 
 def parse_annotations_to_source_tuple(val: str):
@@ -46,6 +47,10 @@ def parse_number_suffixes_to_tuple(val: str):
 
     parser.set_find_construct_from_number_suffix_callback(find_suffix_callback)
     return parser.parse()
+
+
+def tzinfo_from_offset(hours, minutes=0) -> datetime.timezone:
+    return datetime.timezone(offset=datetime.timedelta(seconds=(hours * 60 * 60) + (minutes * 60)))
 
 
 class SimpleValueTests(unittest.TestCase):
@@ -120,6 +125,46 @@ class SimpleValueTests(unittest.TestCase):
         byte_data_b64_str = base64.b64encode(byte_data).decode()
         self.assertEqual(jxc.loads(f'b64"{byte_data_b64_str}"'), byte_data)
         self.assertEqual(jxc.dumps(byte_data), f'b64"{byte_data_b64_str}"')
+
+    def test_parse_date(self):
+        # min date supported by datetime.date:
+        self.assertEqual(jxc.loads("dt'0001-01-01'"), datetime.date(1, 1, 1))
+        # max date supported by datetime.date:
+        self.assertEqual(jxc.loads("dt'9999-12-31'"), datetime.date(9999, 12, 31))
+        # other dates:
+        self.assertEqual(jxc.loads("dt'1969-02-28'"), datetime.date(1969, 2, 28))
+        self.assertEqual(jxc.loads("dt'2024-07-24'"), datetime.date(2024, 7, 24))
+
+    def test_serialize_date(self):
+        self.assertEqual(jxc.dumps(datetime.date(1, 1, 1)), 'dt"0001-01-01"')
+        self.assertEqual(jxc.dumps(datetime.date(9999, 12, 31)), 'dt"9999-12-31"')
+        self.assertEqual(jxc.dumps(datetime.date(1969, 12, 31)), 'dt"1969-12-31"')
+        self.assertEqual(jxc.dumps(datetime.date(1970, 1, 1)), 'dt"1970-01-01"')
+        self.assertEqual(jxc.dumps(datetime.date(2001, 2, 3)), 'dt"2001-02-03"')
+        with self.assertRaises(ValueError):
+            jxc.loads("dt''")
+        with self.assertRaises(ValueError):
+            jxc.loads("dt'1-1-1'")
+            jxc.loads("dt'98-2-22'")
+
+    def test_parse_datetime(self):
+        self.assertEqual(jxc.loads("dt'2000-01-01T12:00:00'"), datetime.datetime(2000, 1, 1, 12, 0, 0))
+        self.assertEqual(jxc.loads("dt'2000-01-01T12:00:00Z'"), datetime.datetime(2000, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc))
+        self.assertEqual(jxc.loads("dt'2000-01-01T12:11:00+00:00'"), datetime.datetime(2000, 1, 1, 12, 11, 0, tzinfo=datetime.timezone.utc))
+        self.assertEqual(jxc.loads("dt'2000-01-01T12:47:05-08:00'"), datetime.datetime(2000, 1, 1, 12, 47, 5, tzinfo=tzinfo_from_offset(hours=-8)))
+        self.assertEqual(jxc.loads("dt'2000-01-01T12:04:52+12:30'"), datetime.datetime(2000, 1, 1, 12, 4, 52, tzinfo=tzinfo_from_offset(hours=12, minutes=30)))
+        with self.assertRaises(ValueError):
+            jxc.loads("dt''")
+        with self.assertRaises(ValueError):
+            jxc.loads("dt' 2000-01-01 T 12:04:52 +12:30 '")
+
+    def test_serialize_datetime(self):
+        self.assertEqual(jxc.dumps(datetime.datetime(1, 1, 1, 1, 1, 1)), 'dt"0001-01-01T01:01:01Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(1, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)), 'dt"0001-01-01T01:01:01Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(9999, 12, 31)), 'dt"9999-12-31T00:00:00Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(1969, 12, 31)), 'dt"1969-12-31T00:00:00Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(1970, 1, 1)), 'dt"1970-01-01T00:00:00Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(2001, 2, 3)), 'dt"2001-02-03T00:00:00Z"')
 
     def test_parse_arrays(self):
         self.assertEqual(jxc.loads("[]"), [])

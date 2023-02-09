@@ -22,6 +22,7 @@ Until 1.0 is released, expect a few language and API changes.
     floats: [ 3.141, -2.5, 1e-4 ]
     annotations: vec3[ 0.1, -0.4, 3.141 ]
     numeric_suffixes: [ 4px, 25%, 5mm, 22.3cm ]
+    dates_and_datetimes: [ dt'2023-02-09', dt'2017-11-22T11:45:02Z' ]
     strings: [
         'Single-quoted string'
         "Double-quoted string"

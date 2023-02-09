@@ -304,21 +304,12 @@ Value detail::ValueParser::parse_expression_as_string(TokenSpan annotation)
             expr_inner_start_idx = ele.token.start_idx;
         }
 
-        switch (ele.type)
+        if (element_is_expression_value_type(ele.type))
         {
-        // these are all element types that are valid inside an expression
-        case ElementType::Null:
-        case ElementType::Bool:
-        case ElementType::Number:
-        case ElementType::String:
-        case ElementType::Bytes:
-        case ElementType::ExpressionIdentifier:
-        case ElementType::ExpressionOperator:
-        case ElementType::ExpressionToken:
-        case ElementType::Comment:
             expr_inner_end_idx = ele.token.end_idx;
-            break;
-        default:
+        }
+        else
+        {
             parse_error = ErrorInfo(jxc::format("Invalid element for expression value {}", element_type_to_string(ele.type)),
                 ele.token.start_idx, ele.token.end_idx);
             return default_invalid;

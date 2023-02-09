@@ -235,6 +235,16 @@ void PyEncoder::encode_value(py::object val)
         doc.value_bytes(reinterpret_cast<const uint8_t*>(bytes_data.data()), bytes_data.size());
         return;
     }
+    else if (detail::is_python_datetime(val))
+    {
+        doc.value_datetime(py::cast<jxc::DateTime>(val));
+        return;
+    }
+    else if (detail::is_python_date(val))
+    {
+        doc.value_date(py::cast<jxc::Date>(val));
+        return;
+    }
     else if (py::isinstance<py::list>(val) || py::isinstance<py::tuple>(val))
     {
         encode_sequence(val);

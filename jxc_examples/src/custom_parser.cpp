@@ -22,6 +22,7 @@ using integer_t = int32_t;
 using float_t = float;
 using string_t = std::string;
 using bytes_t = std::vector<uint8_t>;
+using datetime_t = jxc::DateTime;
 
 // array type
 template<typename T>
@@ -152,6 +153,7 @@ using base_value_t = std::variant<
     float_t,
     string_t,
     bytes_t,
+    datetime_t,
     std::unique_ptr<array_t<T>>,
     std::unique_ptr<object_t<T>>
 >;
@@ -166,6 +168,7 @@ enum class ValueType : uint8_t
     Float,
     String,
     Bytes,
+    DateTime,
     Array,
     Object,
 };
@@ -188,6 +191,7 @@ struct value_t : base_value_t<value_t>
     inline bool is_float() const { return get_type() == ValueType::Float; }
     inline bool is_string() const { return get_type() == ValueType::String; }
     inline bool is_bytes() const { return get_type() == ValueType::Bytes; }
+    inline bool is_datetime() const { return get_type() == ValueType::DateTime; }
     inline bool is_array() const { return get_type() == ValueType::Array; }
     inline bool is_object() const { return get_type() == ValueType::Object; }
 
@@ -246,6 +250,9 @@ struct value_t : base_value_t<value_t>
             doc.value_bytes(jxc::BytesView(bytes.data(), bytes.size()));
             break;
         }
+        case ValueType::DateTime:
+            doc.value_datetime(as<datetime_t>());
+            break;
         case ValueType::Array:
         {
             const auto& arr = as<array_t<value_t>>();
@@ -432,6 +439,19 @@ public:
         }
     }
 
+    datetime_t parse_datetime_element(const jxc::Element& ele)
+    {
+        assert(ele.type == jxc::ElementType::DateTime);
+
+        datetime_t result{};
+        if (!jxc::util::parse_datetime_token(ele.token, result, parse_error))
+        {
+            // parse_datetime_token sets parse_error when it returns false
+            throw std::runtime_error(parse_error.to_string(jxc_buffer));
+        }
+        return result;
+    }
+
     value_t parse_array()
     {
         assert(parser.value().type == jxc::ElementType::BeginArray);
@@ -457,6 +477,7 @@ public:
         case jxc::ElementType::Number: return parse_number_element(ele);
         case jxc::ElementType::String: return parse_string_element(ele);
         case jxc::ElementType::Bytes: return parse_bytes_element(ele);
+        case jxc::ElementType::DateTime: return parse_datetime_element(ele);
         case jxc::ElementType::ExpressionIdentifier: // fallthrough
         case jxc::ElementType::ExpressionOperator: // fallthrough
         case jxc::ElementType::ExpressionToken: // fallthrough
@@ -606,7 +627,7 @@ int main(int argc, const char** argv)
 
     // parse a more complex value
     {
-        Parser parser("[0, 1, true, null, 1.75, {q: -10.75}]");
+        Parser parser("[0, 1, true, null, 1.75, {q: -10.75, date: dt'2023-06-15'}]");
         value_t value = parser.parse();
         assert(value.to_jxc(jxc::SerializerSettings::make_compact()) == "[0,1,true,null,1.75,{q:-10.75}]");
         assert(value.is_array());
@@ -619,10 +640,13 @@ int main(int argc, const char** argv)
         assert(arr[4].is_float() && arr[4].as<float_t>() == 1.75f);
         assert(arr[5].is_object());
         auto& obj = arr[5].as<object_t<value_t>>();
-        assert(obj.size() == 1);
+        assert(obj.size() == 2);
         assert(obj.contains("q"));
         assert(obj["q"].is_float());
         assert(obj["q"].as<float_t>() == -10.75f);
+        assert(obj.contains("date"));
+        assert(obj["date"].is_datetime());
+        assert(obj["date"].as<datetime_t>() == datetime_t(2023, 6, 15));
     }
 
     // construct a value and serialize it

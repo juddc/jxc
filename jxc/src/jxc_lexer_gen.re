@@ -47,6 +47,15 @@
 
     str_base64 = "b64\"(" | "b64'(" | "b64\"" | "b64'";
 
+    iso8601_date = ("+" | "-")? [0-9]{4,5} "-" [0-9]{2} "-" [0-9]{2};
+    iso8601_time = [0-9]{2} ":" [0-9]{2} (":" [0-9]{2})?;
+    iso8601_frac = "." [0-9]{1,12};
+    iso8601_tz = "Z" | ([+-] [0-9]{2} ":" [0-9]{2});
+    iso8601_value = iso8601_date | (iso8601_date "T" iso8601_time iso8601_frac? iso8601_tz?);
+    str_datetime = ("dt\"" iso8601_value "\"") | ("dt'" iso8601_value "'");
+
+    str_datetime_prefix = "dt\"" | "dt'";
+
     object_key_identifier = [a-zA-Z_$*][a-zA-Z0-9_$*]*;
     object_key_sep = ".";
     object_key = object_key_identifier (object_key_sep object_key_identifier)*;
@@ -141,6 +150,8 @@ expr_start:
     // string
     str_prefix_raw quote            { if (scan_raw_string(out_error.message, this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
     str_base64                      { if (scan_base64_string(out_error.message, out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::ByteString; } else { set_error(); return TokenType::Invalid; } }
+    str_datetime                    { set_token(); return TokenType::DateTime; }
+    str_datetime_prefix             { if (scan_datetime_string(out_error.message, out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::DateTime; } else { set_error(); return TokenType::Invalid; } }
     quote                           { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
 
     // identifiers
@@ -250,6 +261,8 @@ regular:
     // string
     str_prefix_raw quote            { if (scan_raw_string(out_error.message, this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
     str_base64                      { if (scan_base64_string(out_error.message, out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::ByteString; } else { set_error(); return TokenType::Invalid; } }
+    str_datetime                    { set_token(); return TokenType::DateTime; }
+    str_datetime_prefix             { if (scan_datetime_string(out_error.message, out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::DateTime; } else { set_error(); return TokenType::Invalid; } }
     quote				            { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
 
     // identifiers

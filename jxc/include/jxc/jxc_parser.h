@@ -17,6 +17,7 @@ enum class ElementType : uint8_t
     Null,
     Bytes,
     String,
+    DateTime,
     ExpressionIdentifier,
     ExpressionOperator,
     ExpressionToken,
@@ -53,6 +54,7 @@ inline bool element_can_contain_value(ElementType type)
     case ElementType::Bool:
     case ElementType::Bytes:
     case ElementType::String:
+    case ElementType::DateTime:
     case ElementType::ExpressionIdentifier:
     case ElementType::ExpressionOperator:
     case ElementType::ExpressionToken:
@@ -77,6 +79,7 @@ inline bool element_can_contain_annotation(ElementType type)
     case ElementType::Bool:
     case ElementType::Bytes:
     case ElementType::String:
+    case ElementType::DateTime:
     case ElementType::BeginArray:
     case ElementType::BeginObject:
     case ElementType::BeginExpression:
@@ -108,6 +111,7 @@ inline bool element_is_value_type(ElementType type)
     case ElementType::Null:
     case ElementType::Bytes:
     case ElementType::String:
+    case ElementType::DateTime:
     case ElementType::BeginArray:
     case ElementType::BeginExpression:
     case ElementType::BeginObject:
@@ -138,8 +142,11 @@ inline bool element_is_expression_value_type(ElementType type)
     case ElementType::Null:
     case ElementType::Bytes:
     case ElementType::String:
+    case ElementType::DateTime:
     case ElementType::ExpressionIdentifier:
     case ElementType::ExpressionOperator:
+    case ElementType::ExpressionToken:
+    case ElementType::Comment:
         return true;
 
     case ElementType::BeginArray:
@@ -149,7 +156,6 @@ inline bool element_is_expression_value_type(ElementType type)
     case ElementType::BeginObject:
     case ElementType::EndObject:
     case ElementType::ObjectKey:
-    case ElementType::Comment:
     case ElementType::Invalid:
     default:
         break;
@@ -869,6 +875,19 @@ bool parse_bytes_token(const Token& bytes_token, T& out_data, ErrorInfo& out_err
     return false;
 }
 
+// Checks if the given datetime token is just a date (no time data)
+bool datetime_token_is_date(const Token& datetime_token);
+
+// Checks if the given datetime token includes both date and time data
+bool datetime_token_is_datetime(const Token& datetime_token);
+
+// Parses a date token into a Date value. This will return an error if the token includes time data.
+bool parse_date_token(const Token& datetime_token, Date& out_date, ErrorInfo& out_error);
+
+// Parses a date token into a DateTime value.
+// If require_time_data is true, this will return an error if the token does not include time info.
+// If require_time_data is false and the token does not include time data, out_datetime will have a time of 00:00:00Z.
+bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, ErrorInfo& out_error, bool require_time_data = false);
 
 JXC_END_NAMESPACE(util)
 

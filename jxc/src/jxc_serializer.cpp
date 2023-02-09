@@ -173,6 +173,7 @@ size_t Serializer::pre_write_token(TokenType type, std::string_view post_annotat
         case TokenType::Number:
         case TokenType::String:
         case TokenType::ByteString:
+        case TokenType::DateTime:
         case TokenType::BraceOpen:
         case TokenType::SquareBracketOpen:
         case TokenType::ParenOpen:
@@ -493,6 +494,32 @@ Serializer& Serializer::value_bytes_base64(const uint8_t* data, size_t data_len,
         last_token_size += output.write(std::string_view{ buf.data(), buf.size() });
     }
 
+    last_token_size += output.write(quote_char);
+    post_write_token();
+    return *this;
+}
+
+
+Serializer& Serializer::value_date(Date value, StringQuoteMode quote)
+{
+    const char quote_char = get_quote_char(settings.default_quote, quote);
+    last_token_size = pre_write_token(TokenType::DateTime);
+    last_token_size += output.write("dt");
+    last_token_size += output.write(quote_char);
+    last_token_size += output.write(datetime_to_iso8601(value));
+    last_token_size += output.write(quote_char);
+    post_write_token();
+    return *this;
+}
+
+
+Serializer& Serializer::value_datetime(DateTime value, StringQuoteMode quote)
+{
+    const char quote_char = get_quote_char(settings.default_quote, quote);
+    last_token_size = pre_write_token(TokenType::DateTime);
+    last_token_size += output.write("dt");
+    last_token_size += output.write(quote_char);
+    last_token_size += output.write(datetime_to_iso8601(value));
     last_token_size += output.write(quote_char);
     post_write_token();
     return *this;

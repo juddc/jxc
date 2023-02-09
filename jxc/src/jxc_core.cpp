@@ -339,4 +339,5 @@ std::string ErrorInfo::to_string(std::string_view buffer) const
     return "Unknown error";
 }
 
+
 JXC_END_NAMESPACE(jxc)

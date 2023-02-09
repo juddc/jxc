@@ -4,6 +4,11 @@
 #include "jxc/jxc.h"
 
 
+// time conversion helpers useful for the date/datetime tests
+inline uint32_t ms_to_ns(uint32_t value_ms) { return value_ms * static_cast<uint32_t>(1e6); }
+inline uint32_t us_to_ns(uint32_t value_us) { return value_us * static_cast<uint32_t>(1e3); }
+
+
 template<typename LhsT, typename RhsT>
 testing::AssertionResult test_elements_equal(const LhsT& lhs, const RhsT& rhs)
 {

@@ -565,6 +565,229 @@ parse_success:
 }
 
 
+bool Lexer::scan_datetime_string(std::string& out_error_message, std::string_view& out_datetime_token)
+{
+    JXC_DEBUG_ASSERT(this->current - 1 >= this->start);
+    const uint8_t* str_start = nullptr;
+
+    JXC_DEBUG_ASSERT(this->current - 3 >= this->start);
+    JXC_DEBUG_ASSERT(*(this->current - 3) == 'd');
+    JXC_DEBUG_ASSERT(*(this->current - 2) == 't');
+    JXC_DEBUG_ASSERT(*(this->current - 1) == '\'' || *(this->current - 1) == '\"');
+
+    str_start = this->current - 3;
+    const char quote_char = static_cast<char>(*(this->current - 1));
+    bool found_end_quote = false;
+
+    while (this->current < this->limit)
+    {
+        const char ch = static_cast<char>(*this->current);
+        if (ch == quote_char)
+        {
+            const int64_t data_len = (int64_t)(this->current - str_start);
+            JXC_ASSERT(data_len >= 0);
+            found_end_quote = true;
+            break;
+        }
+        ++this->current;
+    }
+
+    if (!found_end_quote)
+    {
+        out_error_message = "Unexpected end of stream while parsing datetime string";
+        return false;
+    }
+
+    // this->current should point at the end quote character now.
+    // Advance exactly once so that when we return, this->current points to the character just AFTER this token.
+    JXC_DEBUG_ASSERT(this->current > str_start && this->current <= this->limit && static_cast<char>(*this->current) == quote_char);
+    ++this->current;
+
+    const int64_t len = (int64_t)(this->current - str_start);
+    const size_t string_token_len = (len >= 0) ? (size_t)len : 0;
+    out_datetime_token = std::string_view{ reinterpret_cast<const char*>(str_start), string_token_len };
+
+    out_error_message = "Invalid datetime string";
+    return false;
+
+#if 0
+
+    const std::string_view value = out_datetime_token.substr(3, out_datetime_token.size() - 4);
+
+
+    std::string_view year_str;
+    std::string_view month_str;
+    std::string_view day_str;
+    std::string_view hour_str;
+    std::string_view min_str;
+    std::string_view sec_str; // includes fractional component
+    std::string_view timezone_str; // starts with 'Z', '+', or '-'
+
+    auto is_number = [](char ch) { return ch >= '0' && ch <= '9'; };
+
+    auto make_error = [&out_error_message](std::string&& msg)
+    {
+        out_error_message = jxc::format("Invalid datetime string: {}", msg);
+        return false;
+    };
+
+    auto require_char = [&](size_t index, char required_char) -> bool
+    {
+        if (index >= value.size())
+        {
+            out_error_message = "Unexpected end of stream while parsing datetime";
+            return false;
+        }
+        else if (value[index] != required_char)
+        {
+            out_error_message = jxc::format("Expected character {}, got {}", detail::debug_char_repr(required_char)), detail::debug_char_repr(value[index]);
+            return false;
+        }
+        return true;
+    };
+
+    auto read_number = [&](size_t start_index, int min_digits, int max_digits, std::string_view& out_value) -> bool
+    {
+        size_t i = start_index;
+        while (i < value.size() && is_number(value[i]))
+        {
+            ++i;
+        }
+
+        const int len = static_cast<int>(i - start_index);
+        if (len < min_digits || len > max_digits)
+        {
+            out_error_message = (min_digits == max_digits)
+                ? jxc::format("Expected exactly {} digits, got {}", min_digits, len)
+                : jxc::format("Expected {}-{} digits, got {}", min_digits, max_digits, len);
+            return false;
+        }
+
+        out_value = value.substr(start_index, tok_len);
+    };
+
+    size_t idx = 0;
+    size_t tok_start = 0;
+    size_t tok_len = 0;
+
+    while (idx < value.size() && is_number(value[idx])) { ++tok_len; ++idx; }
+    year_str = value.substr(tok_start, tok_len);
+
+    if (!require_char(idx, '-')) { return false; }
+
+#endif
+
+#if 0
+
+    // valid datetime string lengths:
+    // 2023-02-08 (10 chars)
+    // 2023-02-08T19:10:06Z (20 chars)
+    // 2023-02-08T19:10:06+00:00 (25 chars)
+    if (datetime_value.size() != 10 && datetime_value.size() != 20 && datetime_value.size() != 25)
+    {
+        out_error_message = jxc::format("Invalid datetime string: length must be exactly 10, 20, or 25, got length {}", datetime_value.size());
+        return false;
+    }
+
+    auto is_number = [](char ch)
+    {
+        return ch >= '0' && ch <= '9';
+    };
+
+    auto set_char_error = [&out_error_message](size_t index, char expected, char actual)
+    {
+        out_error_message = jxc::format("Invalid datetime string: expected character at position {} to be {}, got {}",
+            index,
+            detail::debug_char_repr(expected),
+            detail::debug_char_repr(actual));
+    };
+
+    // validate string contents
+    for (size_t i = 0; i < datetime_value.size(); i++)
+    {
+        const char ch = datetime_value[i];
+        switch (i)
+        {
+        // year:
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        // month:
+        case 5:
+        case 6:
+        // day:
+        case 8:
+        case 9:
+        // hour:
+        case 11:
+        case 12:
+        // minute:
+        case 14:
+        case 15:
+        // second:
+        case 17:
+        case 18:
+        // timezone_hour:
+        case 20:
+        case 21:
+        // timezone_minute:
+        case 23:
+        case 24:
+            if (!is_number(ch))
+            {
+                out_error_message = jxc::format("Invalid datetime string: expected character at position {} to be a number, got {}", i, detail::debug_char_repr(ch));
+                return false;
+            }
+            break;
+        
+        // date separators:
+        case 4:
+        case 7:
+            if (ch != '-')
+            {
+                set_char_error(i, '-', ch);
+                return false;
+            }
+            break;
+        
+        // date/time separator:
+        case 10:
+            if (ch != 'T')
+            {
+                set_char_error(i, 'T', ch);
+                return false;
+            }
+            break;
+        
+        // time separators (in time and timezone components):
+        case 13:
+        case 16:
+        case 22:
+            if (ch != ':')
+            {
+                set_char_error(i, ':', ch);
+                return false;
+            }
+            break;
+        
+        case 19:
+            if (ch != '+' && ch != '-' && ch != 'Z')
+            {
+                out_error_message = jxc::format("Invalid datetime string: expected character at position {} to be {}, {}, or {}, got {}",
+                    i, detail::debug_char_repr('+'), detail::debug_char_repr('-'), detail::debug_char_repr('Z'), detail::debug_char_repr(ch));
+                return false;
+            }
+            break;
+        }
+    }
+
+#endif
+
+    return true;
+}
+
+
 bool AnnotationLexer::next(Token& out_token)
 {
     const size_t token_idx = num_tokens;
@@ -646,6 +869,7 @@ bool AnnotationLexer::next(Token& out_token)
     case TokenType::Number:
     case TokenType::String:
     case TokenType::ByteString:
+    case TokenType::DateTime:
         if (lex.angle_bracket_depth <= 0)
         {
             return set_parse_error(out_token, jxc::format("Token {} only allowed inside angle brackets", token_type_to_string(out_token.type)));

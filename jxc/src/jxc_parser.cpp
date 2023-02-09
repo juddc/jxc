@@ -15,6 +15,7 @@ const char* element_type_to_string(ElementType type)
     case JXC_ENUMSTR(ElementType, Null);
     case JXC_ENUMSTR(ElementType, Bytes);
     case JXC_ENUMSTR(ElementType, String);
+    case JXC_ENUMSTR(ElementType, DateTime);
     case JXC_ENUMSTR(ElementType, ExpressionIdentifier);
     case JXC_ENUMSTR(ElementType, ExpressionOperator);
     case JXC_ENUMSTR(ElementType, ExpressionToken);
@@ -246,6 +247,7 @@ bool JumpParser::next()
     case TokenType::Number: \
     case TokenType::String: \
     case TokenType::ByteString: \
+    case TokenType::DateTime: \
     case TokenType::SquareBracketOpen: \
     case TokenType::BraceOpen: \
     case TokenType::ParenOpen: \
@@ -419,6 +421,7 @@ jp_handle_annotation_type:
                 case TokenType::Number:
                 case TokenType::String:
                 case TokenType::ByteString:
+                case TokenType::DateTime:
                     annotation_buffer.push(tok);
                     break;
 
@@ -466,6 +469,8 @@ jp_handle_annotation_type:
             JP_YIELD(ElementType::Bytes);
         case TokenType::String:
             JP_YIELD(ElementType::String);
+        case TokenType::DateTime:
+            JP_YIELD(ElementType::DateTime);
         case TokenType::SquareBracketOpen:
             goto jp_arraybegin;
         case TokenType::ParenOpen:
@@ -560,6 +565,8 @@ jp_handle_annotation_type:
             JP_YIELD(ElementType::Number);
         case TokenType::String:
             JP_YIELD(ElementType::String);
+        case TokenType::DateTime:
+            JP_YIELD(ElementType::DateTime);
         case TokenType::ByteString:
             JP_YIELD(ElementType::Bytes);
         case TokenType::Identifier:
@@ -1500,6 +1507,530 @@ bool parse_bytes_token(const Token& bytes_token, uint8_t* out_data_buffer, size_
     return false;
 }
 
+
+// Checks if a given token is of type DateTime and has the correct prefix and quote chars
+static inline bool is_valid_datetime_token(const Token& datetime_token, std::string_view& out_value)
+{
+    out_value = datetime_token.value.as_view();
+
+    if (datetime_token.type != TokenType::DateTime)
+    {
+        return false;
+    }
+
+    // require 'dt' prefix
+    if (!detail::string_view_starts_with(out_value, "dt"))
+    {
+        return false;
+    }
+
+    // strip 'dt' prefix
+    out_value = out_value.substr(2);
+
+    // require quotes
+    if (out_value.size() < 2 || out_value[0] != out_value[out_value.size() - 1] || (out_value[0] != '\'' && out_value[0] != '\"'))
+    {
+        return false;
+    }
+
+    // strip quotes
+    out_value = out_value.substr(1, out_value.size() - 2);
+
+    return true;
+}
+
+
+bool datetime_token_is_date(const Token& datetime_token)
+{
+    std::string_view value;
+    return is_valid_datetime_token(datetime_token, value) && value.size() <= 16 && value.find_first_of('T') == std::string_view::npos;
+}
+
+
+bool datetime_token_is_datetime(const Token& datetime_token)
+{
+    std::string_view value;
+    return is_valid_datetime_token(datetime_token, value) && value.find_first_of('T') != std::string_view::npos;
+}
+
+
+// datetime string components:
+// Optional
+//     '+' | '-' (pos/negative year)
+// YYYYYY (year, 4-6 chars)
+// '-'
+// MM (month, zero padded, exactly 2 chars, values '01' through '12')
+// '-'
+// DD (day, zero padded, exactly 2 chars, values '01' through '31')
+// can stop here for just a date value
+// 'T' (indicates that we're starting a time value)
+// HH (exactly 2 chars, values '00' through '24') [NB. "24:00:00" refers to the instant at the end of a calendar day]
+// ':'
+// MM (exactly 2 chars, values '00' through '59')
+// Optional
+//     ':'
+//     SS (exactly 2 chars, values '00' through '59')
+// Optional
+//     '.'
+//     ssssssssssss (decimal fraction of seconds, 1-12 digits)
+// 'Z' | ('+HH:MM' | '-HH:MM')
+//     If 'Z', then use UTC timezone.
+//     If '+' or '-', then explicit timezone follows.
+struct DateTimeTokenParser
+{
+    size_t tok_start_idx = 0;
+    size_t tok_end_idx = 0;
+    std::string_view value;
+    size_t index = 0;
+    bool done = false;
+
+    DateTimeTokenParser(const Token& token, std::string_view value)
+        : tok_start_idx(token.start_idx)
+        , tok_end_idx(token.end_idx)
+        , value(value)
+    {}
+
+    DateTimeTokenParser(const DateTimeTokenParser&) = delete;
+    DateTimeTokenParser& operator=(const DateTimeTokenParser&) = delete;
+
+    bool require_done(ErrorInfo& out_error, const char* error_msg = "")
+    {
+        JXC_ASSERTF(!done, "DateTimeTokenParser::require_done called more than once!");
+        done = true;
+        if (index < value.size())
+        {
+            std::string_view suffix = value.substr(index);
+            if (error_msg[0] != '\0')
+            {
+                out_error = ErrorInfo(jxc::format("DateTime parse error: {} (invalid suffix {})", error_msg, detail::debug_string_repr(suffix)),
+                    tok_start_idx, tok_end_idx);
+            }
+            else
+            {
+                out_error = ErrorInfo(jxc::format("DateTime parse error: invalid suffix {}", detail::debug_string_repr(suffix)),
+                    tok_start_idx, tok_end_idx);
+            }
+            return false;
+        }
+        return true;
+    }
+
+    bool require_number_as_string(size_t min_digits, size_t max_digits, const char* number_type, std::string_view& out_value, ErrorInfo& out_error)
+    {
+        if (index + min_digits > value.size())
+        {
+            out_error = ErrorInfo(jxc::format("Invalid DateTime: Not enough characters remaining in token {} to parse {}",
+                detail::debug_string_repr(value), number_type),
+                tok_start_idx, tok_end_idx);
+            return false;
+        }
+
+        size_t num_chars = 0;
+        size_t new_index = index;
+        while (new_index < value.size() && is_decimal_digit(value[new_index]))
+        {
+            ++num_chars;
+            ++new_index;
+        }
+
+        if (num_chars < min_digits || num_chars > max_digits)
+        {
+            out_error = ErrorInfo(
+                (min_digits == max_digits)
+                    ? jxc::format("Invalid DateTime: Expected exactly {} digits for the {}, got {}", min_digits, number_type, num_chars)
+                    : jxc::format("Invalid DateTime: Expected {}-{} digits for the {}, got {}", min_digits, max_digits, number_type, num_chars),
+                tok_start_idx, tok_end_idx);
+            return false;
+        }
+
+        out_value = value.substr(index, num_chars);
+        JXC_ASSERT(out_value.size() == num_chars);
+        JXC_ASSERT(out_value.size() >= min_digits && out_value.size() <= max_digits);
+        index += out_value.size();
+
+        return true;
+    }
+
+    template<typename IntType>
+    bool require_number(size_t min_digits, size_t max_digits, const char* number_type, IntType& out_value, ErrorInfo& out_error)
+    {
+        static_assert(std::is_integral_v<IntType>, "require_number requires an integer type");
+
+        std::string_view number_str;
+        if (!require_number_as_string(min_digits, max_digits, number_type, number_str, out_error))
+        {
+            return false;
+        }
+
+        JXC_ASSERT(number_str.size() >= min_digits && number_str.size() <= max_digits);
+
+        // strip leading zeroes
+        while (number_str.size() > 1 && number_str[0] == '0')
+        {
+            number_str = number_str.substr(1);
+        }
+
+        if (!string_to_number_decimal<IntType>(number_str, out_value))
+        {
+            out_error = ErrorInfo(jxc::format("Invalid DateTime: {} is not a valid {}", detail::debug_string_repr(number_str), number_type),
+                tok_start_idx, tok_end_idx);
+            return false;
+        }
+
+        return true;
+    }
+
+    bool require_char(char required_char, ErrorInfo& out_error)
+    {
+        if (index >= value.size())
+        {
+            out_error = ErrorInfo(jxc::format("Invalid DateTime: expected character {}, got end of string",
+                detail::debug_char_repr(required_char)),
+                tok_start_idx, tok_end_idx);
+            return false;
+        }
+        else if (value[index] != required_char)
+        {
+            out_error = ErrorInfo(jxc::format("Invalid DateTime: expected character {}, got {}",
+                detail::debug_char_repr(required_char), detail::debug_char_repr(required_char)),
+                tok_start_idx, tok_end_idx);
+            return false;
+        }
+
+        ++index;
+        return true;
+    }
+
+    inline char peek_char() const
+    {
+        return (index < value.size()) ? value[index] : '\0';
+    }
+
+    inline void advance()
+    {
+        ++index;
+    }
+
+    inline int64_t chars_remaining_including_current() const
+    {
+        return static_cast<int64_t>(value.size()) - static_cast<int64_t>(index);
+    }
+
+    inline bool at_end() const
+    {
+        return index >= value.size();
+    }
+};
+
+
+bool parse_date_token(const Token& datetime_token, Date& out_date, ErrorInfo& out_error)
+{
+    std::string_view value;
+    if (!is_valid_datetime_token(datetime_token, value))
+    {
+        out_error = ErrorInfo("Invalid date token", datetime_token.start_idx, datetime_token.end_idx);
+        return false;
+    }
+
+    DateTimeTokenParser parser(datetime_token, value);
+
+    char year_sign = parser.peek_char();
+    if (year_sign == '+' || year_sign == '-')
+    {
+        parser.advance();
+    }
+    else
+    {
+        year_sign = '\0';
+    }
+
+    if (!parser.require_number(4, 6, "year", out_date.year, out_error)) { return false; }
+    if (!parser.require_char('-', out_error)) { return false; }
+    if (!parser.require_number(2, 2, "month", out_date.month, out_error)) { return false; }
+    if (!parser.require_char('-', out_error)) { return false; }
+    if (!parser.require_number(2, 2, "day", out_date.day, out_error)) { return false; }
+    if (!parser.require_done(out_error)) { return false; }
+
+    if (year_sign == '-')
+    {
+        out_date.year = -out_date.year;
+    }
+
+    return true;
+}
+
+
+// Parses a date token into a DateTime value.
+// If require_time_data is true, this will return an error if the token does not include time info.
+// If require_time_data is false and the token does not include time data, out_datetime will have a time of 00:00:00Z.
+bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, ErrorInfo& out_error, bool require_time_data)
+{
+    std::string_view value;
+    if (!is_valid_datetime_token(datetime_token, value))
+    {
+        out_error = ErrorInfo("Invalid date token", datetime_token.start_idx, datetime_token.end_idx);
+        return false;
+    }
+
+    DateTimeTokenParser parser(datetime_token, value);
+
+    // date component
+    char year_sign = parser.peek_char();
+    if (year_sign == '+' || year_sign == '-')
+    {
+        parser.advance();
+    }
+    else
+    {
+        year_sign = '\0';
+    }
+
+    if (!parser.require_number(4, 6, "year", out_datetime.year, out_error)) { return false; }
+    if (!parser.require_char('-', out_error)) { return false; }
+    if (!parser.require_number(2, 2, "month", out_datetime.month, out_error)) { return false; }
+    if (!parser.require_char('-', out_error)) { return false; }
+    if (!parser.require_number(2, 2, "day", out_datetime.day, out_error)) { return false; }
+
+    if (year_sign == '-')
+    {
+        out_datetime.year = -out_datetime.year;
+    }
+
+    if (parser.at_end())
+    {
+        JXC_DEBUG_ASSERT(!require_time_data);
+        // no time or timezone specified - explicitly zero out those values.
+        out_datetime.hour = 0;
+        out_datetime.minute = 0;
+        out_datetime.second = 0;
+        out_datetime.tz_hour = 0;
+        out_datetime.tz_minute = 0;
+        return true;
+    }
+
+    if (!parser.require_char('T', out_error)) { return false; }
+    if (!parser.require_number(2, 2, "hour", out_datetime.hour, out_error)) { return false; }
+    if (!parser.require_char(':', out_error)) { return false; }
+    if (!parser.require_number(2, 2, "minute", out_datetime.minute, out_error)) { return false; }
+
+    // seconds can be optional
+    if (parser.peek_char() == ':')
+    {
+        parser.advance();
+        if (!parser.require_number(2, 2, "second", out_datetime.second, out_error)) { return false; }
+    }
+
+    // if we have fractional seconds, parse those and convert the value to nanoseconds
+    if (parser.peek_char() == '.')
+    {
+        parser.advance();
+
+        std::string_view fractional_seconds_str;
+        if (!parser.require_number_as_string(1, 12, "fractional seconds", fractional_seconds_str, out_error)) { return false; }
+
+        // we need the number of digits _before_ stripping leading zeroes to determine how to convert the value to nanoseconds
+        const int num_digits = fractional_seconds_str.size();
+
+        // strip leading zeroes
+        while (fractional_seconds_str.size() > 1 && fractional_seconds_str[0] == '0')
+        {
+            fractional_seconds_str = fractional_seconds_str.substr(1);
+        }
+
+        if (fractional_seconds_str.size() == 1 && fractional_seconds_str[0] == '0')
+        {
+            // fast path for zero
+            out_datetime.nanosecond = 0;
+        }
+        else
+        {
+            // convert to integer
+            int64_t fractional_seconds = 0;
+            if (!string_to_number_decimal(fractional_seconds_str, fractional_seconds))
+            {
+                out_error = ErrorInfo(jxc::format("Failed to convert fractional seconds value {} to number", detail::debug_string_repr(fractional_seconds_str)),
+                    datetime_token.start_idx, datetime_token.end_idx);
+                return false;
+            }
+
+            if (num_digits < 9)
+            {
+                // convert to nanoseconds (lossless)
+                int64_t multiplier = 1;
+                for (int64_t i = num_digits; i < 9; ++i)
+                {
+                    multiplier *= 10;
+                }
+                out_datetime.nanosecond = fractional_seconds * multiplier;
+            }
+            else if (num_digits > 9)
+            {
+                // convert to nanoseconds (lossy)
+                int64_t divisor = 1;
+                for (int64_t i = num_digits; i >= 9; --i)
+                {
+                    divisor *= 10;
+                }
+                out_datetime.nanosecond = fractional_seconds / divisor;
+            }
+            else
+            {
+                // value is already nanoseconds
+                JXC_DEBUG_ASSERT(num_digits == 9);
+                out_datetime.nanosecond = static_cast<uint32_t>(fractional_seconds);
+            }
+        }
+    }
+
+    // do we have timezone info?
+    if (parser.at_end())
+    {
+        // no timezone - datetime is local
+        out_datetime.tz_hour = 0;
+        out_datetime.tz_minute = 0;
+        out_datetime.tz_local = 1;
+        return true;
+    }
+
+    const char tz_prefix = parser.peek_char();
+    parser.advance();
+
+    int8_t tz_minute_offset = 0;
+
+    switch (tz_prefix)
+    {
+    case 'Z':
+        // explicit UTC time indicator
+        out_datetime.tz_hour = 0;
+        out_datetime.tz_minute = 0;
+        out_datetime.tz_local = 0;
+        return parser.require_done(out_error, "timezone specified with 'Z', but it is not the last character");
+
+    case '+':
+    case '-':
+        out_datetime.tz_local = 0;
+        if (!parser.require_number(2, 2, "timezone hour offset", out_datetime.tz_hour, out_error)) { return false; }
+        if (!parser.require_char(':', out_error)) { return false; }
+        if (!parser.require_number(2, 2, "timezone minute offset", tz_minute_offset, out_error)) { return false; }
+        out_datetime.tz_minute = tz_minute_offset;
+        if (tz_prefix == '-')
+        {
+            out_datetime.tz_hour = -out_datetime.tz_hour;
+        }
+        return parser.require_done(out_error);
+
+    default:
+        break;
+    }
+
+    out_error = ErrorInfo("Failed parsing DateTime: unknown error", datetime_token.start_idx, datetime_token.end_idx);
+    return false;
+
+
+#if 0
+
+    // Require either 20 or 25 characters. Allow 10 chars only if require_time_data is false.
+    if (value.size() != 25 && value.size() != 20 && (value.size() != 10 || require_time_data))
+    {
+        if (require_time_data)
+        {
+            out_error = ErrorInfo(jxc::format("Invalid DateTime token: expected datetime value in the form {} or {}, got {}",
+                date_format_ymd_hms, date_format_ymd_hms_tz, detail::debug_string_repr(value)),
+                datetime_token.start_idx, datetime_token.end_idx);
+        }
+        else
+        {
+            out_error = ErrorInfo(jxc::format("Invalid DateTime token: expected datetime value in the form {}, {} or {}, got {}",
+                date_format_ymd, date_format_ymd_hms, date_format_ymd_hms_tz, detail::debug_string_repr(value)),
+                datetime_token.start_idx, datetime_token.end_idx);
+        }
+        return false;
+    }
+
+    DateTimeTokenParser parser(datetime_token, value);
+
+    // date component
+    if (!parser.require_number(4, "year", out_datetime.year, out_error)) { return false; }
+    if (!parser.require_char('-', out_error)) { return false; }
+    if (!parser.require_number(2, "month", out_datetime.month, out_error)) { return false; }
+    if (!parser.require_char('-', out_error)) { return false; }
+    if (!parser.require_number(2, "day", out_datetime.day, out_error)) { return false; }
+    
+    if (parser.at_end())
+    {
+        JXC_DEBUG_ASSERT(!require_time_data);
+        // no time or timezone specified - explicitly zero out those values.
+        out_datetime.hour = 0;
+        out_datetime.minute = 0;
+        out_datetime.second = 0;
+        out_datetime.tz_hour = 0;
+        out_datetime.tz_minute = 0;
+        return true;
+    }
+
+    if (!parser.require_char('T', out_error)) { return false; }
+    if (!parser.require_number(2, "hour", out_datetime.hour, out_error)) { return false; }
+    if (!parser.require_char(':', out_error)) { return false; }
+    if (!parser.require_number(2, "minute", out_datetime.minute, out_error)) { return false; }
+    if (!parser.require_char(':', out_error)) { return false; }
+    if (!parser.require_number(2, "second", out_datetime.second, out_error)) { return false; }
+
+    // Z suffix indicates UTC time zone
+    const char tz_char = parser.peek_char();
+    parser.advance();
+
+    auto set_tz_error = [&]() -> bool
+    {
+        out_error = ErrorInfo(jxc::format("Invalid DateTime token: value must end with 'Z', or a timezone offset in the form \"+HH:MM\" or \"-HH:MM\" (got suffix {})",
+            detail::debug_string_repr(value.substr(parser.index))),
+            datetime_token.start_idx, datetime_token.end_idx);
+        return false;
+    };
+
+    switch (tz_char)
+    {
+    case '-':
+        if (parser.chars_remaining_including_current() != 5)
+        {
+            return set_tz_error();
+        }
+        JXC_DEBUG_ASSERT(value.size() == 25);
+        if (!parser.require_number(2, "timezone hour offset", out_datetime.tz_hour, out_error)) { return false; }
+        if (!parser.require_char(':', out_error)) { return false; }
+        if (!parser.require_number(2, "timezone minute offset", out_datetime.tz_minute, out_error)) { return false; }
+        if (!parser.require_done(out_error)) { return false; }
+
+        // this is a negative time zone offset
+        out_datetime.tz_hour = -out_datetime.tz_hour;
+        return true;
+
+    case '+':
+        if (parser.chars_remaining_including_current() != 5)
+        {
+            return set_tz_error();
+        }
+        JXC_DEBUG_ASSERT(value.size() == 25);
+        if (!parser.require_number(2, "timezone hour offset", out_datetime.tz_hour, out_error)) { return false; }
+        if (!parser.require_char(':', out_error)) { return false; }
+        if (!parser.require_number(2, "timezone minute offset", out_datetime.tz_minute, out_error)) { return false; }
+        if (!parser.require_done(out_error)) { return false; }
+        return true;
+
+    case 'Z':
+        if (!parser.require_done(out_error)) { return false; }
+        JXC_DEBUG_ASSERT(value.size() == 20);
+        out_datetime.tz_hour = 0;
+        out_datetime.tz_minute = 0;
+        return true;
+
+    default:
+        break;
+    }
+
+    return set_tz_error();
+
+#endif
+}
 
 } // namespace util
 

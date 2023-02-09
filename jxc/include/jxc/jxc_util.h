@@ -145,6 +145,11 @@ const char* float_literal_type_to_string(FloatLiteralType type);
 
 FloatLiteralType get_float_literal_type(double value);
 
+// Converts a Date to ISO-8601
+std::string datetime_to_iso8601(const Date& dt);
+
+// Converts a DateTime to ISO-8601
+std::string datetime_to_iso8601(const DateTime& dt);
 
 enum class TokenType : uint8_t
 {
@@ -160,6 +165,7 @@ enum class TokenType : uint8_t
     Number,
     String,
     ByteString,
+    DateTime,
     ExpressionOperator,
 
     // syntax characters
@@ -219,6 +225,7 @@ inline bool token_type_has_value(TokenType type)
     case TokenType::Number:
     case TokenType::String:
     case TokenType::ByteString:
+    case TokenType::DateTime:
     case TokenType::ExpressionOperator:
         return true;
     default:

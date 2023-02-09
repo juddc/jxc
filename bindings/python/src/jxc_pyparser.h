@@ -197,6 +197,7 @@ public:
     py::object parse_number_element(const Element& ele);
     py::object parse_string_element(const Element& ele);
     py::object parse_bytes_element(const Element& ele);
+    py::object parse_datetime_element(const Element& ele);
     py::object parse_list();
     py::object parse_list_custom();
     py::object parse_expr_value(const Element& ele);

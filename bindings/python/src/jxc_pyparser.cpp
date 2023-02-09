@@ -378,6 +378,9 @@ py::object PyParser::parse_value(const Element& ele)
     case ElementType::Bytes:
         result = parse_bytes_element(ele);
         break;
+    case ElementType::DateTime:
+        result = parse_datetime_element(ele);
+        break;
     case ElementType::BeginArray:
         result = custom_list_type ? parse_list_custom() : parse_list();
         break;
@@ -537,6 +540,31 @@ py::object PyParser::parse_bytes_element(const Element& ele)
 }
 
 
+py::object PyParser::parse_datetime_element(const Element& ele)
+{
+    JXC_ASSERT(ele.token.type == TokenType::DateTime);
+
+    if (util::datetime_token_is_date(ele.token))
+    {
+        jxc::Date result;
+        if (!util::parse_date_token(ele.token, result, parse_error))
+        {
+            JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
+        }
+        return py::cast(result);
+    }
+    else
+    {
+        jxc::DateTime result;
+        if (!util::parse_datetime_token(ele.token, result, parse_error))
+        {
+            JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
+        }
+        return py::cast(result);
+    }
+}
+
+
 py::object PyParser::parse_list()
 {
     const Element& start_ele = parser.value();
@@ -593,6 +621,8 @@ py::object PyParser::parse_expr_value(const Element& ele)
         return parse_string_element(ele);
     case ElementType::Bytes:
         return parse_bytes_element(ele);
+    case ElementType::DateTime:
+        return parse_datetime_element(ele);
     case ElementType::ExpressionIdentifier:
         // fallthrough
     case ElementType::ExpressionOperator:
@@ -613,20 +643,9 @@ py::object PyParser::parse_expr_value(const Element& ele)
 
 py::object PyParser::parse_expr_token(const Element& ele)
 {
-    switch (ele.type)
+    if (element_is_expression_value_type(ele.type))
     {
-    case ElementType::Null:
-    case ElementType::Bool:
-    case ElementType::Number:
-    case ElementType::String:
-    case ElementType::Bytes:
-    case ElementType::ExpressionIdentifier:
-    case ElementType::ExpressionOperator:
-    case ElementType::ExpressionToken:
-    case ElementType::Comment:
         return py::cast(ele.token.copy(), py::return_value_policy::move);
-    default:
-        break;
     }
 
     parse_error = ErrorInfo(jxc::format("Invalid element for expression value {}", element_type_to_string(ele.type)),
@@ -706,28 +725,19 @@ py::object PyParser::parse_expr(ExpressionParseMode parse_mode)
                 expr_inner_start_idx = ele.token.start_idx;
             }
 
-            switch (ele.type)
+            if (element_is_expression_value_type(ele.type))
             {
-            // these are all element types that are valid inside an expression
-            case ElementType::Null:
-            case ElementType::Bool:
-            case ElementType::Number:
-            case ElementType::String:
-            case ElementType::Bytes:
-            case ElementType::ExpressionIdentifier:
-            case ElementType::ExpressionOperator:
-            case ElementType::ExpressionToken:
-            case ElementType::Comment:
                 expr_inner_end_idx = ele.token.end_idx;
-                break;
-            case ElementType::EndExpression:
+            }
+            else if (ele.type == ElementType::EndExpression)
+            {
                 inside_expr = false;
-                break;
-            default:
+            }
+            else
+            {
                 parse_error = ErrorInfo(jxc::format("Invalid element for expression value {}", element_type_to_string(ele.type)),
                     ele.token.start_idx, ele.token.end_idx);
                 JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
-                break;
             }
         }
 

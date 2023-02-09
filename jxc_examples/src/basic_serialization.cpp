@@ -11,6 +11,7 @@ int main(int argc, const char** argv)
         .value_bool(true)
         .value_null()
         .value_string("string")
+        .value_date(jxc::Date(1996, 6, 7))
         .array_end();
     doc.flush();
     std::cout << buffer.to_string() << '\n';

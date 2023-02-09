@@ -99,6 +99,7 @@ class ElementType(enum.Enum):
       Null
       Bytes
       String
+      DateTime
       ExpressionIdentifier
       ExpressionOperator
       ExpressionToken
@@ -117,17 +118,18 @@ class ElementType(enum.Enum):
     Null = 3
     Bytes = 4
     String = 5
-    ExpressionIdentifier = 6
-    ExpressionOperator = 7
-    ExpressionToken = 8
-    Comment = 9
-    BeginArray = 10
-    EndArray = 11
-    BeginExpression = 12
-    EndExpression = 13
-    BeginObject = 14
-    ObjectKey = 15
-    EndObject = 16
+    DateTime = 6
+    ExpressionIdentifier = 7
+    ExpressionOperator = 8
+    ExpressionToken = 9
+    Comment = 10
+    BeginArray = 11
+    EndArray = 12
+    BeginExpression = 13
+    EndExpression = 14
+    BeginObject = 15
+    ObjectKey = 16
+    EndObject = 17
 
 
 class Encoder:
@@ -310,6 +312,10 @@ class ExpressionProxy:
     def value_bytes(self: ExpressionProxy, value: bytes, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
 
     def value_bytes_base64(self: ExpressionProxy, value: bytes, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
+
+    def value_date(self: ExpressionProxy, value: datetime.date, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
+
+    def value_datetime(self: ExpressionProxy, value: datetime.datetime, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
 
     def value_float(self: ExpressionProxy, value: float, suffix: str = '', precision: int = 8) -> ExpressionProxy: ...
 
@@ -654,6 +660,10 @@ class Serializer:
 
     def value_bytes_base64(self: Serializer, value: bytes, quote: StringQuoteMode = StringQuoteMode.Auto) -> Serializer: ...
 
+    def value_date(self: Serializer, value: datetime.date, quote: StringQuoteMode = StringQuoteMode.Auto) -> Serializer: ...
+
+    def value_datetime(self: Serializer, value: datetime.datetime, quote: StringQuoteMode = StringQuoteMode.Auto) -> Serializer: ...
+
     def value_float(self: Serializer, value: float, suffix: str = '', precision: int = 16, fixed: bool = False) -> Serializer: ...
 
     def value_int(self: Serializer, value: int, suffix: str = '') -> Serializer: ...
@@ -890,6 +900,7 @@ class TokenType(enum.Enum):
       Number
       String
       ByteString
+      DateTime
       ExpressionOperator
       Colon
       Equals
@@ -924,32 +935,47 @@ class TokenType(enum.Enum):
     Number = 7
     String = 8
     ByteString = 9
-    ExpressionOperator = 10
-    Colon = 11
-    Equals = 12
-    Comma = 13
-    Period = 14
-    BraceOpen = 15
-    BraceClose = 16
-    SquareBracketOpen = 17
-    SquareBracketClose = 18
-    AngleBracketOpen = 19
-    AngleBracketClose = 20
-    ParenOpen = 21
-    ParenClose = 22
-    ExclamationPoint = 23
-    Asterisk = 24
-    QuestionMark = 25
-    AtSymbol = 26
-    Pipe = 27
-    Ampersand = 28
-    Percent = 29
-    Semicolon = 30
-    LineBreak = 31
-    EndOfStream = 32
+    DateTime = 10
+    ExpressionOperator = 11
+    Colon = 12
+    Equals = 13
+    Comma = 14
+    Period = 15
+    BraceOpen = 16
+    BraceClose = 17
+    SquareBracketOpen = 18
+    SquareBracketClose = 19
+    AngleBracketOpen = 20
+    AngleBracketClose = 21
+    ParenOpen = 22
+    ParenClose = 23
+    ExclamationPoint = 24
+    Asterisk = 25
+    QuestionMark = 26
+    AtSymbol = 27
+    Pipe = 28
+    Ampersand = 29
+    Percent = 30
+    Semicolon = 31
+    LineBreak = 32
+    EndOfStream = 33
 
 
 def _jxc_assert(arg0: bool, arg1: str): ...
+
+def date_to_iso8601(arg0: datetime.date): ...
+
+def datetime_to_iso8601(arg0: datetime.datetime): ...
+
+def datetime_token_is_date(token: Token) -> bool:
+    """
+    Checks if the given datetime token is just a date (no time data)
+    """
+
+def datetime_token_is_datetime(token: Token) -> bool:
+    """
+    Checks if the given datetime token includes both date and time data
+    """
 
 def debug_bytes_repr(value: bytes, quote_char: str = '"') -> str:
     """
@@ -1020,6 +1046,21 @@ def is_valid_identifier_first_char(arg0: str) -> bool: ...
 def is_valid_object_key(arg0: str) -> bool: ...
 
 def parse_bytes_token(arg0: Token): ...
+
+def parse_date_token(token: Token):
+    """
+    Parses a date token into a Date value. This will return an error if the token
+    includes time data.
+    """
+
+def parse_datetime_token(token: Token, require_time_data: bool = False):
+    """
+    Parses a date token into a DateTime value.
+    If require_time_data is true, this will return an error if the token does not
+    include time info.
+    If require_time_data is false and the token does not include time data,
+    out_datetime will have a time of 00:00:00Z.
+    """
 
 def parse_number_token(number_token: Token) -> tuple:
     """

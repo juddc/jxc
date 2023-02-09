@@ -20,6 +20,8 @@ basic_value_types: [
     "", '', "abc", 'def', "\tzzzzzzz1234\n",
     # byte strings
     b64"anhjIGZvcm1hdA==", b64"( anhjIGZ vcm1hdA== )",
+    # dates and datetimes
+    dt"1994-02-27", dt"2007-10-16T12:52:05.102Z",
     # arrays
     [], [1,2,3], [null, 3.141, true],
     # objects
@@ -185,6 +187,17 @@ string_types: [
         4Gw==
     )"
 
+    # Date values
+    dt"2004-11-02"
+    dt"1602-02-14"
+    dt"6054-04-22"
+    dt"0001-01-01"
+
+    # DateTime values
+    dt"2023-02-09T14:11:04"
+    dt"2023-02-09T14:11:04-08:00"
+    dt"1998-03-11T17:14:12.456Z"
+
     # JXC does not support custom string prefixes to avoid conflicts with future format revisions.
     # Instead you can simply use type annotations to associate a tag or type. This also allows you
     # to combine annotations with builtin prefixes (eg. `custom_str b64"/xEiu/8="`).
@@ -193,7 +206,6 @@ string_types: [
     # to avoid ambiguity.
     custom_string "abcdef"
     custom_string b64"/xEiu/8="
-    date "1998-03-11T17:14:12.456Z"
     #regex r'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
 
     # this is NOT VALID syntax, as `str` would be treated as an invalid builtin string prefix instead of an annotation.

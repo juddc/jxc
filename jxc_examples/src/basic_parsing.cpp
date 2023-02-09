@@ -4,7 +4,7 @@
 
 int main(int argc, const char** argv)
 {
-    std::string jxc_string = "[1, 2, true, null, 'string']";
+    std::string jxc_string = "[1, 2, true, null, 'string', dt'1996-06-07']";
     jxc::JumpParser parser(jxc_string);
     while (parser.next())
     {

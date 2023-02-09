@@ -23,13 +23,6 @@ These need a definitive answer before a 1.0 release.
 * Ex. `b"abc\n\xFF\x00\x4aALLOWS_ascii_CHARS"`
 
 
-## Add native datetime type
-* While annotations make these easy enough, having a standard might be a good idea.
-    - Proposal: new string prefix `dt` that only accepts ISO-8601 (or a subset of ISO-8601) dates.
-        - `dt"2023-01-15T00:00:42Z"`
-        - This has the advantage of being easily convertable to a string for any system that does not have a standard datetime type, while maintaining the benefit of having the syntax be validated at parse time.
-
-
 ## Add native support for NotANumber, +Infinity, and -Infinity
 * This is easily supportable with annotations and expressions, but it would be nice to have a standard way to do this for interoperability.
 - JXC has no reserved annotation types, so for this to make sense it would need to have a syntax that's unambigious

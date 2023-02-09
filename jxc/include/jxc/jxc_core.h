@@ -173,7 +173,7 @@ struct SizeCheck
 
 #if !defined(JXC_STATIC_ASSERT_SIZEOF)
 #define JXC_STATIC_ASSERT_SIZEOF(TYPE, EXPECTED_SIZE) \
-    static_assert(::jxc::detail::SizeCheck<TYPE, EXPECTED_SIZE>::size_matches, \
+    static_assert(::jxc::detail::SizeCheck<TYPE, EXPECTED_SIZE, sizeof(TYPE)>::size_matches, \
         "Size of type " #TYPE " does not match expected size " #EXPECTED_SIZE)
 #endif
 
@@ -356,5 +356,113 @@ struct ErrorInfo
     // the part of the buffer that the error is related to.
     std::string to_string(std::string_view buffer = std::string_view{}) const;
 };
+
+
+struct DateTime;
+
+
+struct Date
+{
+    int16_t year = 1970;
+    int8_t month = 1;
+    int8_t day = 1;
+
+    Date() = default;
+    Date(int16_t year, int8_t month, int8_t day) : year(year), month(month), day(day) {}
+
+    inline bool operator==(const Date& rhs) const { return year == rhs.year && month == rhs.month && day == rhs.day; }
+    inline bool operator!=(const Date& rhs) const { return !operator==(rhs); }
+
+    inline bool operator==(const DateTime& rhs) const;
+    inline bool operator!=(const DateTime& rhs) const { return !operator==(rhs); }
+};
+
+
+struct DateTime
+{
+    int16_t year = 1970;
+    int8_t month = 1;
+    int8_t day = 1;
+    int8_t hour = 0;
+    int8_t minute = 0;
+    int8_t second = 0;
+    uint32_t nanosecond = 0;
+    int8_t tz_hour = 0;
+    uint8_t tz_minute : 7;
+    uint8_t tz_local : 1;
+
+    DateTime() : tz_minute(0), tz_local(0) {}
+
+    DateTime(
+        int16_t year, int8_t month, int8_t day,
+        int8_t hour = 0, int8_t minute = 0, int8_t second = 0, uint32_t nanosecond = 0,
+        int8_t tz_hour = 0, int8_t tz_minute = 0, bool tz_local_time = false)
+        : year(year)
+        , month(month)
+        , day(day)
+        , hour(hour)
+        , minute(minute)
+        , second(second)
+        , nanosecond(nanosecond)
+        , tz_hour(tz_hour)
+        , tz_minute(tz_minute)
+        , tz_local(tz_local_time ? 1 : 0)
+    {
+    }
+
+    static DateTime make_utc(int16_t year, int8_t month, int8_t day,
+        int8_t hour = 0, int8_t minute = 0, int8_t second = 0, uint32_t nanosecond = 0)
+    {
+        return DateTime(year, month, day, hour, minute, second, nanosecond, 0, 0, false);
+    }
+
+    static DateTime make_local(int16_t year, int8_t month, int8_t day,
+        int8_t hour = 0, int8_t minute = 0, int8_t second = 0, uint32_t nanosecond = 0)
+    {
+        return DateTime(year, month, day, hour, minute, second, nanosecond, 0, 0, true);
+    }
+
+    inline bool is_timezone_local() const { return tz_local == 1; }
+    inline bool is_timezone_utc() const { return tz_local == 0 && tz_hour == 0 && tz_minute == 0; }
+
+    inline void set_timezone_utc() { tz_local = 0; tz_hour = 0; tz_minute = 0; }
+    inline void set_timezone_local() { tz_local = 1; tz_hour = 0; tz_minute = 0; }
+    inline void set_timezone(int8_t new_tz_hour, uint8_t new_tz_minute) { tz_local = 0; tz_hour = new_tz_hour; tz_minute = new_tz_minute; }
+
+    inline bool operator==(const DateTime& rhs) const
+    {
+        return year == rhs.year && month == rhs.month && day == rhs.day
+            && hour == rhs.hour && minute == rhs.minute && second == rhs.second
+            && nanosecond == rhs.nanosecond
+            && tz_hour == rhs.tz_hour && tz_minute == rhs.tz_minute && tz_local == rhs.tz_local;
+    }
+
+    inline bool operator!=(const DateTime& rhs) const
+    {
+        return !operator==(rhs);
+    }
+
+    inline bool operator==(const Date& rhs) const
+    {
+        return year == rhs.year && month == rhs.month && day == rhs.day;
+    }
+
+    inline bool operator!=(const Date& rhs) const
+    {
+        return !operator==(rhs);
+    }
+};
+
+
+inline bool Date::operator==(const DateTime& rhs) const
+{
+    return year == rhs.year && month == rhs.month && day == rhs.day;
+}
+
+
+// Date type should be exactly 32 bits
+JXC_STATIC_ASSERT_SIZEOF(Date, 4);
+
+JXC_STATIC_ASSERT_SIZEOF(DateTime, 16);
 
 JXC_END_NAMESPACE(jxc)

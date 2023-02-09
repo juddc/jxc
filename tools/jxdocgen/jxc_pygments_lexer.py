@@ -31,6 +31,8 @@ def _jxc_token_type_to_pygments_token_type(tok_type: jxc.TokenType):
             return pygtoken.String
         case jxc.TokenType.ByteString:
             return pygtoken.String.Other
+        case jxc.TokenType.DateTime:
+            return pygtoken.String.Other
         case jxc.TokenType.Colon:
             return pygtoken.Punctuation
         case (jxc.TokenType.Equals
@@ -150,6 +152,37 @@ class JXCLexer(pygments.lexer.Lexer):
         yield start_idx, pygtoken.String, tok_value[0]
 
 
+    def _lex_datetime(self, start_idx: int, tok_value: str):
+        assert len(tok_value) >= 2 and tok_value[0] == tok_value[-1] and tok_value[0] in ('\'', '\"')
+
+        # first quote char
+        yield start_idx, pygtoken.String, tok_value[0]
+        tok_value = tok_value[1:]
+        start_idx += 1
+
+        # search for all "tokens" inside the datetime, which in this case is just defined as any number or single-character non-digit
+        while len(tok_value) > 1:
+            if num := re.match(r'([0-9]+)', tok_value):
+                assert len(num.groups()) == 1
+                num_value = num.groups()[0]
+                yield start_idx, pygtoken.Number, num_value
+                tok_value = tok_value[len(num_value):]
+                start_idx += len(num_value)
+            else:
+                tok_type = pygtoken.Other
+                if tok_value[0] in (':', '-'):
+                    tok_type = pygtoken.Number
+                elif tok_value[0] in ('T', 'Z'):
+                    tok_type = pygtoken.Name.Decorator
+                yield start_idx, tok_type, tok_value[0]
+                tok_value = tok_value[1:]
+                start_idx += 1
+
+        # last quote char
+        assert len(tok_value) == 1
+        yield start_idx, pygtoken.String, tok_value
+
+
     def get_tokens_unprocessed(self, text: str) -> typing.Iterator[tuple[int, jxc.TokenType, str]]:
         for tok, start_idx, tok_type, tok_value in _jxc_lex_with_whitespace(text):
             if tok is None:
@@ -159,7 +192,7 @@ class JXCLexer(pygments.lexer.Lexer):
 
             assert isinstance(tok, jxc.Token)
 
-            if tok.type in (jxc.TokenType.String, jxc.TokenType.ByteString) and len(tok_value) >= 3:
+            if tok.type in (jxc.TokenType.String, jxc.TokenType.ByteString, jxc.TokenType.DateTime) and len(tok_value) >= 3:
                 tok_value = tok.value
                 str_prefix = ''
                 i = 0
@@ -176,6 +209,9 @@ class JXCLexer(pygments.lexer.Lexer):
                     if str_prefix == 'r' and len(tok_value) >= 4:
                         assert text[tok.start_idx + i] == tok_value[0]
                         yield from self._lex_raw_string(tok.start_idx + i, tok_value, tok.tag)
+                        continue
+                    elif str_prefix == 'dt':
+                        yield from self._lex_datetime(tok.start_idx + i, tok_value)
                         continue
                     elif str_prefix == 'b64':
                         str_type = pygtoken.String.Other

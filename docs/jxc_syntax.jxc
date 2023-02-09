@@ -19,6 +19,7 @@ value: Sequence[
                 MatchGroupRef "string"
                 MatchGroupRef "string_raw"
                 MatchGroupRef "string_base64"
+                MatchGroupRef "string_datetime"
                 MatchGroupRef "number"
                 String "true"
                 String "false"
@@ -63,6 +64,7 @@ annotation_inner: Sequence[
         MatchGroupRef "dotted_identifier"
         MatchGroupRef "string"
         MatchGroupRef "string_raw"
+        MatchGroupRef "string_datetime"
         MatchGroupRef "number"
         String "true"
         String "false"
@@ -165,6 +167,7 @@ expression_item: Sequence[
         MatchGroupRef "string"
         MatchGroupRef "string_raw"
         MatchGroupRef "string_base64"
+        MatchGroupRef "string_datetime"
         MatchGroupRef "number_unsigned"
         String "true"
         String "false"
@@ -403,6 +406,89 @@ string_base64: Sequence[
     Comment "Digit count must be a multiple of 4"
 ]
 
+string_datetime: Choice[
+    Sequence[
+        String 'dt"'
+        MatchGroupRef "datetime_iso8601"
+        Character '"'
+    ]
+    Sequence[
+        String 'dt\''
+        MatchGroupRef "datetime_iso8601"
+        Character '\''
+    ]
+]
+
+datetime_iso8601: Sequence[
+    MatchGroupRef "date"
+    Sequence<Optional>[
+        Character 'T'
+        MatchGroupRef "time"
+        MatchGroupRef<Optional> "timezone"
+    ]
+]
+
+date: Sequence[
+    Group{
+        name: 'Year'
+        value: Sequence[
+            Choice<Optional>[
+                Character '+'
+                Character '-'
+            ]
+            Sequence<OneOrMore>[repeat(4x, 5x), [ CharacterRange[ '0', '9' ] ]]
+        ]
+    }
+    Character '-'
+    Group{
+        name: 'Month'
+        value: Sequence[
+            CharacterRange[ '0', '9' ]
+            CharacterRange[ '0', '9' ]
+        ]
+    }
+    Character '-'
+    Group{
+        name: 'Day'
+        value: Sequence[
+            CharacterRange[ '0', '9' ]
+            CharacterRange[ '0', '9' ]
+        ]
+    }
+]
+
+time: Sequence[
+    CharacterRange[ '0', '9' ]
+    CharacterRange[ '0', '9' ]
+    Character ':'
+    CharacterRange[ '0', '9' ]
+    CharacterRange[ '0', '9' ]
+    Sequence<Optional>[
+        Character ':'
+        CharacterRange[ '0', '9' ]
+        CharacterRange[ '0', '9' ]
+    ]
+    Sequence<Optional>[
+        Character '.'
+        Sequence<OneOrMore>[repeat(1x, 12x), [ CharacterRange[ '0', '9' ] ]]
+    ]
+]
+
+timezone: Choice[
+    Character 'Z'
+    Sequence[
+        Choice[
+            Character '+'
+            Character '-'
+        ]
+        CharacterRange[ '0', '9' ]
+        CharacterRange[ '0', '9' ]
+        Character ':'
+        CharacterRange[ '0', '9' ]
+        CharacterRange[ '0', '9' ]
+    ]
+]
+
 number: Sequence[
     Choice<Optional>[
         Character '+'
@@ -465,11 +551,6 @@ number_unsigned_hex: Sequence[
     ]
     MatchGroupRef<OneOrMore> "hex_digit"
 ]
-
-# Sequence<OptionalCommon>[
-#     Character<OptionalCommon> '_'
-#     MatchGroupRef "number_suffix"
-# ]
 
 number_unsigned_bin: Sequence[
     Choice[

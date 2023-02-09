@@ -20,7 +20,7 @@ If you want to integrate JXC into a codebase that does not use the C++ standard 
 
 int main(int argc, const char** argv)
 {
-    std::string jxc_string = "[1, 2, true, null, 'string']";
+    std::string jxc_string = "[1, 2, true, null, 'string', dt'1996-06-07']";
     jxc::JumpParser parser(jxc_string);
     while (parser.next())
     {
@@ -43,6 +43,7 @@ Element.Number(Token.Number("2"))
 Element.Bool(Token.True("true"))
 Element.Null
 Element.String(Token.String("'string'"))
+Element.DateTime(Token.DateTime("dt'1996-06-07'"))
 Element.EndArray
 ```
 
@@ -63,6 +64,7 @@ int main(int argc, const char** argv)
         .value_bool(true)
         .value_null()
         .value_string("string")
+        .value_date(jxc::Date(1996, 6, 7))
         .array_end();
     doc.flush();
     std::cout << buffer.to_string() << '\n';
@@ -78,5 +80,6 @@ This program outputs the following:
     true,
     null,
     "string",
+    dt"1996-06-07",
 ]
 ```

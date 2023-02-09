@@ -12,6 +12,7 @@ What does it look like?
     floats: [ 3.141, -2.5, 1e-4 ]
     annotations: vec3[ 0.1, -0.4, 3.141 ]
     numeric_suffixes: [ 4px, 25%, 5mm, 22.3cm ]
+    dates_and_datetimes: [ dt'2023-02-09', dt'2017-11-22T11:45:02Z' ]
     strings: [
         'Single-quoted string'
         "Double-quoted string"
@@ -62,6 +63,12 @@ All value types supported by JXC
     - `b64"/xEiu/8="`
     - Base64 strings that start and end with an inner set of parentheses can contain arbitrary whitespace and line breaks.
     - `b64"( /xE iu/8= )"`
+* **Dates**
+    - `dt'1997-02-28'`
+    - `dt'2014-11-22'`
+* **DateTimes**
+    - `dt'2023-02-09T15:24:21.012Z'`
+    - `dt'2022-03-10T16:25:43.240-08:00'`
 * **Lists**
     - `[]`
     - `[0, 1, 2]`
