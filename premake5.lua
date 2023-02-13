@@ -236,6 +236,7 @@ function setup_example_project(src_file, deps)
     includedirs {
         "%{prj.location}/jxc/include",
         "%{prj.location}/jxc_cpp/include",
+        "%{prj.location}/jxc_examples/include",
         "%{prj.location}/subprojects/unordered_dense/include",
     }
 end
@@ -252,3 +253,6 @@ project "example_basic_jxc_cpp_value"
 
 project "example_custom_parser"
     setup_example_project("custom_parser.cpp", { "jxc" })
+
+project "example_web_server"
+    setup_example_project("web_server.cpp", { "jxc" })
