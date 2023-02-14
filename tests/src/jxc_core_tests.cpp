@@ -981,10 +981,15 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, {}, 4, true); }), "1.5000");
 
     // float literals
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<float>::quiet_NaN()); }), "nan");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<float>::signaling_NaN()); }), "nan");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::quiet_NaN()); }), "nan");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::signaling_NaN()); }), "nan");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_nan(); }), "nan");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<float>::infinity()); }), "+inf");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::infinity()); }), "+inf");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_pos_infinity(); }), "+inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-std::numeric_limits<float>::infinity()); }), "-inf");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-std::numeric_limits<double>::infinity()); }), "-inf");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_neg_infinity(); }), "-inf");
 

@@ -2,6 +2,7 @@ import unittest
 import typing
 import jxc
 import _pyjxc
+import math
 import enum
 import base64
 import datetime
@@ -22,9 +23,9 @@ def parse_annotations_to_source_tuple(val: str):
     return parser.parse()
 
 
-def parse_annotations_to_token_tuple(val: str):
+def parse_annotations_to_token_list(val: str):
     """
-    Simple parser that converts all values to 2-tuples in the form (annotation_as_string, annotated_value)
+    Simple parser that converts all values to 2-tuples in the form (annotation_as_token_list, annotated_value)
     """
     parser = jxc.Parser(val)
 
@@ -40,12 +41,15 @@ def parse_annotations_to_token_tuple(val: str):
 
 
 def parse_number_suffixes_to_tuple(val: str):
+    """
+    Simple parser that converts all numeric values with a suffix to 2-tuples in the form (number_int_or_float, suffix_str)
+    """
     parser = jxc.Parser(val)
 
-    def find_suffix_callback(suffix: str):
+    def suffix_extractor(suffix: str):
         return lambda value: (value, suffix)
 
-    parser.set_find_construct_from_number_suffix_callback(find_suffix_callback)
+    parser.set_find_construct_from_number_suffix_callback(suffix_extractor)
     return parser.parse()
 
 
@@ -94,6 +98,21 @@ class SimpleValueTests(unittest.TestCase):
         for i in range(999):
             val = i + offset
             self.assertAlmostEqual(jxc.loads(str(val)), val)
+    
+    def test_parse_float_literals(self):
+        self.assertFalse(math.isfinite(jxc.loads('nan')))
+        self.assertFalse(math.isfinite(jxc.loads('+inf')))
+        self.assertFalse(math.isfinite(jxc.loads('-inf')))
+        self.assertTrue(math.isnan(jxc.loads('nan')))
+        self.assertTrue(math.isinf(jxc.loads('+inf')))
+        self.assertTrue(math.isinf(jxc.loads('-inf')))
+        self.assertEqual(jxc.loads('+inf'), float('inf'))
+        self.assertEqual(jxc.loads('-inf'), -float('inf'))
+
+    def test_serialize_float_literals(self):
+        self.assertEqual(jxc.dumps(float('nan')), 'nan')
+        self.assertEqual(jxc.dumps(float('inf')), '+inf')
+        self.assertEqual(jxc.dumps(-float('inf')), '-inf')
 
     def test_parse_float_suffixes(self):
         self.assertEqual(parse_number_suffixes_to_tuple("25.25%"), (25.25, '%'))
@@ -218,25 +237,25 @@ class SimpleValueTests(unittest.TestCase):
             ("std.unordered_map<std.string, int64_t>", { 'abc': 123, 'def': 456, }))
 
     def test_annotation_tokens(self):
-        self.assertEqual(parse_annotations_to_token_tuple("annotation null"), (["annotation"], None))
-        self.assertEqual(parse_annotations_to_token_tuple("abc 5"), (["abc"], 5))
-        self.assertEqual(parse_annotations_to_token_tuple("abc [5]"), (["abc"], [5]))
-        self.assertEqual(parse_annotations_to_token_tuple(
+        self.assertEqual(parse_annotations_to_token_list("annotation null"), (["annotation"], None))
+        self.assertEqual(parse_annotations_to_token_list("abc 5"), (["abc"], 5))
+        self.assertEqual(parse_annotations_to_token_list("abc [5]"), (["abc"], [5]))
+        self.assertEqual(parse_annotations_to_token_list(
             r"Array<Math.Vector3<int32_t>> [ [0,1,2], [4,5,6] ]"),
             (["Array", "<", "Math", ".", "Vector3", "<", "int32_t", ">", ">"], [ [0,1,2], [4,5,6] ]))
-        self.assertEqual(parse_annotations_to_token_tuple(
+        self.assertEqual(parse_annotations_to_token_list(
             r"Array<Math.Vector3<int32_t>> [ {x:0,y:1,z:2}, {x:4,y:5,z:6} ]"),
             (["Array", "<", "Math", ".", "Vector3", "<", "int32_t", ">", ">"], [ {'x': 0, 'y': 1, 'z': 2}, {'x': 4, 'y': 5, 'z': 6} ]))
-        self.assertEqual(parse_annotations_to_token_tuple(
+        self.assertEqual(parse_annotations_to_token_list(
             r"Array<Vector3> [ Vector3{ x: 0, y: 1, z: 2 }, Vector3{ x: 4, y: 5, z: 6 } ]"),
             (["Array", "<", "Vector3", ">"], [ (["Vector3"], { "x": 0, "y": 1, "z": 2 }), (["Vector3"], { "x": 4, "y": 5, "z": 6 }) ]))
-        self.assertEqual(parse_annotations_to_token_tuple(
+        self.assertEqual(parse_annotations_to_token_list(
             r"std.vector<int32_t> [ 1, 2, 3, 4, 5 ]"),
             (["std", ".", "vector", "<", "int32_t", ">"], [ 1, 2, 3, 4, 5 ]))
-        self.assertEqual(parse_annotations_to_token_tuple(
+        self.assertEqual(parse_annotations_to_token_list(
             r"std.vector<double> [ 3.141, 0.0, -5.2, 11.22, 33.44, 55.66, 7.8, 9.0 ]"),
             (["std", ".", "vector", "<", "double", ">"], [ 3.141, 0.0, -5.2, 11.22, 33.44, 55.66, 7.8, 9.0 ]))
-        self.assertEqual(parse_annotations_to_token_tuple(
+        self.assertEqual(parse_annotations_to_token_list(
             r"std.unordered_map<std.string, int64_t> { 'abc': 123, 'def': 456, }"),
             (["std", ".", "unordered_map", "<", "std", ".", "string", ",", "int64_t", ">"], { 'abc': 123, 'def': 456, }))
 

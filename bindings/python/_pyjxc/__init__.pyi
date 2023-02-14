@@ -1097,7 +1097,7 @@ def set_custom_log_handler(arg0): ...
 def split_number_token_value(arg0: Token):
     """
             Splits a number token into its component parts, and returns a tuple in
-    the form (sign, prefix, number, exponent, suffix).
+    the form (sign, prefix, number, exponent, suffix, float_type).
             All return types are strings except exponent, which is an int.
     """
 

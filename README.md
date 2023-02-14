@@ -19,7 +19,7 @@ Until 1.0 is released, expect a few language and API changes.
     # Comments!
     literal_types: [ null, true, false ]
     integers: [ -2, -1, 0, 1, 2, 4e6, 0xff, 0o644, 0b011011 ]
-    floats: [ 3.141, -2.5, 1e-4 ]
+    floats: [ 3.141, -2.5, 1e-4, nan, +inf, -inf ]
     annotations: vec3[ 0.1, -0.4, 3.141 ]
     numeric_suffixes: [ 4px, 25%, 5mm, 22.3cm ]
     dates_and_datetimes: [ dt'2023-02-09', dt'2017-11-22T11:45:02Z' ]
@@ -66,14 +66,15 @@ JXC includes first-class, fully featured Python bindings. It has two APIs - a mo
 ## Parsing in Python
 ```python-repl
 >>> import jxc
->>> print(jxc.loads("[1, 2, true, null, {}]"))
-[1, 2, True, None, {}]
+>>> print(jxc.loads("[1, 2, true, null, {}, dt'1999-07-18']"))
+[1, 2, True, None, {}, datetime.date(1999, 7, 18)]
 ```
 
 ### Serializing in Python
 ```python-repl
->>> print(jxc.dumps([1, 2, True, None, {}]))
-[1,2,true,null,{}]
+>>> import jxc, datetime
+>>> print(jxc.dumps([1, 2, True, None, {}, datetime.date(1999, 7, 18)]))
+[1,2,true,null,{},dt"1999-07-18"]
 ```
 
 # Editor Integration
