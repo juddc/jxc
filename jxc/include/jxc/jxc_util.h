@@ -172,9 +172,15 @@ std::string date_to_iso8601(const Date& dt);
 // If auto_strip_time is true, and the DateTime has no time data (see DateTime::has_time_or_timezone_data), this is serialized as just a Date.
 std::string datetime_to_iso8601(const DateTime& dt, bool auto_strip_time = false);
 
-// ostream overloads for Date and DateTime
-inline std::ostream& operator<<(std::ostream& os, const Date& dt) { os << date_to_iso8601(dt); return os; }
-inline std::ostream& operator<<(std::ostream& os, const DateTime& dt) { os << datetime_to_iso8601(dt); return os; }
+inline std::ostream& operator<<(std::ostream& os, const Date& dt)
+{
+    return (os << date_to_iso8601(dt));
+}
+
+inline std::ostream& operator<<(std::ostream& os, const DateTime& dt)
+{
+    return (os << datetime_to_iso8601(dt));
+}
 
 // JXC token types
 enum class TokenType : uint8_t
@@ -230,6 +236,12 @@ enum class TokenType : uint8_t
 
 
 const char* token_type_to_string(TokenType type);
+
+
+inline std::ostream& operator<<(std::ostream& os, TokenType type)
+{
+    return (os << token_type_to_string(type));
+}
 
 
 const char* token_type_to_symbol(TokenType type);
@@ -445,6 +457,12 @@ enum class StringQuoteMode : uint8_t
 
 
 const char* string_quote_mode_to_string(StringQuoteMode mode);
+
+
+inline std::ostream& operator<<(std::ostream& os, StringQuoteMode type)
+{
+    return (os << string_quote_mode_to_string(type));
+}
 
 
 struct SerializerSettings

@@ -33,6 +33,12 @@ enum class ElementType : uint8_t
 const char* element_type_to_string(ElementType type);
 
 
+inline std::ostream& operator<<(std::ostream& os, ElementType type)
+{
+    return (os << element_type_to_string(type));
+}
+
+
 /// Returns true if a given element type can contain one or more value tokens
 /// (eg. a Number element always contains a value token, but a Null element does not require one)
 inline bool element_can_contain_value(ElementType type)

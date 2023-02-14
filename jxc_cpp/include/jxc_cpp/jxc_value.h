@@ -534,6 +534,12 @@ enum class ValueType : uint8_t
 const char* value_type_to_string(ValueType type);
 
 
+inline std::ostream& operator<<(std::ostream& os, ValueType type)
+{
+    return (os << value_type_to_string(type));
+}
+
+
 class Value
 {
 public:
