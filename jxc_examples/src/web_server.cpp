@@ -1339,7 +1339,7 @@ private:
             throw make_parse_error(jxc::format("Expected Number token, got {}", jxc::token_type_to_string(tok.type)));
         }
 
-        // Split the number token into its component parts (sign, prefix, value, exponent, suffix)
+        // Split the number token into its component parts (sign, prefix, value, exponent, suffix, float_type)
         //   sign: '', '+', or '-'
         //   prefix: '', '0x', '0b', or '0o'
         //   value: the digits in the number. if the number is floating point, this includes the '.' and the fractional part
@@ -1348,6 +1348,14 @@ private:
         jxc::util::NumberTokenSplitResult split_result;
         if (jxc::util::split_number_token_value(tok, split_result, parse_error))
         {
+            if constexpr (std::is_integral_v<T>)
+            {
+                if (split_result.is_floating_point())
+                {
+                    throw make_parse_error("Expected integer, got floating point value");
+                }
+            }
+
             // if a list of allowed numeric suffixes were passed in, verify that this suffix is in that list
             if (allowed_suffixes.size() > 0)
             {

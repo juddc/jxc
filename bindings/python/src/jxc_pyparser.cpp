@@ -439,8 +439,7 @@ py::object PyParser::parse_number_element(const Element& ele)
         }
     }
 
-    const bool is_int = number.exponent >= 0 && number.value.find_first_of('.') == std::string_view::npos;
-    if (is_int)
+    if (number.is_integer())
     {
         int64_t int_value = 0;
         if (!util::parse_number<int64_t>(ele.token, int_value, number, parse_error))

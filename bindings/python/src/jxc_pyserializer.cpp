@@ -46,23 +46,6 @@ void PyEncoder::set_find_fallback_encoder_callback(py::object callback)
 }
 
 
-void PyEncoder::set_nan_encoder_callback(py::object callback)
-{
-    if (callback.is_none())
-    {
-        nan_encoder_callback = nullptr;
-    }
-    else
-    {
-        nan_encoder_callback = [callback](Serializer& doc, PyEncoder& enc, FloatLiteralType value)
-        {
-            py::object self = py::cast(enc, py::return_value_policy::reference);
-            callback(self.attr("doc"), self, value);
-        };
-    }
-}
-
-
 void PyEncoder::encode_sequence(py::sequence val)
 {
     doc.array_begin();
@@ -198,30 +181,23 @@ void PyEncoder::encode_value(py::object val)
     else if (py::isinstance<py::float_>(val))
     {
         const double float_val = py::cast<double>(val);
-        const FloatLiteralType float_type = get_float_literal_type(float_val);
-        if (float_type == FloatLiteralType::Finite)
+
+        switch (get_float_literal_type(float_val))
         {
-            doc.value_float(float_val);
+        case FloatLiteralType::NotANumber:
+            doc.value_nan();
+            return;
+        case FloatLiteralType::PosInfinity:
+            doc.value_pos_infinity();
+            return;
+        case FloatLiteralType::NegInfinity:
+            doc.value_neg_infinity();
+            return;
+        default:
+            break;
         }
-        else if (nan_encoder_callback != nullptr)
-        {
-            nan_encoder_callback(doc, *this, float_type);
-        }
-        else
-        {
-            switch (float_type)
-            {
-            case FloatLiteralType::NotANumber:
-                throw py::value_error("Failed to encode NaN");
-            case FloatLiteralType::PosInfinity:
-                throw py::value_error("Failed to encode Infinity");
-            case FloatLiteralType::NegInfinity:
-                throw py::value_error("Failed to encode -Infinity");
-            default:
-                JXC_ASSERTF(false, "Invalid float literal type {}", static_cast<int64_t>(float_type));
-                break;
-            }
-        }
+
+        doc.value_float(float_val);
         return;
     }
     else if (py::isinstance<py::str>(val))

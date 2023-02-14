@@ -119,6 +119,7 @@ function addSyntaxHighlighting() {
                 let prefix = '';
                 let suffix = '';
                 if (parsedNumber.isValid) {
+                    //if (parsedNumber.floatType === Module.FloatLiteralType.NotANumber) {}
                     prefix = parsedNumber.value.prefix;
                     if (prefix.length > 0) {
                         tokValue = tokValue.substr(prefix.length);

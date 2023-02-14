@@ -372,8 +372,7 @@ public:
             throw std::runtime_error(parse_error.to_string(jxc_buffer));
         }
 
-        const bool is_int = number.exponent >= 0 && number.value.find_first_of('.') == std::string_view::npos;
-        if (is_int)
+        if (number.is_integer())
         {
             integer_t int_value = 0;
             if (jxc::util::parse_number<integer_t>(ele.token, int_value, number, parse_error))

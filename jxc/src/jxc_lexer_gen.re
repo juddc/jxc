@@ -69,7 +69,7 @@
         | (integer frac exponent? number_type_suffix?)
     );
 
-    number_value = minus? unsigned_number_value;
+    number_value = (minus | plus)? unsigned_number_value;
 */
 
 
@@ -131,6 +131,13 @@ expr_start:
     // NB. we match *unsigned* numbers only here to avoid operator mangling issues
     unsigned_number_value           { set_token(); return TokenType::Number; }
 
+    // literal constants
+    "true"                          { set_token(); return TokenType::True; }
+    "false"                         { set_token(); return TokenType::False; }
+    "null"                          { set_token(); return TokenType::Null; }
+    "nan"                           { set_token(); return TokenType::Number; }
+    (minus | plus) "inf"            { set_token(); return TokenType::Number; }
+
     // symbols that can be used as an operator/syntax token inside expressions
     ","                             { set_token(); return TokenType::Comma; }
     ":"                             { set_token(); return TokenType::Colon; }
@@ -153,11 +160,6 @@ expr_start:
     ">"                             { set_token(); return TokenType::AngleBracketClose; }
     "`"                             { set_token(); return TokenType::Backtick; }
     ";"                             { set_token(); return TokenType::Semicolon; }
-
-    // literal constants
-    "true"                          { set_token(); return TokenType::True; }
-    "false"                         { set_token(); return TokenType::False; }
-    "null"                          { set_token(); return TokenType::Null; }
 
     // string
     str_prefix_raw quote            { if (scan_raw_string(out_error.message, this->current[-1], out_token_value, out_string_delim)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
@@ -251,14 +253,15 @@ regular:
     "]"                             { set_token(); return TokenType::SquareBracketClose; }
     "<"                             { set_token(); ++angle_bracket_depth; return TokenType::AngleBracketOpen; }
     ">"                             { set_token(); --angle_bracket_depth; if (angle_bracket_depth < 0) { set_error_msg("Unmatched angle brackets"); return TokenType::Invalid; } else { return TokenType::AngleBracketClose; } }
+
+    // tokens usable inside annotations
     "!"                             { set_token(); return TokenType::ExclamationPoint; }
     "*"                             { set_token(); return TokenType::Asterisk; }
     "?"                             { set_token(); return TokenType::QuestionMark; }
-    "@"                             { set_token(); return TokenType::AtSymbol; }
     "|"                             { set_token(); return TokenType::Pipe; }
     "&"                             { set_token(); return TokenType::Ampersand; }
-    "%"                             { set_token(); return TokenType::Percent; }
 
+    // comments
     "#"                             { scan_comment(1, out_token_value); get_token_pos(out_start_idx, out_end_idx); return TokenType::Comment; }
 
     // literal constants
@@ -284,6 +287,8 @@ regular:
     object_key / whitespace* ":"    { set_token(); return TokenType::Identifier; }
 
     // numbers
+    "nan"                           { set_token(); return TokenType::Number; }
+    (minus | plus) "inf"            { set_token(); return TokenType::Number; }
     number_value                    { set_token(); return TokenType::Number; }
 
     // identifiers

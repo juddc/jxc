@@ -187,6 +187,11 @@ TEST(jxc_core, JumpParserSimple)
     EXPECT_PARSE_SINGLE("123.456", make_element(ElementType::Number, make_token(TokenType::Number, "123.456")));
     EXPECT_PARSE_SINGLE("-123.456", make_element(ElementType::Number, make_token(TokenType::Number, "-123.456")));
 
+    // float literals
+    EXPECT_PARSE_SINGLE("nan", make_element(ElementType::Number, make_token(TokenType::Number, "nan")));
+    EXPECT_PARSE_SINGLE("+inf", make_element(ElementType::Number, make_token(TokenType::Number, "+inf")));
+    EXPECT_PARSE_SINGLE("-inf", make_element(ElementType::Number, make_token(TokenType::Number, "-inf")));
+
     // normal strings
     EXPECT_PARSE_SINGLE("\"\"", make_element(ElementType::String, make_token(TokenType::String, "\"\"")));
     EXPECT_PARSE_SINGLE("''", make_element(ElementType::String, make_token(TokenType::String, "''")));
@@ -410,6 +415,35 @@ TEST(jxc_core, JumpParserUnaryOperatorExpressions)
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
+
+    {
+        TestJumpParser parser("(-inf)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "-inf")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(+inf)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "+inf")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
+
+    {
+        TestJumpParser parser("(--2++inf--inf+5)");
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "2")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "+inf")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "-inf")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "5")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
+    }
 }
 
 
@@ -547,6 +581,13 @@ testing::AssertionResult test_parse_number(
             jxc::detail::debug_string_repr(expected_result.suffix)) << mkerr();
     }
 
+    if (split.float_type != expected_result.float_type)
+    {
+        return testing::AssertionFailure() << jxc::format("FloatType {} != {}",
+            jxc::float_literal_type_to_string(split.float_type),
+            jxc::float_literal_type_to_string(expected_result.float_type)) << mkerr();
+    }
+
     jxc::Token dummy;
     if (lexer.next(dummy, err))
     {
@@ -559,6 +600,8 @@ testing::AssertionResult test_parse_number(
 #define EXPECT_PARSE_NUMBER(JXC_STRING, SIGN, PREFIX, VALUE, EXPONENT, SUFFIX) \
     EXPECT_PRED_FORMAT2(test_parse_number, JXC_STRING, (jxc::util::NumberTokenSplitResult{ (SIGN), (PREFIX), (VALUE), (EXPONENT), (SUFFIX) }))
 
+#define EXPECT_PARSE_FLOAT_LITERAL(JXC_STRING, SIGN, LITERAL) \
+    EXPECT_PRED_FORMAT2(test_parse_number, JXC_STRING, (jxc::util::NumberTokenSplitResult{ (SIGN), "", "", 0, "", (LITERAL) }))
 
 
 TEST(jxc_core, NumberParsing)
@@ -580,6 +623,10 @@ TEST(jxc_core, NumberParsing)
     EXPECT_PARSE_NUMBER("0.0", '+', "", "0.0", 0, "");
     EXPECT_PARSE_NUMBER("-0.0", '-', "", "0.0", 0, "");
     EXPECT_PARSE_NUMBER("-1.25555555555551f", '-', "", "1.25555555555551", 0, "f");
+
+    EXPECT_PARSE_FLOAT_LITERAL("nan", '+', FloatLiteralType::NotANumber);
+    EXPECT_PARSE_FLOAT_LITERAL("+inf", '+', FloatLiteralType::PosInfinity);
+    EXPECT_PARSE_FLOAT_LITERAL("-inf", '-', FloatLiteralType::NegInfinity);
 }
 
 
@@ -932,6 +979,14 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-1); }), "-1.0");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, {}, 4, false); }), "1.5");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, {}, 4, true); }), "1.5000");
+
+    // float literals
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::quiet_NaN()); }), "nan");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_nan(); }), "nan");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::infinity()); }), "+inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_pos_infinity(); }), "+inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-std::numeric_limits<double>::infinity()); }), "-inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_neg_infinity(); }), "-inf");
 
     // strings
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("", StringQuoteMode::Auto); }), "\"\"");

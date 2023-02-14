@@ -308,6 +308,10 @@ public:
     Serializer& value_uint_oct(uint64_t value, std::string_view suffix = std::string_view{});
     Serializer& value_uint_bin(uint64_t value, std::string_view suffix = std::string_view{});
 
+    Serializer& value_nan();
+    Serializer& value_pos_infinity();
+    Serializer& value_neg_infinity();
+
     Serializer& value_float(double value, std::string_view suffix = std::string_view{}, int32_t precision = -1, bool fixed = false);
 
     Serializer& value_string(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto, bool decode_unicode = true);
@@ -390,6 +394,9 @@ public:
     inline ExpressionProxy& value_int_hex(int64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_int_hex(value, suffix)); }
     inline ExpressionProxy& value_int_oct(int64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_int_oct(value, suffix)); }
     inline ExpressionProxy& value_int_bin(int64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_int_bin(value, suffix)); }
+    inline ExpressionProxy& value_nan() { JXC_EXPR_TOK(parent.value_nan()); }
+    inline ExpressionProxy& value_pos_infinity() { JXC_EXPR_TOK(parent.value_pos_infinity()); }
+    inline ExpressionProxy& value_neg_infinity() { JXC_EXPR_TOK(parent.value_neg_infinity()); }
     inline ExpressionProxy& value_float(double value, std::string_view suffix = std::string_view{}, int32_t precision = 8) { JXC_EXPR_TOK(parent.value_float(value, suffix, precision)); }
     inline ExpressionProxy& value_string(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto, bool decode_unicode = true) { JXC_EXPR_TOK(parent.value_string(value, quote, decode_unicode)); }
     inline ExpressionProxy& value_string_raw(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_string_raw(value, quote)); }

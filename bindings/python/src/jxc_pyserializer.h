@@ -51,7 +51,6 @@ class JXC_NOEXPORT PyEncoder
 {
 public:
     using FindEncoderFunc = std::function<py::object(py::object)>;
-    using NaNEncoderFunc = std::function<void(Serializer&, PyEncoder&, FloatLiteralType)>;
 
 private:
     PySerializer doc;
@@ -61,7 +60,6 @@ private:
     bool decode_unicode = false;
     FindEncoderFunc find_encoder_callback;
     FindEncoderFunc find_fallback_encoder_callback;
-    NaNEncoderFunc nan_encoder_callback;
 
     bool encode_dict_key(py::object key);
 
@@ -69,7 +67,6 @@ public:
     PyEncoder(const SerializerSettings& settings, bool encode_inline, bool sort_keys, bool skip_keys, bool decode_unicode);
     void set_find_encoder_callback(py::object callback);
     void set_find_fallback_encoder_callback(py::object callback);
-    void set_nan_encoder_callback(py::object callback);
 
     void encode_sequence(py::sequence val);
     void encode_dict(py::dict val);

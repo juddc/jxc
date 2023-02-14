@@ -457,14 +457,14 @@ PYBIND11_MODULE(_pyjxc, m)
         ErrorInfo err;
         if (jxc::util::split_number_token_value(number_token, number, err))
         {
-            return py::make_tuple(number.sign, number.prefix, number.value, number.exponent, number.suffix);
+            return py::make_tuple(number.sign, number.prefix, number.value, number.exponent, number.suffix, number.float_type);
         }
         else
         {
             return py::cast(err);
         }
     }, py::doc(R"DOCSTRING(
-        Splits a number token into its component parts, and returns a tuple in the form (sign, prefix, number, exponent, suffix).
+        Splits a number token into its component parts, and returns a tuple in the form (sign, prefix, number, exponent, suffix, float_type).
         All return types are strings except exponent, which is an int.
     )DOCSTRING"));
 
@@ -516,8 +516,7 @@ PYBIND11_MODULE(_pyjxc, m)
             return py::make_tuple(err, py::str(""));
         }
 
-        const bool is_int = number.exponent >= 0 && number.value.find_first_of('.') == std::string_view::npos;
-        if (is_int)
+        if (number.is_integer())
         {
             int64_t int_value = 0;
             if (!util::parse_number<int64_t>(number_token, int_value, number, err))
@@ -781,6 +780,9 @@ If require_time_data is false and the token does not include time data, out_date
         .def("value_int_hex", &PySerializer::value_int_hex, py::arg("value"), py::arg("suffix") = std::string_view{})
         .def("value_int_oct", &PySerializer::value_int_oct, py::arg("value"), py::arg("suffix") = std::string_view{})
         .def("value_int_bin", &PySerializer::value_int_bin, py::arg("value"), py::arg("suffix") = std::string_view{})
+        .def("value_nan", &PySerializer::value_nan)
+        .def("value_pos_infinity", &PySerializer::value_pos_infinity)
+        .def("value_neg_infinity", &PySerializer::value_neg_infinity)
         .def("value_float", &PySerializer::value_float, py::arg("value"), py::arg("suffix") = std::string_view{}, py::arg("precision") = 16, py::arg("fixed") = false)
         .def("value_string", &PySerializer::value_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("value_string_raw", &PySerializer::value_string_raw, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("tag") = std::string_view{})
@@ -831,6 +833,9 @@ If require_time_data is false and the token does not include time data, out_date
         .def("value_int_hex", &ExpressionProxy::value_int_hex, py::arg("value"), py::arg("suffix") = std::string_view{})
         .def("value_int_oct", &ExpressionProxy::value_int_oct, py::arg("value"), py::arg("suffix") = std::string_view{})
         .def("value_int_bin", &ExpressionProxy::value_int_bin, py::arg("value"), py::arg("suffix") = std::string_view{})
+        .def("value_nan", &ExpressionProxy::value_nan)
+        .def("value_pos_infinity", &ExpressionProxy::value_pos_infinity)
+        .def("value_neg_infinity", &ExpressionProxy::value_neg_infinity)
         .def("value_float", &ExpressionProxy::value_float, py::arg("value"), py::arg("suffix") = std::string_view{}, py::arg("precision") = 8)
         .def("value_string", &ExpressionProxy::value_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("value_string_raw", &ExpressionProxy::value_string_raw, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
@@ -879,7 +884,6 @@ If require_time_data is false and the token does not include time data, out_date
 
         .def("set_find_encoder_callback", &PyEncoder::set_find_encoder_callback)
         .def("set_find_fallback_encoder_callback", &PyEncoder::set_find_fallback_encoder_callback)
-        .def("set_nan_encoder_callback", &PyEncoder::set_nan_encoder_callback)
 
         .def("encode_sequence", &PyEncoder::encode_sequence)
         .def("encode_dict", &PyEncoder::encode_dict)

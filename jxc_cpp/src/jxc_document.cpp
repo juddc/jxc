@@ -135,7 +135,7 @@ Value detail::ValueParser::parse_number(const Token& tok, TokenSpan annotation)
         return default_invalid;
     }
 
-    if (number.exponent < 0 || number.value.find_first_of('.') != std::string_view::npos)
+    if (number.is_floating_point())
     {
         // float
         double number_value = 0.0;

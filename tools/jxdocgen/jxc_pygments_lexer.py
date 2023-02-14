@@ -335,27 +335,30 @@ class JXCLexer(pygments.lexer.Lexer):
 
             elif tok.type == jxc.TokenType.Number:
                 tok_value = tok.value
-                sign, prefix, number, exponent, suffix = _pyjxc.split_number_token_value(tok)
+                sign, prefix, number, exponent, suffix, float_type = _pyjxc.split_number_token_value(tok)
                 #print(tok.type, f'({len(tok_value)}) "{tok_value}"', tok.start_idx, tok.end_idx, (sign, prefix, number, exponent, suffix))
 
-                if len(suffix) > 0:
-                    tok_value = tok_value[0: len(tok_value) - len(suffix)]
-                
-                match prefix:
-                    case '0x':
-                        yield tok.start_idx, pygtoken.Number.Hex, tok_value
-                    case '0o':
-                        yield tok.start_idx, pygtoken.Number.Oct, tok_value
-                    case '0b':
-                        yield tok.start_idx, pygtoken.Number.Bin, tok_value
-                    case _:
-                        if '.' in number or exponent < 0:
-                            yield tok.start_idx, pygtoken.Number.Float, tok_value
-                        else:
-                            yield tok.start_idx, pygtoken.Number.Integer, tok_value
+                if float_type != _pyjxc.FloatLiteralType.Finite:
+                    yield tok.start_idx, pygtoken.Keyword.Constant, tok_value
+                else:
+                    if len(suffix) > 0:
+                        tok_value = tok_value[0: len(tok_value) - len(suffix)]
+                    
+                    match prefix:
+                        case '0x':
+                            yield tok.start_idx, pygtoken.Number.Hex, tok_value
+                        case '0o':
+                            yield tok.start_idx, pygtoken.Number.Oct, tok_value
+                        case '0b':
+                            yield tok.start_idx, pygtoken.Number.Bin, tok_value
+                        case _:
+                            if '.' in number or exponent < 0:
+                                yield tok.start_idx, pygtoken.Number.Float, tok_value
+                            else:
+                                yield tok.start_idx, pygtoken.Number.Integer, tok_value
 
-                if len(suffix) > 0:
-                    yield tok.start_idx + len(tok_value), pygtoken.Name.Decorator, suffix
+                    if len(suffix) > 0:
+                        yield tok.start_idx + len(tok_value), pygtoken.Name.Decorator, suffix
 
             else:
                 yield tok.start_idx, tok_type, tok.value

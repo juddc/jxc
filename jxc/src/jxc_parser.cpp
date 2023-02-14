@@ -854,6 +854,7 @@ bool string_to_double(std::string_view value, double& out_value)
 
 bool split_number_token_value(const Token& number_token, NumberTokenSplitResult& out_result, ErrorInfo& out_error)
 {
+    out_result.float_type = FloatLiteralType::Finite;
     out_result.sign = '+';
     out_result.exponent = 0;
 
@@ -887,10 +888,26 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
         return true;
     }
 
+    // read sign prefix
     if (value[0] == '-' || value[0] == '+')
     {
         out_result.sign = value[0];
         value = value.substr(1);
+    }
+
+    // check for float literal types
+    if (value.size() == 3)
+    {
+        if (value == "inf")
+        {
+            out_result.float_type = (out_result.sign == '-') ? FloatLiteralType::NegInfinity : FloatLiteralType::PosInfinity;
+            return true;
+        }
+        else if (value == "nan")
+        {
+            out_result.float_type = FloatLiteralType::NotANumber;
+            return true;
+        }
     }
 
     // NB. (`d` isn't an actual supported prefix, it's just used internally in this function)

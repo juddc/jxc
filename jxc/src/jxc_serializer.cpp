@@ -327,9 +327,50 @@ Serializer& Serializer::value_uint_bin(uint64_t value, std::string_view suffix)
 }
 
 
+Serializer& Serializer::value_nan()
+{
+    last_token_size = pre_write_token(TokenType::Number);
+    last_token_size += output.write("nan");
+    post_write_token();
+    return *this;
+}
+
+
+Serializer& Serializer::value_pos_infinity()
+{
+    last_token_size = pre_write_token(TokenType::Number);
+    last_token_size += output.write("+inf");
+    post_write_token();
+    return *this;
+}
+
+
+Serializer& Serializer::value_neg_infinity()
+{
+    last_token_size = pre_write_token(TokenType::Number);
+    last_token_size += output.write("-inf");
+    post_write_token();
+    return *this;
+}
+
+
 Serializer& Serializer::value_float(double value, std::string_view suffix, int32_t precision, bool fixed)
 {
+    // handle float literals
+    switch (get_float_literal_type(value))
+    {
+    case FloatLiteralType::NotANumber:
+        return value_nan();
+    case FloatLiteralType::PosInfinity:
+        return value_pos_infinity();
+    case FloatLiteralType::NegInfinity:
+        return value_neg_infinity();
+    default:
+        break;
+    }
+
     JXC_ASSERTF(suffix.size() <= 15, "Numeric suffix length must be <= 15 (got suffix of length {})", suffix.size());
+
     last_token_size = pre_write_token(TokenType::Number);
 
     if (precision < 0)

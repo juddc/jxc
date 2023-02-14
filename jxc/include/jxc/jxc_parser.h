@@ -605,6 +605,17 @@ struct NumberTokenSplitResult
     std::string_view value;
     int32_t exponent = 0;
     std::string_view suffix;
+    FloatLiteralType float_type = FloatLiteralType::Finite;
+
+    inline bool is_integer() const
+    {
+        return float_type == FloatLiteralType::Finite && exponent >= 0 && value.find_first_of('.') == std::string_view::npos;
+    }
+
+    inline bool is_floating_point() const
+    {
+        return float_type != FloatLiteralType::Finite || exponent < 0 || value.find_first_of('.') != std::string_view::npos;
+    }
 };
 
 
@@ -630,6 +641,41 @@ bool parse_number(const Token& tok, T& out_value, const NumberTokenSplitResult& 
         }
         return true;
     };
+
+    if constexpr (std::is_floating_point_v<T>)
+    {
+        switch (number.float_type)
+        {
+        case FloatLiteralType::Finite:
+            break;
+        case FloatLiteralType::NotANumber:
+            out_value = std::numeric_limits<T>::quiet_NaN();
+            JXC_DEBUG_ASSERT(get_float_literal_type(out_value) == FloatLiteralType::NotANumber);
+            return true;
+        case FloatLiteralType::PosInfinity:
+            out_value = std::numeric_limits<T>::infinity();
+            JXC_DEBUG_ASSERT(get_float_literal_type(out_value) == FloatLiteralType::PosInfinity);
+            return true;
+        case FloatLiteralType::NegInfinity:
+            out_value = -std::numeric_limits<T>::infinity();
+            JXC_DEBUG_ASSERT(get_float_literal_type(out_value) == FloatLiteralType::NegInfinity);
+            return true;
+        default:
+            JXC_ASSERTF(false, "Invalid FloatLiteralType {}", static_cast<int>(number.float_type));
+            break;
+        }
+    }
+    else
+    {
+        if (number.float_type != FloatLiteralType::Finite)
+        {
+            out_error = ErrorInfo{
+                jxc::format("Value {} cannot be converted to a non-floating point value.", float_literal_type_to_string(number.float_type)),
+                tok.start_idx, tok.end_idx
+            };
+            return false;
+        }
+    }
 
     if (number.prefix.size() == 2)
     {
@@ -756,7 +802,7 @@ bool parse_number_object_key(const Token& tok, IntType& out_value, ErrorInfo& ou
         return false;
     }
 
-    if (number.exponent < 0 || number.value.find_first_of('.') != std::string_view::npos)
+    if (number.is_floating_point())
     {
         out_error = ErrorInfo("Floating point values are not allowed as object keys", tok.start_idx, tok.end_idx);
         return false;

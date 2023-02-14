@@ -163,6 +163,7 @@ struct JsNumberTokenSplitResult
     std::string value;
     double exponent = 0.0;
     std::string suffix;
+    jxc::FloatLiteralType floatType = jxc::FloatLiteralType::Finite;
 };
 
 
@@ -180,6 +181,7 @@ JsParsedValue<JsNumberTokenSplitResult> js_split_number_token_value(jxc::TokenTy
         result.value.value = std::string(split.value);
         result.value.exponent = js_cast_number(split.exponent).value_or(0.0);
         result.value.suffix = std::string(split.suffix);
+        result.value.floatType = split.float_type;
     }
     else
     {
@@ -333,12 +335,20 @@ EMSCRIPTEN_BINDINGS(jxc)
         .field("suffix", &NumberWithSuffix::suffix)
     ;
 
+    em::enum_<jxc::FloatLiteralType>("FloatLiteralType")
+        .value("Finite", jxc::FloatLiteralType::Finite)
+        .value("NotANumber", jxc::FloatLiteralType::NotANumber)
+        .value("PosInfinity", jxc::FloatLiteralType::PosInfinity)
+        .value("NegInfinity", jxc::FloatLiteralType::NegInfinity)
+    ;
+
     em::value_object<JsNumberTokenSplitResult>("NumberTokenSplitResult")
         .field("sign", &JsNumberTokenSplitResult::sign)
         .field("prefix", &JsNumberTokenSplitResult::prefix)
         .field("value", &JsNumberTokenSplitResult::value)
         .field("exponent", &JsNumberTokenSplitResult::exponent)
         .field("suffix", &JsNumberTokenSplitResult::suffix)
+        .field("floatType", &JsNumberTokenSplitResult::floatType)
     ;
 
     em::register_vector<uint8_t>("Bytes");
