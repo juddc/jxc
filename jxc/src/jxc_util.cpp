@@ -534,22 +534,6 @@ const char* float_literal_type_to_string(FloatLiteralType type)
 }
 
 
-FloatLiteralType get_float_literal_type(double value)
-{
-    if (std::isfinite(value))
-    {
-        return FloatLiteralType::Finite;
-    }
-    else if (std::isinf(value))
-    {
-        return (value < 0) ? FloatLiteralType::NegInfinity : FloatLiteralType::PosInfinity;
-    }
-
-    JXC_ASSERT(std::isnan(value));
-    return FloatLiteralType::NotANumber;
-}
-
-
 template<size_t BufSize>
 static inline void char_buffer_write_char(detail::MiniBuffer<char, BufSize>& out_buf, char value, size_t& inout_index)
 {

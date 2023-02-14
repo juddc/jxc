@@ -132,7 +132,7 @@ bool is_valid_identifier(std::string_view value);
 // Checks if a given string is a valid identifier for an object key (allows dots or dashes as separators)
 bool is_valid_object_key(std::string_view key);
 
-
+// Classifier for JXC float literals (nan, +inf, -inf)
 enum class FloatLiteralType : uint8_t
 {
     Finite = 0,
@@ -143,7 +143,27 @@ enum class FloatLiteralType : uint8_t
 
 const char* float_literal_type_to_string(FloatLiteralType type);
 
-FloatLiteralType get_float_literal_type(double value);
+inline std::ostream& operator<<(std::ostream& os, FloatLiteralType val)
+{
+    return (os << float_literal_type_to_string(val));
+}
+
+template<typename T>
+inline FloatLiteralType get_float_literal_type(T value)
+{
+    static_assert(std::is_floating_point_v<T>, "get_float_literal_type requires a floating point type");
+    if (std::isfinite(value))
+    {
+        return FloatLiteralType::Finite;
+    }
+    else if (std::isinf(value))
+    {
+        return (value < 0) ? FloatLiteralType::NegInfinity : FloatLiteralType::PosInfinity;
+    }
+
+    JXC_DEBUG_ASSERT(std::isnan(value));
+    return FloatLiteralType::NotANumber;
+}
 
 // Converts a Date to ISO-8601
 std::string date_to_iso8601(const Date& dt);
