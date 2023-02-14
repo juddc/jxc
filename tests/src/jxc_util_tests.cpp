@@ -223,3 +223,43 @@ TEST(jxc_util, TokenTypeMetadata)
     }
 }
 
+
+TEST(jxc_util, FloatLiteralTypes)
+{
+    // finite
+    EXPECT_EQ(jxc::get_float_literal_type<float>(0.0f), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(12345.0f), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(-12345.0f), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(1e-2f), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(-2.0133e4f), jxc::FloatLiteralType::Finite);
+
+    EXPECT_EQ(jxc::get_float_literal_type<double>(0.0), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(0.00000001), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(10000000009.00002), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(-99999999.123456789), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(1e6), jxc::FloatLiteralType::Finite);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(-7.9234344e-8), jxc::FloatLiteralType::Finite);
+
+    // nan
+    EXPECT_EQ(jxc::get_float_literal_type<float>(sqrtf(-1.0f)), jxc::FloatLiteralType::NotANumber);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(std::numeric_limits<float>::quiet_NaN()), jxc::FloatLiteralType::NotANumber);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(std::numeric_limits<float>::signaling_NaN()), jxc::FloatLiteralType::NotANumber);
+
+    EXPECT_EQ(jxc::get_float_literal_type<double>(sqrt(-1.0)), jxc::FloatLiteralType::NotANumber);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(std::numeric_limits<double>::quiet_NaN()), jxc::FloatLiteralType::NotANumber);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(std::numeric_limits<double>::signaling_NaN()), jxc::FloatLiteralType::NotANumber);
+
+    // positive infinity
+    EXPECT_EQ(jxc::get_float_literal_type<float>(1.0f / 0.0f), jxc::FloatLiteralType::PosInfinity);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(std::numeric_limits<float>::infinity()), jxc::FloatLiteralType::PosInfinity);
+
+    EXPECT_EQ(jxc::get_float_literal_type<double>(1.0 / 0.0), jxc::FloatLiteralType::PosInfinity);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(std::numeric_limits<double>::infinity()), jxc::FloatLiteralType::PosInfinity);
+
+    // negative infinity
+    EXPECT_EQ(jxc::get_float_literal_type<float>(-1.0f / 0.0f), jxc::FloatLiteralType::NegInfinity);
+    EXPECT_EQ(jxc::get_float_literal_type<float>(-std::numeric_limits<float>::infinity()), jxc::FloatLiteralType::NegInfinity);
+
+    EXPECT_EQ(jxc::get_float_literal_type<double>(-1.0 / 0.0), jxc::FloatLiteralType::NegInfinity);
+    EXPECT_EQ(jxc::get_float_literal_type<double>(-std::numeric_limits<double>::infinity()), jxc::FloatLiteralType::NegInfinity);
+}
