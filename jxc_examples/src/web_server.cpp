@@ -1462,7 +1462,6 @@ private:
             case jxc::TokenType::Null:
                 // allow null key - means the default mimetype
                 break;
-            case jxc::TokenType::ObjectKeyIdentifier:
             case jxc::TokenType::Identifier:
             case jxc::TokenType::String:
                 mimetype_ext = parse_token_as_string(key_ele.token);
@@ -1521,7 +1520,6 @@ private:
             break;
 
         case jxc::TokenType::Identifier:
-        case jxc::TokenType::ObjectKeyIdentifier:
             // if the token is an identifier, we can just return the value - no need to parse it
             result = std::string(token.value.as_view());
             break;

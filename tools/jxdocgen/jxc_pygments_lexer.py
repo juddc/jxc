@@ -9,7 +9,28 @@ import pygments.lexer
 __all__ = ['JXCLexer']
 
 
-def _jxc_token_type_to_pygments_token_type(tok_type: jxc.TokenType):
+def _jxc_token_type_to_pygments_token_type(tok_type: jxc.TokenType, tok_value: str = '', anno=False, anno_inner=False, expr=False):
+    if expr and tok_type in (jxc.TokenType.QuestionMark, jxc.TokenType.Pipe, jxc.TokenType.Ampersand, jxc.TokenType.Percent,
+            jxc.TokenType.Plus, jxc.TokenType.Minus, jxc.TokenType.Slash, jxc.TokenType.Caret, jxc.TokenType.Asterisk):
+        return pygtoken.Operator
+    elif expr and tok_type == jxc.TokenType.Identifier:
+        match tok_value:
+            # this isn't great for general-purpose use, but it works well for JXC's documentation
+            case 'if' | 'else' | 'endif' | 'do' | 'while' | 'end' | 'local' | 'and' | 'or':
+                return pygtoken.Keyword.Reserved
+            case _:
+                return pygtoken.Name.Variable
+    elif anno or anno_inner:
+        match tok_type:
+            case jxc.TokenType.Identifier if anno_inner:
+                return pygtoken.Name.Entity
+            case jxc.TokenType.Identifier if not anno_inner:
+                return pygtoken.Name.Class
+            case jxc.TokenType.AngleBracketOpen | jxc.TokenType.AngleBracketClose | jxc.TokenType.Comma:
+                return pygtoken.Punctuation.Marker
+            case _:
+                pass
+
     match tok_type:
         case None | jxc.TokenType.LineBreak | jxc.TokenType.EndOfStream:
             return pygtoken.Whitespace
@@ -18,11 +39,9 @@ def _jxc_token_type_to_pygments_token_type(tok_type: jxc.TokenType):
         case jxc.TokenType.Comment:
             return pygtoken.Comment.Single
         case jxc.TokenType.Identifier:
-            return pygtoken.Name.Class
+            return pygtoken.Name.Property
         case jxc.TokenType.ExclamationPoint:
             return pygtoken.Name.Decorator
-        case jxc.TokenType.ObjectKeyIdentifier:
-            return pygtoken.Name.Property
         case jxc.TokenType.True_ | jxc.TokenType.False_ | jxc.TokenType.Null:
             return pygtoken.Keyword.Constant
         case jxc.TokenType.Number:
@@ -32,7 +51,7 @@ def _jxc_token_type_to_pygments_token_type(tok_type: jxc.TokenType):
         case jxc.TokenType.ByteString:
             return pygtoken.String.Other
         case jxc.TokenType.DateTime:
-            return pygtoken.String.Other
+            return pygtoken.Literal.Date
         case jxc.TokenType.Colon:
             return pygtoken.Punctuation
         case (jxc.TokenType.Equals
@@ -41,10 +60,15 @@ def _jxc_token_type_to_pygments_token_type(tok_type: jxc.TokenType):
                 | jxc.TokenType.Pipe
                 | jxc.TokenType.Ampersand
                 | jxc.TokenType.Percent
-                | jxc.TokenType.Semicolon):
+                | jxc.TokenType.Semicolon
+                | jxc.TokenType.Plus
+                | jxc.TokenType.Minus
+                | jxc.TokenType.Slash
+                | jxc.TokenType.Backslash
+                | jxc.TokenType.Caret
+                | jxc.TokenType.Tilde
+                | jxc.TokenType.Backtick):
             return pygtoken.Punctuation
-        case jxc.TokenType.ExpressionOperator:
-            return pygtoken.Operator
         case jxc.TokenType.Asterisk:
             return pygtoken.Operator
         case jxc.TokenType.Comma:
@@ -72,20 +96,111 @@ def _jxc_token_type_to_pygments_token_type(tok_type: jxc.TokenType):
 
 
 
-def _jxc_lex_with_whitespace(text: str):
-    last_end_idx = 0
-
+def _jxc_lex_with_whitespace(text: str, last_end_idx=0, index_offset=0):
     for tok in jxc.decode.lex(text):
         # callback for the whitespace before this token
         if tok.start_idx >= 0 and tok.start_idx > last_end_idx:
             slice_len = tok.start_idx - last_end_idx - 1
             #print(slice_len, repr(text[last_end_idx : last_end_idx + slice_len + 1]), last_end_idx)
-            yield None, last_end_idx + 1, pygtoken.Whitespace, text[last_end_idx : last_end_idx + slice_len + 1]
+            yield None, index_offset + last_end_idx + 1, pygtoken.Whitespace, text[last_end_idx : last_end_idx + slice_len + 1]
 
         # callback for this token
-        yield tok, tok.start_idx, tok.type, tok.value
+        yield tok, index_offset + tok.start_idx, _jxc_token_type_to_pygments_token_type(tok.type, tok.value), tok.value
 
         last_end_idx = tok.end_idx
+
+
+def _whitespace_split(s: str) -> tuple[str, str, str]:
+    """
+    Splits a string into three strings in the form ("leading whitespace", "inner non whitespace", "trailing whitespace")
+    """
+    start = 0
+    end = len(s) - 1
+    while start < len(s) and s[start] in (' ', '\t', '\n', '\r'):
+        start += 1
+    while end >= start and s[end] in (' ', '\t', '\n', '\r'):
+        end -= 1
+    return s[:start], s[start:end+1], s[end+1:]
+
+
+class JXCSyntaxHighlighter:
+    def __init__(self, text: str):
+        self._text = text
+        self._last_end_index = 0
+        self._parser = _pyjxc.JumpParser(self._text)
+        self._current: typing.Optional[jxc.Element] = None
+        self._in_expression = False
+
+    def _advance(self):
+        if self._parser.next():
+            ele: jxc.Element = self._parser.value()
+            if ele.type != jxc.ElementType.Invalid:
+                self._current = ele
+                return True
+        if not self._parser.has_error():
+            return False
+        err = self._parser.get_error()
+        err.get_line_and_col_from_buffer(self._text)
+        raise jxc.ParseError(err.to_string(self._text), err)
+
+    def _yield_token(self, tok: jxc.Token, anno=False, anno_inner=False):
+        # callback for any text between the last token and this one
+        if tok.start_idx >= 0 and tok.start_idx > self._last_end_index:
+            slice_len = tok.start_idx - self._last_end_index - 1
+            leading_str = self._text[self._last_end_index : self._last_end_index + slice_len + 1]
+            #print(slice_len, repr(leading_str), self._last_end_index)
+            idx = tok.start_idx
+            ws_start, tok_value, ws_end = _whitespace_split(leading_str)
+            if ws_start:
+                yield None, idx, pygtoken.Whitespace, ws_start
+                idx += len(ws_start)
+            if tok_value:
+                # If the leading text contained any non-whitespace that the parser skipped over (eg. comments),
+                # lex that and include it here
+                yield from _jxc_lex_with_whitespace(tok_value, last_end_idx=idx - 1, index_offset=idx)
+                idx += len(tok_value)
+            if ws_end:
+                yield None, idx, pygtoken.Whitespace, ws_end
+                idx += len(ws_end)
+
+        # yield the requested token
+        tok_type = _jxc_token_type_to_pygments_token_type(tok.type, tok.value, anno=anno, anno_inner=anno_inner, expr=self._in_expression)
+        yield tok, tok.start_idx, tok_type, tok.value
+        self._last_end_index = tok.end_idx
+
+    def _parse_value(self):
+        # yield annotation tokens - keep track of angle bracket depth so we can color tokens inside the angle brackets differently
+        angle_bracket_level = 0
+        for anno_tok in self._current.annotation:
+            if anno_tok.type == jxc.TokenType.AngleBracketOpen:
+                angle_bracket_level += 1
+            elif anno_tok.type == jxc.TokenType.AngleBracketClose:
+                angle_bracket_level -= 1
+            yield from self._yield_token(anno_tok, anno=True, anno_inner=angle_bracket_level > 0)
+
+        if self._current.type == jxc.ElementType.EndExpression:
+            self._in_expression = False
+
+        yield from self._yield_token(self._current.token)
+
+        if self._current.type == jxc.ElementType.BeginExpression:
+            self._in_expression = True
+
+    def tokens(self):
+        while self._advance():
+            yield from self._parse_value()
+
+
+
+def _jxc_parse_tokens_with_whitespace(text: str):
+    try:
+        yield from JXCSyntaxHighlighter(text).tokens()
+    except jxc.ParseError as e:
+        print(f"Failed parsing JXC snippet: {e}")
+        for i, line in enumerate(text.split("\n")):
+            print(f'[{i+1}] {line.rstrip()}')
+        print("---")
+        raise
 
 
 
@@ -129,7 +244,7 @@ class JXCLexer(pygments.lexer.Lexer):
         # first heredoc name (including open paren)
         first_heredoc = tok_value[:len(heredoc) + 1]
         assert first_heredoc[-1] == '('
-        yield start_idx, pygtoken.Name.Tag, first_heredoc
+        yield start_idx, pygtoken.Name.Other, first_heredoc
         start_idx += len(first_heredoc)
         tok_value = tok_value[len(first_heredoc):]
 
@@ -143,7 +258,7 @@ class JXCLexer(pygments.lexer.Lexer):
         tok_value = tok_value[len(str_value):]
 
         # second heredoc name
-        yield start_idx, pygtoken.Name.Tag, tok_value[:len(heredoc) + 1]
+        yield start_idx, pygtoken.Name.Other, tok_value[:len(heredoc) + 1]
         start_idx += len(heredoc) + 1
         tok_value = tok_value[-1]
 
@@ -184,7 +299,7 @@ class JXCLexer(pygments.lexer.Lexer):
 
 
     def get_tokens_unprocessed(self, text: str) -> typing.Iterator[tuple[int, jxc.TokenType, str]]:
-        for tok, start_idx, tok_type, tok_value in _jxc_lex_with_whitespace(text):
+        for tok, start_idx, tok_type, tok_value in _jxc_parse_tokens_with_whitespace(text):
             if tok is None:
                 assert not isinstance(tok_type, jxc.TokenType)
                 yield start_idx, tok_type, tok_value
@@ -243,5 +358,5 @@ class JXCLexer(pygments.lexer.Lexer):
                     yield tok.start_idx + len(tok_value), pygtoken.Name.Decorator, suffix
 
             else:
-                yield tok.start_idx, _jxc_token_type_to_pygments_token_type(tok.type), tok.value
+                yield tok.start_idx, tok_type, tok.value
 

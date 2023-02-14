@@ -265,7 +265,7 @@ class PatternRepeat:
             if not parser.advance():
                 break
 
-            if parser.consume_token(TokenType.ExpressionOperator, '|'):
+            if parser.consume_token(TokenType.Pipe):
                 # pipe -> back to top for another value
                 continue
             elif parser.check_token(TokenType.Comma):

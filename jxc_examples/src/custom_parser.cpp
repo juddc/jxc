@@ -516,7 +516,6 @@ public:
         case jxc::TokenType::Null: return null_t{};
         case jxc::TokenType::False: return boolean_t::False;
         case jxc::TokenType::True: return boolean_t::True;
-        case jxc::TokenType::ObjectKeyIdentifier: return string_t(ele.token.value.data(), ele.token.value.size());
         case jxc::TokenType::Identifier: return string_t(ele.token.value.data(), ele.token.value.size());
         case jxc::TokenType::String: return parse_string_element(ele);
         case jxc::TokenType::ByteString: return parse_bytes_element(ele);

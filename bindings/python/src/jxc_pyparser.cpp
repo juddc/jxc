@@ -766,8 +766,6 @@ py::object PyParser::parse_key(const Element& ele)
     JXC_ASSERT(ele.type == ElementType::ObjectKey);
     switch (ele.token.type)
     {
-    case TokenType::ObjectKeyIdentifier:
-        // fallthrough
     case TokenType::Identifier:
         return py::cast(ele.token.value);
     case TokenType::True:

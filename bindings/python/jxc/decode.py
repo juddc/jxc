@@ -38,6 +38,7 @@ def lex(value: str) -> typing.Iterable[Token]:
     while tok.type != TokenType.EndOfStream:
         if tok.type == TokenType.Invalid:
             err: ErrorInfo = lexer.get_error()
+            err.get_line_and_col_from_buffer(value)
             raise ParseError(err.to_string(value), err_info=err)
         yield tok
         tok = lexer.next()

@@ -889,7 +889,6 @@ class TokenType(enum.Enum):
       Invalid
       Comment
       Identifier
-      ObjectKeyIdentifier
       True_
       False_
       Null
@@ -930,43 +929,42 @@ class TokenType(enum.Enum):
     Invalid = 0
     Comment = 1
     Identifier = 2
-    ObjectKeyIdentifier = 3
-    True_ = 4
-    False_ = 5
-    Null = 6
-    Number = 7
-    String = 8
-    ByteString = 9
-    DateTime = 10
-    Colon = 11
-    Equals = 12
-    Comma = 13
-    Period = 14
-    BraceOpen = 15
-    BraceClose = 16
-    SquareBracketOpen = 17
-    SquareBracketClose = 18
-    AngleBracketOpen = 19
-    AngleBracketClose = 20
-    ParenOpen = 21
-    ParenClose = 22
-    ExclamationPoint = 23
-    Asterisk = 24
-    QuestionMark = 25
-    AtSymbol = 26
-    Pipe = 27
-    Ampersand = 28
-    Percent = 29
-    Semicolon = 30
-    Plus = 31
-    Minus = 32
-    Slash = 33
-    Backslash = 34
-    Caret = 35
-    Tilde = 36
-    Backtick = 37
-    LineBreak = 38
-    EndOfStream = 39
+    True_ = 3
+    False_ = 4
+    Null = 5
+    Number = 6
+    String = 7
+    ByteString = 8
+    DateTime = 9
+    Colon = 10
+    Equals = 11
+    Comma = 12
+    Period = 13
+    BraceOpen = 14
+    BraceClose = 15
+    SquareBracketOpen = 16
+    SquareBracketClose = 17
+    AngleBracketOpen = 18
+    AngleBracketClose = 19
+    ParenOpen = 20
+    ParenClose = 21
+    ExclamationPoint = 22
+    Asterisk = 23
+    QuestionMark = 24
+    AtSymbol = 25
+    Pipe = 26
+    Ampersand = 27
+    Percent = 28
+    Semicolon = 29
+    Plus = 30
+    Minus = 31
+    Slash = 32
+    Backslash = 33
+    Caret = 34
+    Tilde = 35
+    Backtick = 36
+    LineBreak = 37
+    EndOfStream = 38
 
 
 def _jxc_assert(arg0: bool, arg1: str): ...

@@ -166,7 +166,6 @@ size_t Serializer::pre_write_token(TokenType type, std::string_view post_annotat
         switch (type)
         {
         case TokenType::Identifier:
-        case TokenType::ObjectKeyIdentifier:
         case TokenType::True:
         case TokenType::False:
         case TokenType::Null:

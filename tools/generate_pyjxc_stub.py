@@ -395,7 +395,7 @@ def _parse_args(value: str) -> list[FunctionArg]:
         name_parts: list[_pyjxc.Token] = []
         while idx < len(arg_tokens):
             match arg_tokens[idx].type:
-                case _pyjxc.TokenType.Asterisk | _pyjxc.TokenType.Identifier | _pyjxc.TokenType.ObjectKeyIdentifier:
+                case _pyjxc.TokenType.Asterisk | _pyjxc.TokenType.Identifier:
                     name_parts.append(arg_tokens[idx])
                     idx += 1
                 case _pyjxc.TokenType.Colon:

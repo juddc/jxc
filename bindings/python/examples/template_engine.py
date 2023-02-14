@@ -11,9 +11,9 @@ def parse_html_template(buffer: str, template_context: dict, tokens: list[jxc.To
     idx = 0
     while idx < len(tokens):
         if (idx + 3 < len(tokens)
-                and tokens[idx].type == jxc.TokenType.ExpressionOperator and tokens[idx].value == '%'
+                and tokens[idx].type == jxc.TokenType.Percent
                 and tokens[idx + 1].type == jxc.TokenType.Identifier
-                and tokens[idx + 2].type == jxc.TokenType.ExpressionOperator and tokens[idx + 2].value == '%'):
+                and tokens[idx + 2].type == jxc.TokenType.Percent):
             parts.append(buffer[last_part_start_idx:tokens[idx].start_idx])
             var_name = tokens[idx + 1].value
             if template_value := template_context.get(var_name, None):

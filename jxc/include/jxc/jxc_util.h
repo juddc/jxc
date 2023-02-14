@@ -164,7 +164,6 @@ enum class TokenType : uint8_t
 
     // value tokens
     Identifier,
-    ObjectKeyIdentifier,
     True,
     False,
     Null,
@@ -233,7 +232,6 @@ inline bool token_type_has_value(TokenType type)
     {
     case TokenType::Comment:
     case TokenType::Identifier:
-    case TokenType::ObjectKeyIdentifier:
     case TokenType::Number:
     case TokenType::String:
     case TokenType::ByteString:

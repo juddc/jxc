@@ -765,7 +765,6 @@ const char* token_type_to_string(TokenType type)
     case JXC_ENUMSTR(TokenType, Invalid);
     case JXC_ENUMSTR(TokenType, Comment);
     case JXC_ENUMSTR(TokenType, Identifier);
-    case JXC_ENUMSTR(TokenType, ObjectKeyIdentifier);
     case JXC_ENUMSTR(TokenType, True);
     case JXC_ENUMSTR(TokenType, False);
     case JXC_ENUMSTR(TokenType, Null);
@@ -815,7 +814,6 @@ const char* token_type_to_symbol(TokenType type)
     {
     //case TokenType::Comment: break;
     //case TokenType::Identifier: break;
-    //case TokenType::ObjectKeyIdentifier: break;
     case TokenType::True: return "true";
     case TokenType::False: return "false";
     case TokenType::Null: return "null";
@@ -869,7 +867,6 @@ TokenType token_type_from_symbol(std::string_view sym)
         {
         case '#': return TokenType::Comment;
         //case TokenType::Identifier: break;
-        //case TokenType::ObjectKeyIdentifier: break;
         //case TokenType::True: return "true";
         //case TokenType::False: return "false";
         //case TokenType::Null: return "null";
@@ -940,13 +937,9 @@ TokenType token_type_from_symbol(std::string_view sym)
     {
         return TokenType::DateTime;
     }
-    else if (is_valid_identifier(sym))
+    else if (is_valid_identifier(sym) || is_valid_object_key(sym))
     {
         return TokenType::Identifier;
-    }
-    else if (is_valid_object_key(sym))
-    {
-        return TokenType::ObjectKeyIdentifier;
     }
 
     return TokenType::Invalid;
@@ -999,14 +992,7 @@ FlexString detail::concat_token_values(const Token* first_token, size_t token_co
 
             // sep only when the next token has a value
             case TokenType::Identifier:
-                if (tok.type != TokenType::Period && !token_type_has_value(tok.type))
-                {
-                    append_char(' ');
-                }
-                break;
-
-            case TokenType::ObjectKeyIdentifier:
-                if (tok.type != TokenType::Colon)
+                if (tok.type != TokenType::Colon && tok.type != TokenType::Period && !token_type_has_value(tok.type))
                 {
                     append_char(' ');
                 }

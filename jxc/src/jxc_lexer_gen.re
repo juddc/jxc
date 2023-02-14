@@ -277,17 +277,17 @@ regular:
     str_datetime_prefix             { if (scan_datetime_string(out_error.message, out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::DateTime; } else { set_error(); return TokenType::Invalid; } }
     quote				            { if (scan_string(out_error.message, this->current[-1], out_token_value)) { get_token_pos(out_start_idx, out_end_idx); return TokenType::String; } else { set_error(); return TokenType::Invalid; } }
 
-    // identifiers
-    identifier                      { set_token(); return TokenType::Identifier; }
-    
     // object keys
     "true" / whitespace* ":"        { set_token(); return TokenType::True; }
     "false" / whitespace* ":"       { set_token(); return TokenType::False; }
     "null" / whitespace* ":"        { set_token(); return TokenType::Null; }
-    object_key / whitespace* ":"    { set_token(); return TokenType::ObjectKeyIdentifier; }
+    object_key / whitespace* ":"    { set_token(); return TokenType::Identifier; }
 
     // numbers
     number_value                    { set_token(); return TokenType::Number; }
+
+    // identifiers
+    identifier                      { set_token(); return TokenType::Identifier; }
 
     spaces                          { goto regular; }
     linebreak (spaces linebreak)*   { set_token(); return TokenType::LineBreak; }

@@ -695,7 +695,6 @@ jp_handle_annotation_type:
             JP_YIELD(ElementType::Comment);
         case TokenType::BraceClose:
             goto jp_objectend;
-        case TokenType::ObjectKeyIdentifier:
         case TokenType::String:
         case TokenType::Null:
         case TokenType::Number:

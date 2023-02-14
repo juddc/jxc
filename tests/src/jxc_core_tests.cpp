@@ -434,7 +434,7 @@ TEST(jxc_core, JumpParserObjects)
     {
         TestJumpParser parser("{x:0}");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginObject, make_token(TokenType::BraceOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "x")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::Identifier, "x")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndObject, make_token(TokenType::BraceClose)));
     }
@@ -442,11 +442,11 @@ TEST(jxc_core, JumpParserObjects)
     {
         TestJumpParser parser("{ x: 4.0, y: 0.0, z: -3.5 }");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginObject, make_token(TokenType::BraceOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "x")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::Identifier, "x")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "4.0")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "y")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::Identifier, "y")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "0.0")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::ObjectKeyIdentifier, "z")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::Identifier, "z")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "-3.5")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndObject, make_token(TokenType::BraceClose)));
     }

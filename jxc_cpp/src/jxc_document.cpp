@@ -379,8 +379,6 @@ Value detail::ValueParser::parse_key(const Token& tok)
 {
     switch (tok.type)
     {
-    case TokenType::ObjectKeyIdentifier:
-        // fallthrough
     case TokenType::Identifier:
         return try_return_view ? Value(tok.value, Value::AsView{}) : Value(tok.value);
     case TokenType::True:

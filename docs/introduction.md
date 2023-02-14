@@ -249,7 +249,7 @@ Expressions are effectively a list of unparsed tokens, and you can read expressi
 # This is an empty expression:
 ()
 
-# This can be parsed as the array [Number(1), Operator('+'), Number(1)],
+# This can be parsed as the array [Number(1), Plus('+'), Number(1)],
 # or as the string "1 + 1".
 (1 + 1)
 
@@ -298,10 +298,10 @@ An ideal use of expressions is when you need to treat math formulas as data. For
         'hero': Character{ attack: 12, defense: 10 }
         'enemy': Character{ attack: 8, defense: 6 }
     }
-    weapons: [
+    weapons: {
         'sword': Formula((self.attack * 1.3) - (target.defense * 0.9))
         'axe': Formula((self.attack * 1.4) - target.defense)
-    ]
+    }
 }
 ```
 

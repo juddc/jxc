@@ -21,12 +21,12 @@ class AyuLightStyle(pygments.style.Style):
 
         pygtoken.Comment:                   "#787b80", # class: 'c'
         pygtoken.Comment.Multiline:         "italic",        # class: 'cm'
-        pygtoken.Comment.Preproc:           "#fa8d3e",        # class: 'cp'
+        pygtoken.Comment.Preproc:           "#ec6b0e",        # class: 'cp'
         pygtoken.Comment.PreprocFile:       "#86b300",        # class: 'cpf'
         pygtoken.Comment.Single:            "italic",        # class: 'c1'
         pygtoken.Comment.Special:           "",        # class: 'cs'
 
-        pygtoken.Keyword:                   "#fa8d3e", # class: 'k'
+        pygtoken.Keyword:                   "#ec6b0e", # class: 'k'
         pygtoken.Keyword.Constant:          "",        # class: 'kc'
         pygtoken.Keyword.Declaration:       "",        # class: 'kd'
         pygtoken.Keyword.Namespace:         "", # class: 'kn'
@@ -43,18 +43,18 @@ class AyuLightStyle(pygments.style.Style):
         pygtoken.Name.Attribute:            "", # class: 'na' - to be revised
         pygtoken.Name.Builtin:              "#f07171",        # class: 'nb'
         pygtoken.Name.Builtin.Pseudo:       "",        # class: 'bp'
-        pygtoken.Name.Class:                "#61afef", # class: 'nc' - to be revised
+        pygtoken.Name.Class:                "#351fd3", # class: 'nc' - to be revised
         pygtoken.Name.Constant:             "#a37acc", # class: 'no' - to be revised
-        pygtoken.Name.Decorator:            "#e6ba7e", # class: 'nd' - to be revised
+        pygtoken.Name.Decorator:            "#ffa326", # class: 'nd' - to be revised
         pygtoken.Name.Entity:               "#399ee6",        # class: 'ni'
         pygtoken.Name.Exception:            "", # class: 'ne'
         pygtoken.Name.Function:             "#f2ae49", # class: 'nf'
-        pygtoken.Name.Property:             "", # class: 'py'
+        pygtoken.Name.Property:             "#299cae", # class: 'py'
         pygtoken.Name.Label:                "",        # class: 'nl'
-        pygtoken.Name.Namespace:            "#86b300",        # class: 'nn' - to be revised
-        pygtoken.Name.Other:                "", # class: 'nx'
+        pygtoken.Name.Namespace:            "#86b300", # class: 'nn' - to be revised
+        pygtoken.Name.Other:                "#4a729b", # class: 'nx' (includes heredocs)
         pygtoken.Name.Tag:                  "#55b4d4", # class: 'nt' - like a keyword
-        pygtoken.Name.Variable:             "",        # class: 'nv' - to be revised
+        pygtoken.Name.Variable:             "#3a3d40", # class: 'nv' - to be revised
         pygtoken.Name.Variable.Class:       "",        # class: 'vc' - to be revised
         pygtoken.Name.Variable.Global:      "",        # class: 'vg' - to be revised
         pygtoken.Name.Variable.Instance:    "#f07171",        # class: 'vi' - to be revised
