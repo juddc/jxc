@@ -16,8 +16,6 @@ const char* element_type_to_string(ElementType type)
     case JXC_ENUMSTR(ElementType, Bytes);
     case JXC_ENUMSTR(ElementType, String);
     case JXC_ENUMSTR(ElementType, DateTime);
-    case JXC_ENUMSTR(ElementType, ExpressionIdentifier);
-    case JXC_ENUMSTR(ElementType, ExpressionOperator);
     case JXC_ENUMSTR(ElementType, ExpressionToken);
     case JXC_ENUMSTR(ElementType, Comment);
     case JXC_ENUMSTR(ElementType, BeginArray);
@@ -569,21 +567,42 @@ jp_handle_annotation_type:
             JP_YIELD(ElementType::DateTime);
         case TokenType::ByteString:
             JP_YIELD(ElementType::Bytes);
+
+        // generic "expression tokens"
         case TokenType::Identifier:
-            JP_YIELD(ElementType::ExpressionIdentifier);
         case TokenType::Comma:
-            // fallthrough
         case TokenType::Colon:
-            // fallthrough
         case TokenType::AtSymbol:
-            // fallthrough
         case TokenType::LineBreak:
+        case TokenType::Pipe:
+        case TokenType::Ampersand:
+        case TokenType::ExclamationPoint:
+        case TokenType::Equals:
+        case TokenType::Plus:
+        case TokenType::Minus:
+        case TokenType::Asterisk:
+        case TokenType::Slash:
+        case TokenType::Backslash:
+        case TokenType::Percent:
+        case TokenType::Caret:
+        case TokenType::Period:
+        case TokenType::QuestionMark:
+        case TokenType::Tilde:
+        case TokenType::Backtick:
+        case TokenType::Semicolon:
             JP_YIELD(ElementType::ExpressionToken);
+
         case TokenType::Comment:
             JP_YIELD(ElementType::Comment);
-        // operators
-        case TokenType::ExpressionOperator:
-            JP_YIELD(ElementType::ExpressionOperator);
+
+        // angle brackets do NOT have matching pairs enforced so they can be used
+        // for boolean expressions if needed
+        case TokenType::AngleBracketOpen:
+        case TokenType::AngleBracketClose:
+            JP_YIELD(ElementType::ExpressionToken);
+
+        // square brackets, curly braces, and parens are just expression tokens,
+        // but we always require matching pairs
         case TokenType::SquareBracketOpen:
             ++jump_vars->square_bracket_depth;
             if (jump_vars->square_bracket_depth > JumpStackVars::max_bracket_depth)

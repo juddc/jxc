@@ -237,7 +237,6 @@ PYBIND11_MODULE(_pyjxc, m)
         .value("String", TokenType::String)
         .value("ByteString", TokenType::ByteString)
         .value("DateTime", TokenType::DateTime)
-        .value("ExpressionOperator", TokenType::ExpressionOperator)
         .value("Colon", TokenType::Colon)
         .value("Equals", TokenType::Equals)
         .value("Comma", TokenType::Comma)
@@ -258,6 +257,13 @@ PYBIND11_MODULE(_pyjxc, m)
         .value("Ampersand", TokenType::Ampersand)
         .value("Percent", TokenType::Percent)
         .value("Semicolon", TokenType::Semicolon)
+        .value("Plus", TokenType::Plus)
+        .value("Minus", TokenType::Minus)
+        .value("Slash", TokenType::Slash)
+        .value("Backslash", TokenType::Backslash)
+        .value("Caret", TokenType::Caret)
+        .value("Tilde", TokenType::Tilde)
+        .value("Backtick", TokenType::Backtick)
         .value("LineBreak", TokenType::LineBreak)
         .value("EndOfStream", TokenType::EndOfStream)
     ;
@@ -390,8 +396,6 @@ PYBIND11_MODULE(_pyjxc, m)
         .value("Bytes", ElementType::Bytes)
         .value("String", ElementType::String)
         .value("DateTime", ElementType::DateTime)
-        .value("ExpressionIdentifier", ElementType::ExpressionIdentifier)
-        .value("ExpressionOperator", ElementType::ExpressionOperator)
         .value("ExpressionToken", ElementType::ExpressionToken)
         .value("Comment", ElementType::Comment)
         .value("BeginArray", ElementType::BeginArray)
@@ -576,8 +580,8 @@ PYBIND11_MODULE(_pyjxc, m)
         py::arg("token"),
         py::doc("Checks if the given datetime token includes both date and time data"));
     
-    m.def("date_to_iso8601", [](const jxc::Date& date) { jxc::datetime_to_iso8601(date); });
-    m.def("datetime_to_iso8601", [](const jxc::DateTime& date) { jxc::datetime_to_iso8601(date); });
+    m.def("date_to_iso8601", &jxc::date_to_iso8601, py::arg("dt"));
+    m.def("datetime_to_iso8601", &jxc::datetime_to_iso8601, py::arg("dt"), py::arg("auto_strip_time") = false);
 
     m.def("parse_date_token", [](const Token& date_token)
     {
@@ -798,7 +802,7 @@ If require_time_data is false and the token does not include time data, out_date
             py::arg("value"),
             py::arg("quote") = StringQuoteMode::Auto)
         .def("value_date", &PySerializer::value_date, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_datetime", &PySerializer::value_datetime, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
+        .def("value_datetime", &PySerializer::value_datetime, py::arg("value"), py::arg("auto_strip_time") = false, py::arg("quote") = StringQuoteMode::Auto)
         .def("identifier", &PySerializer::identifier)
         .def("identifier_or_string", &PySerializer::identifier_or_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("comment", &PySerializer::comment)
@@ -847,7 +851,7 @@ If require_time_data is false and the token does not include time data, out_date
             py::arg("value"),
             py::arg("quote") = StringQuoteMode::Auto)
         .def("value_date", &ExpressionProxy::value_date, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_datetime", &ExpressionProxy::value_datetime, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
+        .def("value_datetime", &ExpressionProxy::value_datetime, py::arg("value"), py::arg("auto_strip_time") = false, py::arg("quote") = StringQuoteMode::Auto)
         .def("identifier", &ExpressionProxy::identifier)
         .def("identifier_or_string", &ExpressionProxy::identifier_or_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("op", &ExpressionProxy::op)

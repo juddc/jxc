@@ -100,8 +100,6 @@ class ElementType(enum.Enum):
       Bytes
       String
       DateTime
-      ExpressionIdentifier
-      ExpressionOperator
       ExpressionToken
       Comment
       BeginArray
@@ -119,17 +117,15 @@ class ElementType(enum.Enum):
     Bytes = 4
     String = 5
     DateTime = 6
-    ExpressionIdentifier = 7
-    ExpressionOperator = 8
-    ExpressionToken = 9
-    Comment = 10
-    BeginArray = 11
-    EndArray = 12
-    BeginExpression = 13
-    EndExpression = 14
-    BeginObject = 15
-    ObjectKey = 16
-    EndObject = 17
+    ExpressionToken = 7
+    Comment = 8
+    BeginArray = 9
+    EndArray = 10
+    BeginExpression = 11
+    EndExpression = 12
+    BeginObject = 13
+    ObjectKey = 14
+    EndObject = 15
 
 
 class Encoder:
@@ -315,7 +311,7 @@ class ExpressionProxy:
 
     def value_date(self: ExpressionProxy, value: datetime.date, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
 
-    def value_datetime(self: ExpressionProxy, value: datetime.datetime, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
+    def value_datetime(self: ExpressionProxy, value: datetime.datetime, auto_strip_time: bool = False, quote: StringQuoteMode = StringQuoteMode.Auto) -> ExpressionProxy: ...
 
     def value_float(self: ExpressionProxy, value: float, suffix: str = '', precision: int = 8) -> ExpressionProxy: ...
 
@@ -662,7 +658,7 @@ class Serializer:
 
     def value_date(self: Serializer, value: datetime.date, quote: StringQuoteMode = StringQuoteMode.Auto) -> Serializer: ...
 
-    def value_datetime(self: Serializer, value: datetime.datetime, quote: StringQuoteMode = StringQuoteMode.Auto) -> Serializer: ...
+    def value_datetime(self: Serializer, value: datetime.datetime, auto_strip_time: bool = False, quote: StringQuoteMode = StringQuoteMode.Auto) -> Serializer: ...
 
     def value_float(self: Serializer, value: float, suffix: str = '', precision: int = 16, fixed: bool = False) -> Serializer: ...
 
@@ -901,7 +897,6 @@ class TokenType(enum.Enum):
       String
       ByteString
       DateTime
-      ExpressionOperator
       Colon
       Equals
       Comma
@@ -922,6 +917,13 @@ class TokenType(enum.Enum):
       Ampersand
       Percent
       Semicolon
+      Plus
+      Minus
+      Slash
+      Backslash
+      Caret
+      Tilde
+      Backtick
       LineBreak
       EndOfStream
     """
@@ -936,36 +938,42 @@ class TokenType(enum.Enum):
     String = 8
     ByteString = 9
     DateTime = 10
-    ExpressionOperator = 11
-    Colon = 12
-    Equals = 13
-    Comma = 14
-    Period = 15
-    BraceOpen = 16
-    BraceClose = 17
-    SquareBracketOpen = 18
-    SquareBracketClose = 19
-    AngleBracketOpen = 20
-    AngleBracketClose = 21
-    ParenOpen = 22
-    ParenClose = 23
-    ExclamationPoint = 24
-    Asterisk = 25
-    QuestionMark = 26
-    AtSymbol = 27
-    Pipe = 28
-    Ampersand = 29
-    Percent = 30
-    Semicolon = 31
-    LineBreak = 32
-    EndOfStream = 33
+    Colon = 11
+    Equals = 12
+    Comma = 13
+    Period = 14
+    BraceOpen = 15
+    BraceClose = 16
+    SquareBracketOpen = 17
+    SquareBracketClose = 18
+    AngleBracketOpen = 19
+    AngleBracketClose = 20
+    ParenOpen = 21
+    ParenClose = 22
+    ExclamationPoint = 23
+    Asterisk = 24
+    QuestionMark = 25
+    AtSymbol = 26
+    Pipe = 27
+    Ampersand = 28
+    Percent = 29
+    Semicolon = 30
+    Plus = 31
+    Minus = 32
+    Slash = 33
+    Backslash = 34
+    Caret = 35
+    Tilde = 36
+    Backtick = 37
+    LineBreak = 38
+    EndOfStream = 39
 
 
 def _jxc_assert(arg0: bool, arg1: str): ...
 
-def date_to_iso8601(arg0: datetime.date): ...
+def date_to_iso8601(dt: datetime.date) -> str: ...
 
-def datetime_to_iso8601(arg0: datetime.datetime): ...
+def datetime_to_iso8601(dt: datetime.datetime, auto_strip_time: bool = False) -> str: ...
 
 def datetime_token_is_date(token: Token) -> bool:
     """

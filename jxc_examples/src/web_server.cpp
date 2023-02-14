@@ -3,6 +3,7 @@
 #include <sstream>
 #include <fstream>
 #include <vector>
+#include <memory>
 #include <unordered_map>
 #include <chrono>
 #include <filesystem>
@@ -24,13 +25,19 @@ static const char* s_default_config = R"JXC(
     idle_interval: 100ms
     payload_max_length: 16mb
 
-    access_log: {
-        dest: (stdout)
-        #dest: "./test_web_access.log"
+    # The logging configuration uses JXC expressions as a format function. The syntax used here is as follows:
+    # - Identifiers starting with a `$` are builtin variables ($remote_addr, $status, and $path)
+    # - An at symbol indicates that the following token (which can be either an identifer or a string) is the name of a header to insert.
+    # - If either a builtin variable or header is prefixed with a `!` token, the value will be quoted and special characters will be escaped.
+    access_log: logger{
+        dest: stream(stdout)
+        #dest: file "./web_server_access.log"
+        format: ([$remote_addr] (HTTP $status) Path=!$path Referer=!@"Referer" User-Agent=!@"User-Agent")
     }
-    error_log: {
-        dest: (stderr)
-        #dest: "./test_web_error.log"
+    error_log: logger{
+        dest: stream(stderr)
+        #dest: file "./web_server_error.log"
+        format: ([$remote_addr] (HTTP $status) Path=!$path Referer=!@"Referer" User-Agent=!@"User-Agent")
     }
 
     default_not_found_page: inline r"html(
@@ -73,36 +80,62 @@ static const char* s_default_config = R"JXC(
         </html>
     )html"
 
-    location: static_directory {
+    #NB. JXC does not require that objects have unique keys.
+    # We can take advantage of that here to allow multiple location entries.
+
+    location: static_directory{
         path: '/static'
         root: './tools/jxdocgen/static'
     }
 
-    location: {
+    location: resource{
         path: '/favicon.ico'
         content: path "./tools/jxdocgen/static/favicon.svg"
     }
 
-    location: {
+    location: resource{
         path: '/logo.svg'
-        content: path "./tools/jxdocgen/static/jxc-header-logo.svg"
+        content: path<'image/svg+xml'> "./tools/jxdocgen/static/jxc-header-logo.svg"
+    }
+
+    location: {
+        path: '/teapot'
+        response: http 418
     }
 
     location: {
         path: '/invalid'
-        response: 500
+        response: http 500
     }
 
     location: {
         path: '/styles.css'
-        content: inline r"css(
+        content: inline<'text/css'> r"css(
+            body {
+                font-family: 'Noto Sans', 'Segoe UI', Helvetica, Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #202224;
+                color: #e8ecf1;
+                margin: 0;
+            }
+            a {
+                color: #009c53;
+            }
+            #header {
+                padding: 1vmin;
+                border-bottom: 2px solid #119492;
+                display: flex;
+                align-content: center;
+                background: linear-gradient(90deg, #49bb7e, #2a687c);
+            }
             #header h1 {
-                align-self: center;
                 margin-left: 2vmin;
+                align-self: center;
             }
             main {
+                max-width: 80rem;
                 margin-left: auto;
                 margin-right: auto;
+                padding: 2vmin;
                 background: #111;
                 box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
             }
@@ -132,8 +165,17 @@ static const char* s_default_config = R"JXC(
         )html"
     }
 
+    location: redirect{
+        path: '/old_stuff.html'
+        redirect: '/content.html'
+    }
+
     location: {
         path: '/'
+        response: http 200
+        headers: {
+            'X-Test-Header': 'neat'
+        }
         content: inline<'text/html'> r"html(
             <!doctype html>
             <html>
@@ -151,7 +193,9 @@ static const char* s_default_config = R"JXC(
                 <p>This is an HTML content page embedded in the web server config file.</p>
                 <ul>
                     <li><a href="/content.html">Content Page</a></li>
+                    <li><a href="/old_stuff.html">Redirect</a></li>
                     <li><a href="/not-found">HTTP 404</a></li>
+                    <li><a href="/teapot">HTTP 418</a></li>
                     <li><a href="/invalid">HTTP 500</a></li>
                 </ul>
             </main>
@@ -305,22 +349,6 @@ struct MimeTypeMap
 };
 
 
-struct StaticDirectoryMount
-{
-    std::string path;
-    std::string root_directory;
-    HeaderList headers;
-
-    std::string to_repr() const
-    {
-        return jxc::format("StaticDirectoryMount(path={}, root_directory={}, headers.size={})",
-            jxc::detail::debug_string_repr(path),
-            jxc::detail::debug_string_repr(root_directory),
-            headers.size());
-    }
-};
-
-
 struct Document
 {
     std::string body;
@@ -358,21 +386,64 @@ struct Document
 };
 
 
-struct Location
+struct BaseLocation
 {
     std::string path;
-    std::string redirect_url;
-    Document content;
     HeaderList headers;
+
+    virtual ~BaseLocation() {}
+
+    virtual std::string to_repr() const = 0;
+};
+
+
+struct StaticDirectoryLocation : public BaseLocation
+{
+    std::string root_directory;
+
+    virtual ~StaticDirectoryLocation() {}
+
+    std::string to_repr() const override
+    {
+        return jxc::format("StaticDirectoryLocation(path={}, root_directory={}, headers.size={})",
+            jxc::detail::debug_string_repr(path),
+            jxc::detail::debug_string_repr(root_directory),
+            headers.size());
+    }
+};
+
+
+struct RedirectLocation : public BaseLocation
+{
+    std::string redirect_url;
     int response = 0;
+
+    virtual ~RedirectLocation() {}
+
+    std::string to_repr() const override
+    {
+        return jxc::format("RedirectLocation(path={}, response={}, redirect_url={}, headers.size={})",
+            jxc::detail::debug_string_repr(path),
+            response,
+            jxc::detail::debug_string_repr(redirect_url),
+            headers.size());
+    }
+};
+
+
+struct ResourceLocation : public BaseLocation
+{
+    Document content;
+    int response = 0;
+
+    virtual ~ResourceLocation() {}
 
     inline bool has_response_code() const { return response > 0; }
 
-    std::string to_repr() const
+    std::string to_repr() const override
     {
-        return jxc::format("Location(path={}, redirect_url={} response={}, content={}, headers.size={})",
+        return jxc::format("ResourceLocation(path={}, response={}, content={}, headers.size={})",
             jxc::detail::debug_string_repr(path),
-            jxc::detail::debug_string_repr(redirect_url),
             response,
             content.to_repr(),
             headers.size());
@@ -388,25 +459,29 @@ enum class LogDestType
 };
 
 
+using LogFormatFunc = std::function<std::string(const httplib::Request&, const httplib::Response&)>;
+
+
 struct LogTarget
 {
     LogDestType type = LogDestType::StandardOut;
+    LogFormatFunc format_func;
     std::string log_file_path;
 
-    void log_message(const std::string& entry)
+    void log_message(const httplib::Request& req, const httplib::Response& res)
     {
         switch (type)
         {
         case LogDestType::StandardOut:
-            std::cout << entry << "\n";
+            std::cout << format_func(req, res) << "\n";
             break;
         case LogDestType::StandardError:
-            std::cerr << entry << "\n";
+            std::cerr << format_func(req, res) << "\n";
             break;
         case LogDestType::LogFile:
         {
             std::ofstream fp(log_file_path, std::ios::app);
-            fp << entry << "\n";
+            fp << format_func(req, res) << "\n";
             fp.close();
             break;
         }
@@ -446,8 +521,7 @@ struct WebServerConfig
     LogTarget error_log;
     Document default_not_found_page;
     Document default_server_error_page;
-    std::vector<StaticDirectoryMount> mounts;
-    std::vector<Location> locations;
+    std::vector<std::shared_ptr<BaseLocation>> locations;
     MimeTypeMap mime_types;
 
     // call after parsing to fix up the data before using
@@ -465,9 +539,12 @@ struct WebServerConfig
         fixup_document(default_server_error_page);
 
         // for any locations where we have an extension but not a mimetype, lookup the mimetype
-        for (Location& loc : locations)
+        for (auto& loc : locations)
         {
-            fixup_document(loc.content);
+            if (ResourceLocation* res_location = dynamic_cast<ResourceLocation*>(loc.get()))
+            {
+                fixup_document(res_location->content);
+            }
         }
     }
 
@@ -490,17 +567,10 @@ struct WebServerConfig
         ss << "\tdefault_not_found_page: " << default_not_found_page.to_repr() << "\n";
         ss << "\tdefault_server_error_page: " << default_server_error_page.to_repr() << "\n";
 
-        ss << "\tmounts: [\n";
-        for (const auto& mount : mounts)
-        {
-            ss << "\t\t" << mount.to_repr() << "\n";
-        }
-        ss << "\t]\n";
-
         ss << "\tlocations: [\n";
         for (const auto& loc : locations)
         {
-            ss << "\t\t" << loc.to_repr() << "\n";
+            ss << "\t\t" << loc->to_repr() << "\n";
         }
         ss << "\t]\n";
 
@@ -568,6 +638,64 @@ private:
         }
     }
 
+    void require_no_annotation()
+    {
+        jxc::TokenSpan anno = parser.value().annotation;
+        if (anno.size() != 0)
+        {
+            throw make_parse_error(jxc::format("Unexpected annotation {} (no annotation is valid for this value)", jxc::detail::debug_string_repr(anno.source())));
+        }
+    }
+
+    std::string_view require_annotation(std::initializer_list<std::string_view> valid_annotations, bool annotation_optional = false)
+    {
+        // helper for error message formatting
+        auto make_valid_anno_list = [&]() -> std::string
+        {
+            std::ostringstream ss;
+            size_t i = 0;
+            for (const auto& valid_anno : valid_annotations)
+            {
+                if (i > 0)
+                {
+                    ss << ", ";
+                }
+                ++i;
+                ss << jxc::detail::debug_string_repr(valid_anno);
+            }
+            return ss.str();
+        };
+
+        jxc::TokenSpan anno = parser.value().annotation;
+        if ((valid_annotations.size() == 0 || annotation_optional) && anno.size() == 0)
+        {
+            // annotation was optional, and no annotation was specified
+            return std::string_view("");
+        }
+        else if (valid_annotations.size() == 0 && anno.size() > 0)
+        {
+            // expected no annotation at all, but found one
+            throw make_parse_error(jxc::format("Unexpected annotation {}", jxc::detail::debug_string_repr(anno.source())));
+        }
+        else if (anno.size() != 1)
+        {
+            // expected single-token annotation
+            throw make_parse_error(jxc::format("Invalid annotation {} (valid annotations: {})", jxc::detail::debug_string_repr(anno.source()), make_valid_anno_list()));
+        }
+        else
+        {
+            // if the annotation we have is in the list of valid ones, return it
+            for (const auto& valid_anno : valid_annotations)
+            {
+                if (anno[0].value == valid_anno)
+                {
+                    return anno[0].value.as_view();
+                }
+            }
+            throw make_parse_error(jxc::format("Invalid annotation {} (valid annotations: {})", jxc::detail::debug_string_repr(anno.source()), make_valid_anno_list()));
+        }
+    }
+
     bool advance()
     {
         if (parser.next())
@@ -606,7 +734,9 @@ private:
                 break;
             }
 
-            const std::string key = std::string(key_ele.token.value.as_view());
+            // Take ownership of the key string - FlexParser gives us a view and that view is only valid until we advance.
+            const auto key = key_ele.token.value.to_owned();
+
             advance_required();
 
             if (key == "listen_host")
@@ -659,19 +789,7 @@ private:
             }
             else if (key == "location")
             {
-                jxc::TokenSpan anno = parser.value().annotation;
-                if (anno.size() == 0)
-                {
-                    result.locations.push_back(parse_location());
-                }
-                else if (anno.size() == 1 && anno[0].value == "static_directory")
-                {
-                    result.mounts.push_back(parse_static_directory_mount());
-                }
-                else
-                {
-                    throw make_parse_error(jxc::format("Invalid location annotation {}", anno.to_repr()));
-                }
+                result.locations.push_back(parse_location());
             }
             else
             {
@@ -687,9 +805,17 @@ private:
     {
         LogTarget result;
 
+        require_annotation({"logger"}, true);
+
         if (parser.value().type != jxc::ElementType::BeginObject)
         {
             throw make_parse_error(jxc::format("Expected static file mount to be an Object, got {}", jxc::element_type_to_string(parser.value().type)));
+        }
+
+        // log targets must have the annotation "logger"
+        if (parser.value().annotation.size() != 1 || parser.value().annotation[0].value != "logger")
+        {
+            throw make_parse_error(jxc::format("Expected log target to have annotation 'logger', got {}", jxc::detail::debug_string_repr(parser.value().annotation.source())));
         }
 
         while (advance())
@@ -709,15 +835,22 @@ private:
 
             if (key == "dest")
             {
+                std::string dest_anno = std::string(require_annotation({ "file", "stream" }, true));
+
                 const jxc::ElementType dest_element_type = parser.value().type;
                 switch (dest_element_type)
                 {
                 case jxc::ElementType::BeginExpression:
                 {
-                    advance_required();
-                    if (parser.value().type != jxc::ElementType::ExpressionIdentifier)
+                    if (dest_anno != "stream")
                     {
-                        throw make_parse_error(jxc::format("Expected ExpressionIdentifier, got {}", jxc::element_type_to_string(parser.value().type)));
+                        throw make_parse_error("`stream` annotation requires expression type");
+                    }
+
+                    advance_required();
+                    if (parser.value().type != jxc::ElementType::ExpressionToken)
+                    {
+                        throw make_parse_error(jxc::format("Expected ExpressionToken, got {}", jxc::element_type_to_string(parser.value().type)));
                     }
                     const std::string dest_value = parse_token_as_string(parser.value().token);
                     if (dest_value == "stdout")
@@ -741,14 +874,23 @@ private:
                 }
 
                 case jxc::ElementType::String:
+                    if (dest_anno != "file")
+                    {
+                        throw make_parse_error("`file` annotation requires string type");
+                    }
+
                     result.type = LogDestType::LogFile;
-                    result.log_file_path = parse_string();
+                    result.log_file_path = parse_string(true);
                     break;
 
                 default:
                     throw make_parse_error(jxc::format("Expected expression or string, got {}", jxc::element_type_to_string(dest_element_type)));
                     break;
                 }
+            }
+            else if (key == "format")
+            {
+                result.format_func = parse_log_format();
             }
             else
             {
@@ -759,13 +901,235 @@ private:
         return result;
     }
 
-    StaticDirectoryMount parse_static_directory_mount()
+    LogFormatFunc parse_log_format()
     {
-        StaticDirectoryMount result;
+        if (parser.value().type != jxc::ElementType::BeginExpression)
+        {
+            throw make_parse_error(jxc::format("Expected log format to be an expression, got {}", jxc::element_type_to_string(parser.value().type)));
+        }
+
+        struct LogToken
+        {
+            enum Type
+            {
+                TOK_StringLiteral,
+                TOK_RemoteAddr,
+                TOK_HTTPStatus,
+                TOK_Path,
+                TOK_Header,
+            };
+            Type type = TOK_StringLiteral;
+            bool use_repr = false;
+            std::string value;
+        };
+
+        // We're going to compile the expression into a sequence of LogToken objects,
+        // which we can use to format the log message in the returned std::function object.
+        std::vector<LogToken> format_tokens;
+
+        // Expression parser state
+        bool next_token_is_header = false;
+        bool next_token_use_repr = false;
+        size_t last_end_idx = parser.value().token.end_idx;
+
+        // Helper function to add a token to format_tokens
+        auto push_token = [&](size_t value_start_idx, LogToken::Type tok_type, const std::string& value)
+        {
+            // find and insert any whitespace between the last token and this one
+            if (value_start_idx > last_end_idx)
+            {
+                std::vector<char> sep;
+                std::string_view view = parser.get_buffer().substr(last_end_idx, value_start_idx - last_end_idx);
+                for (size_t i = 0; i < view.size(); i++)
+                {
+                    const char ch = view[i];
+                    if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
+                    {
+                        sep.push_back(ch);
+                    }
+                }
+                if (sep.size() > 0)
+                {
+                    format_tokens.push_back(LogToken{ LogToken::TOK_StringLiteral, false, std::string(sep.begin(), sep.end()) });
+                }
+            }
+
+            // add the token
+            format_tokens.push_back(LogToken{ tok_type, next_token_use_repr, value });
+            next_token_use_repr = false;
+
+            // remember where this last token ended so we can add whitespace between this token and the next one
+            last_end_idx = parser.value().token.end_idx;
+        };
+
+        while (advance())
+        {
+            if (parser.value().type == jxc::ElementType::EndExpression)
+            {
+                break;
+            }
+
+            const jxc::Token& tok = parser.value().token;
+
+            if (next_token_is_header)
+            {
+                // if the next token must be a header, require an identifier or string token
+                std::string header_name;
+                switch (tok.type)
+                {
+                case jxc::TokenType::Identifier:
+                    header_name = std::string(tok.value.as_view());
+                    break;
+                case jxc::TokenType::String:
+                    if (!jxc::util::parse_string_token<std::string>(tok, header_name, parse_error))
+                    {
+                        throw make_parse_error("Invalid string token");
+                    }
+                    break;
+                default:
+                    throw make_parse_error(jxc::format("Expected token following @ to be an identifier or string, got {}", jxc::token_type_to_string(tok.type)));
+                }
+
+                push_token(tok.start_idx, LogToken::TOK_Header, header_name);
+                next_token_is_header = false;
+            }
+            else
+            {
+                switch (tok.type)
+                {
+                // `@` symbol indicates that the next token (string or identifier) is a header name
+                case jxc::TokenType::AtSymbol:
+                    next_token_is_header = true;
+                    break;
+
+                // `!` symbol indicates that if the next token is a string, it should be quoted and escaped (similar to the Python repr() function)
+                case jxc::TokenType::ExclamationPoint:
+                    next_token_use_repr = true;
+                    break;
+
+                // Identifiers can either be a builtin variable (if they start with `$`), or treated as a string literal
+                case jxc::TokenType::Identifier:
+                    if (tok.value.size() > 0 && tok.value[0] == '$')
+                    {
+                        // identifier starts with a '$' symbol, so treat it as a builtin variable
+                        std::string_view var_name = tok.value.as_view().substr(1);
+                        if (var_name == "remote_addr")
+                        {
+                            push_token(tok.start_idx, LogToken::TOK_RemoteAddr, std::string{});
+                        }
+                        else if (var_name == "status")
+                        {
+                            push_token(tok.start_idx, LogToken::TOK_HTTPStatus, std::string{});
+                        }
+                        else if (var_name == "path")
+                        {
+                            push_token(tok.start_idx, LogToken::TOK_Path, std::string{});
+                        }
+                        else
+                        {
+                            throw make_parse_error(jxc::format("Invalid log format variable name {}", jxc::detail::debug_string_repr(var_name)));
+                        }
+                    }
+                    else
+                    {
+                        // treat this identifier as a string literal
+                        push_token(tok.start_idx, LogToken::TOK_StringLiteral, std::string(tok.value.as_view()));
+                    }
+                    break;
+
+                // String literals that are _not_ prefixed with `@` should be inserted into the format string directly
+                case jxc::TokenType::String:
+                {
+                    std::string str_value;
+                    if (!jxc::util::parse_string_token<std::string>(tok, str_value, parse_error))
+                    {
+                        throw make_parse_error("Invalid string token");
+                    }
+                    push_token(tok.start_idx, LogToken::TOK_StringLiteral, str_value);
+                    break;
+                }
+
+                // Any other tokens in the expression should be added to the format string directly as a string literal
+                default:
+                    push_token(tok.start_idx, LogToken::TOK_StringLiteral, std::string(tok.value.as_view()));
+                    break;
+                }
+            }
+        }
+
+        // Create a std::function object that contains a copy of our format_tokens vector, which is used to format the resulting log entry
+        return [format_tokens](const httplib::Request& req, const httplib::Response& res) -> std::string
+        {
+            std::ostringstream ss;
+            for (const LogToken& tok : format_tokens)
+            {
+                switch (tok.type)
+                {
+                case LogToken::TOK_StringLiteral:
+                    ss << (tok.use_repr ? jxc::detail::debug_string_repr(tok.value) : tok.value);
+                    break;
+                case LogToken::TOK_RemoteAddr:
+                    ss << (tok.use_repr ? jxc::detail::debug_string_repr(req.remote_addr) : req.remote_addr);
+                    break;
+                case LogToken::TOK_HTTPStatus:
+                    ss << res.status;
+                    break;
+                case LogToken::TOK_Path:
+                    ss << (tok.use_repr ? jxc::detail::debug_string_repr(req.path) : req.path);
+                    break;
+                case LogToken::TOK_Header:
+                    if (req.has_header(tok.value))
+                    {
+                        ss << (tok.use_repr ? jxc::detail::debug_string_repr(req.get_header_value(tok.value)) : req.get_header_value(tok.value));
+                    }
+                    else if (res.has_header(tok.value))
+                    {
+                        ss << (tok.use_repr ? jxc::detail::debug_string_repr(res.get_header_value(tok.value)) : res.get_header_value(tok.value));
+                    }
+                    else
+                    {
+                        ss << (tok.use_repr ? jxc::detail::debug_string_repr("None") : "None");
+                    }
+                    break;
+                default:
+                    throw std::runtime_error("Invalid log token type");
+                }
+            }
+            return ss.str();
+        };
+    }
+
+    std::shared_ptr<BaseLocation> parse_location()
+    {
+        std::string loc_anno = std::string(require_annotation({ "resource", "redirect", "static_directory" }, true));
+
+        // default to resource if no annotation specified
+        if (loc_anno.size() == 0)
+        {
+            loc_anno = "resource";
+        }
+
+        std::shared_ptr<BaseLocation> location;
+        if (loc_anno == "resource")
+        {
+            location = std::shared_ptr<BaseLocation>(new ResourceLocation());
+        }
+        else if (loc_anno == "redirect")
+        {
+            location = std::shared_ptr<BaseLocation>(new RedirectLocation());
+        }
+        else if (loc_anno == "static_directory")
+        {
+            location = std::shared_ptr<BaseLocation>(new StaticDirectoryLocation());
+        }
+        else
+        {
+            assert(false && "require_annotation should make this an unreachable branch");
+        }
 
         if (parser.value().type != jxc::ElementType::BeginObject)
         {
-            throw make_parse_error(jxc::format("Expected static file mount to be an Object, got {}", jxc::element_type_to_string(parser.value().type)));
+            throw make_parse_error(jxc::format("Expected location to be an Object, got {}", jxc::element_type_to_string(parser.value().type)));
         }
 
         while (advance())
@@ -783,79 +1147,76 @@ private:
             const std::string key = parse_token_as_string(parser.value().token);
             advance_required();
 
+            bool key_unhandled = false;
+
+            // base class props
             if (key == "path")
             {
-                result.path = parse_string();
-            }
-            else if (key == "root")
-            {
-                result.root_directory = parse_string();
+                location->path = parse_string();
             }
             else if (key == "headers")
             {
-                result.headers = parse_headers();
+                location->headers = parse_headers();
             }
             else
             {
-                throw make_parse_error(jxc::format("Unexpected key {} in StaticDirectoryMount", jxc::detail::debug_string_repr(key)));
+                // child class props
+                if (ResourceLocation* res_location = dynamic_cast<ResourceLocation*>(location.get()))
+                {
+                    if (key == "response")
+                    {
+                        require_annotation({ "http" });
+                        res_location->response = parse_number<int>(true);
+                    }
+                    else if (key == "content")
+                    {
+                        res_location->content = parse_document();
+                    }
+                    else
+                    {
+                        key_unhandled = true;
+                    }
+                }
+                else if (RedirectLocation* redir_location = dynamic_cast<RedirectLocation*>(location.get()))
+                {
+                    if (key == "redirect")
+                    {
+                        redir_location->redirect_url = parse_string();
+                    }
+                    else if (key == "response")
+                    {
+                        require_annotation({ "http" });
+                        redir_location->response = parse_number<int>(true);
+                    }
+                    else
+                    {
+                        key_unhandled = true;
+                    }
+                }
+                else if (StaticDirectoryLocation* static_location = dynamic_cast<StaticDirectoryLocation*>(location.get()))
+                {
+                    if (key == "root")
+                    {
+                        static_location->root_directory = parse_string();
+                    }
+                    else
+                    {
+                        key_unhandled = true;
+                    }
+                }
+                else
+                {
+                    throw std::runtime_error("Unhandled location subclass");
+                }
+            }
+
+            if (key_unhandled)
+            {
+                throw make_parse_error(jxc::format("Unexpected key {} in {} location", jxc::detail::debug_string_repr(key), loc_anno));
             }
         }
 
-        return result;
-    }
-
-    Location parse_location()
-    {
-        const jxc::Element& ele = parser.value();
-        if (ele.type != jxc::ElementType::BeginObject)
-        {
-            throw make_parse_error(jxc::format("Expected location to be an Object, got {}", jxc::element_type_to_string(ele.type)));
-        }
-
-        Location result;
-
-        while (advance())
-        {
-            if (parser.value().type == jxc::ElementType::EndObject)
-            {
-                break;
-            }
-            
-            if (parser.value().type != jxc::ElementType::ObjectKey)
-            {
-                throw make_parse_error(jxc::format("Expected object key, got {}", jxc::element_type_to_string(parser.value().type)));
-            }
-
-            const std::string key = parse_token_as_string(parser.value().token);
-            advance_required();
-
-            if (key == "path")
-            {
-                result.path = parse_string();
-            }
-            else if (key == "response")
-            {
-                result.response = parse_number<int>();
-            }
-            else if (key == "redirect_url")
-            {
-                result.redirect_url = parse_string();
-            }
-            else if (key == "headers")
-            {
-                result.headers = parse_headers();
-            }
-            else if (key == "content")
-            {
-                result.content = parse_document();
-            }
-            else
-            {
-                throw make_parse_error(jxc::format("Unexpected key {} in Location", jxc::detail::debug_string_repr(key)));
-            }
-        }
-
-        return result;
+        return location;
     }
 
     Document parse_document()
@@ -867,14 +1228,13 @@ private:
             throw make_parse_error(jxc::format("Document requires a string (got {})", jxc::element_type_to_string(parser.value().type)));
         }
 
+        // custom annotation handling here, to support allowing a mimetype to be specified as the annotation's "generic" argument
         jxc::TokenSpan anno = parser.value().annotation;
-
         if (anno.size() == 0)
         {
             throw make_parse_error("Document requires annotation `path` or `inline`");
         }
-
-        if (anno.size() != 1 && anno.size() != 4)
+        else if (anno.size() != 1 && anno.size() != 4)
         {
             throw make_parse_error(jxc::format("Invalid document annotation {}", anno.to_repr()));
         }
@@ -882,7 +1242,7 @@ private:
         assert(anno[0].type == jxc::TokenType::Identifier);
         if (anno[0].value == "path")
         {
-            const fs::path content_path = fs::path(parse_string());
+            const fs::path content_path = fs::path(parse_string(true));
             if (!read_file_to_string(content_path, doc.body))
             {
                 throw make_parse_error(jxc::format("Failed to read content from path {}", jxc::detail::debug_string_repr(content_path.string())));
@@ -895,7 +1255,7 @@ private:
         }
         else if (anno[0].value == "inline")
         {
-            doc.body = parse_string();
+            doc.body = parse_string(true);
 
             // If content is a raw string, we can access its heredoc using the string token's tag.
             // Assume the heredoc is a file extension so we can look up the mimetype later if needed.
@@ -921,6 +1281,8 @@ private:
     HeaderList parse_headers()
     {
         HeaderList result;
+        require_no_annotation();
+
         if (parser.value().type != jxc::ElementType::BeginObject)
         {
             throw make_parse_error(jxc::format("Headers requires an object (got {})", jxc::element_type_to_string(parser.value().type)));
@@ -939,8 +1301,13 @@ private:
     }
 
     template<typename T>
-    T parse_number()
+    T parse_number(bool allow_annotation = false)
     {
+        if (!allow_annotation)
+        {
+            require_no_annotation();
+        }
+
         const jxc::Token& tok = parser.value().token;
         if (tok.type != jxc::TokenType::Number)
         {
@@ -1024,6 +1391,7 @@ private:
 
     TimeDelta parse_time_delta()
     {
+        require_no_annotation();
         std::string suffix;
         const double value = parse_number_with_suffix<double>({ "s", "ms" }, suffix);
         if (suffix == "s")
@@ -1040,6 +1408,7 @@ private:
 
     DataSize parse_data_size()
     {
+        require_no_annotation();
         std::string suffix;
         const double value = parse_number_with_suffix<double>({ "b", "kb", "mb", "gb", "tb" }, suffix);
         if (suffix == "b")
@@ -1069,6 +1438,8 @@ private:
     MimeTypeMap parse_mime_types()
     {
         MimeTypeMap result;
+
+        require_no_annotation();
 
         if (parser.value().type != jxc::ElementType::BeginObject)
         {
@@ -1116,9 +1487,15 @@ private:
         return result;
     }
 
-    std::string parse_string()
+    std::string parse_string(bool allow_annotation = false)
     {
         std::string result;
+
+        if (!allow_annotation)
+        {
+            require_no_annotation();
+        }
+
         if (parser.value().type == jxc::ElementType::String)
         {
             if (!jxc::util::parse_string_token(parser.value().token, result, parse_error))
@@ -1158,11 +1535,86 @@ private:
 };
 
 
+struct ParsedArgs
+{
+    fs::path config_path = "./web_server_config.jxc";
+    bool config_debug = false;
 
-std::string read_config_file_data(const fs::path& file_path)
+    static void print_usage(int argc, const char** argv)
+    {
+        ParsedArgs default_args{};
+        std::cout << "Usage: [--help] [--debug] [--config path/to/config.jxc]\n";
+        std::cout << "\t--help: Show this help message\n";
+        std::cout << "\t--debug: Dump parsed config file data for debugging\n";
+        std::cout << "\t--config: Specify path to config file (default=" << jxc::detail::debug_string_repr(default_args.config_path.string()) << "\n";
+        std::cout << "\t\tIf the config file does not exist, the default one will be written to that location.\n";
+    }
+
+    static ParsedArgs parse(int argc, const char** argv)
+    {
+        ParsedArgs args;
+
+        static const std::string config_arg_long = "--config";
+        static const std::string config_arg_long_eq = config_arg_long + "=";
+        static const std::string config_arg_short = config_arg_long.substr(1, 2);
+
+        bool expecting_next_arg_config_path = false;
+        size_t i = 1;
+        while (i < argc)
+        {
+            std::string_view arg = argv[i];
+            if (arg == "-h" || arg == "--help" || arg == "/?")
+            {
+                print_usage(argc, argv);
+                std::exit(0);
+            }
+            else if (arg == "--debug" || arg == "-d")
+            {
+                args.config_debug = true;
+            }
+            else if (arg.starts_with(config_arg_long_eq))
+            {
+                std::string_view arg_value = arg.substr(config_arg_long_eq.size());
+                args.config_path = fs::path(arg_value);
+            }
+            else if (expecting_next_arg_config_path)
+            {
+                expecting_next_arg_config_path = false;
+                args.config_path = fs::path(arg);
+            }
+            else if (arg == config_arg_long || arg == config_arg_short)
+            {
+                expecting_next_arg_config_path = true;
+            }
+            else
+            {
+                std::cerr << "Invalid argument " << jxc::detail::debug_string_repr(arg) << ": see --help for usage.\n";
+                std::exit(1);
+            }
+
+            ++i;
+        }
+
+        if (expecting_next_arg_config_path)
+        {
+            std::cerr << "Missing config file path: see --help for usage.\n";
+            std::exit(1);
+        }
+
+        return args;
+    }
+};
+
+
+std::string read_config_file_data(const fs::path& file_path, bool debug_mode)
 {
     if (fs::exists(file_path))
     {
+        if (debug_mode)
+        {
+            std::cout << "Reading existing config file " << jxc::detail::debug_string_repr(file_path.string()) << "\n";
+        }
+
         std::ifstream fp(file_path, std::ios::in);
         std::ostringstream ss;
         ss << fp.rdbuf();
@@ -1170,6 +1622,11 @@ std::string read_config_file_data(const fs::path& file_path)
     }
     else
     {
+        if (debug_mode)
+        {
+            std::cout << "Config file " << jxc::detail::debug_string_repr(file_path.string()) << " does not exist; creating it.\n";
+        }
+
         std::ofstream fp(file_path, std::ios::out);
         fp << s_default_config;
         fp.close();
@@ -1180,29 +1637,21 @@ std::string read_config_file_data(const fs::path& file_path)
 
 int main(int argc, const char** argv)
 {
-    fs::path cfg_file_path = "./web_server_config.jxc";
-    if (argc == 2)
+    auto args = ParsedArgs::parse(argc, argv);
+
+    // read or create the config file
+    const std::string config_file_data = read_config_file_data(args.config_path, args.config_debug);
+    WebServerConfigParser parser(config_file_data);
+
+    // parse the config file
+    WebServerConfig cfg = parser.parse();
+    if (args.config_debug)
     {
-        std::string_view arg = argv[1];
-        if (arg == "/?" || arg == "-h" || arg == "--help")
-        {
-            std::cout << "Usage: " << argv[0] << " [CONFIG_FILE_PATH]\n";
-            std::cout << "\tConfig file path defaults to './web_server_config.jxc'\n";
-            std::cout << "\tIf the config file does not exist, the default one will be written to that location.\n";
-            return 0;
-        }
-        else
-        {
-            cfg_file_path = fs::path(arg);
-        }
+        std::cout << cfg.to_repr() << "\n";
     }
 
-    WebServerConfigParser parser(read_config_file_data(cfg_file_path));
-    WebServerConfig cfg = parser.parse();
-    std::cout << cfg.to_repr() << "\n";
-
+    // set up the web server
     httplib::Server svr;
-
     svr.set_read_timeout(cfg.read_timeout);
     svr.set_write_timeout(cfg.write_timeout);
     svr.set_idle_interval(cfg.idle_interval);
@@ -1212,19 +1661,13 @@ int main(int argc, const char** argv)
     svr.set_logger([&cfg](const httplib::Request& req, const httplib::Response& res)
     {
         const bool is_error = res.status >= 400;
-        const std::string msg = jxc::format("[{}] HTTP {} Path={} Referer={}, User-Agent={}",
-            req.remote_addr,
-            res.status,
-            jxc::detail::debug_string_repr(req.path),
-            jxc::detail::debug_string_repr(req.has_header("Referer") ? req.get_header_value("Referer") : std::string{}),
-            jxc::detail::debug_string_repr(req.has_header("User-Agent") ? req.get_header_value("User-Agent") : std::string{}));
         if (is_error)
         {
-            cfg.error_log.log_message(msg);
+            cfg.error_log.log_message(req, res);
         }
         else
         {
-            cfg.access_log.log_message(msg);
+            cfg.access_log.log_message(req, res);
         }
     });
 
@@ -1246,66 +1689,88 @@ int main(int argc, const char** argv)
         }
     });
 
-    for (const StaticDirectoryMount& mount : cfg.mounts)
+    for (const auto& loc : cfg.locations)
     {
-        if (mount.path.size() > 0)
+        if (ResourceLocation* res_loc = dynamic_cast<ResourceLocation*>(loc.get()))
         {
-            svr.set_mount_point(mount.path, mount.root_directory);
+            if (res_loc->content.body.size() > 0)
+            {
+                svr.Get(loc->path, [loc](const httplib::Request& req, httplib::Response& res)
+                {
+                    for (const auto& pair : loc->headers)
+                    {
+                        res.set_header(pair.first, pair.second);
+                    }
+
+                    ResourceLocation& resource = *dynamic_cast<ResourceLocation*>(loc.get());
+                    if (resource.has_response_code())
+                    {
+                        res.status = resource.response;
+                    }
+                    res.set_content(resource.content.body, resource.content.get_mimetype());
+                });
+            }
+            else if (loc->path.size() > 0)
+            {
+                // no document, but this is still a valid path - just don't return a body
+                svr.Get(loc->path, [loc](const httplib::Request& req, httplib::Response& res)
+                {
+                    for (const auto& pair : loc->headers)
+                    {
+                        res.set_header(pair.first, pair.second);
+                    }
+
+                    ResourceLocation& resource = *dynamic_cast<ResourceLocation*>(loc.get());
+                    if (resource.has_response_code())
+                    {
+                        res.status = resource.response;
+                    }
+                });
+            }
+        }
+        else if (dynamic_cast<RedirectLocation*>(loc.get()) != nullptr)
+        {
+            svr.Get(loc->path, [loc](const httplib::Request& req, httplib::Response& res)
+            {
+                for (const auto& pair : loc->headers)
+                {
+                    res.set_header(pair.first, pair.second);
+                }
+
+                RedirectLocation& redir = *dynamic_cast<RedirectLocation*>(loc.get());
+                res.set_redirect(redir.redirect_url, (redir.response == 0) ? 302 : redir.response);
+            });
+        }
+        else if (StaticDirectoryLocation* static_loc = dynamic_cast<StaticDirectoryLocation*>(loc.get()))
+        {
+            // make sure the static directory exists and is valid
+            if (!fs::exists(static_loc->root_directory) || !fs::is_directory(static_loc->root_directory))
+            {
+                throw std::runtime_error(jxc::format("Static location with root directory {} (path={}) does not exist or is not a directory",
+                    jxc::detail::debug_string_repr(static_loc->root_directory),
+                    jxc::detail::debug_string_repr(static_loc->path)));
+            }
+            else if (static_loc->path.size() == 0)
+            {
+                throw std::runtime_error(jxc::format("Static location with root directory {} does not have a path specified",
+                    jxc::detail::debug_string_repr(static_loc->root_directory)));
+            }
+
+            httplib::Headers header_dict;
+            for (const auto& pair : loc->headers)
+            {
+                header_dict.insert({ pair.first, pair.second });
+            }
+            svr.set_mount_point(static_loc->path, static_loc->root_directory, header_dict);
         }
         else
         {
-            std::cerr << "Warning: static_directory location has no path specified.\n";
+            std::cerr << "Warning: Ignoring invalid location " << loc->to_repr() << "\n";
         }
     }
 
-    for (const Location& loc : cfg.locations)
-    {
-        if (loc.redirect_url.size() > 0)
-        {
-            svr.Get(loc.path, [&loc](const httplib::Request& req, httplib::Response& res)
-            {
-                for (const auto& pair : loc.headers)
-                {
-                    res.set_header(pair.first, pair.second);
-                }
-                res.set_redirect(loc.redirect_url, (loc.response == 0) ? 302 : loc.response);
-            });
-        }
-        else if (loc.content.body.size() > 0)
-        {
-            svr.Get(loc.path, [&loc](const httplib::Request& req, httplib::Response& res)
-            {
-                if (loc.has_response_code())
-                {
-                    res.status = loc.response;
-                }
-                for (const auto& pair : loc.headers)
-                {
-                    res.set_header(pair.first, pair.second);
-                }
-                res.set_content(loc.content.body, loc.content.get_mimetype());
-            });
-        }
-        else if (loc.path.size() > 0)
-        {
-            svr.Get(loc.path, [&loc](const httplib::Request& req, httplib::Response& res)
-            {
-                if (loc.has_response_code())
-                {
-                    res.status = loc.response;
-                }
-                for (const auto& pair : loc.headers)
-                {
-                    res.set_header(pair.first, pair.second);
-                }
-            });
-        }
-        else
-        {
-            std::cerr << "Warning: Ignoring location " << loc.to_repr() << ": it has no redirect_url, content, or path\n";
-        }
-    }
-
+    // start the web server
+    std::cout << "Web server started; listening on " << cfg.listen_host << ":" << cfg.listen_port << std::endl;
     if (cfg.listen_port == 0)
     {
         svr.bind_to_any_port(cfg.listen_host);

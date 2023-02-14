@@ -369,6 +369,7 @@ struct Date
 
     Date() = default;
     Date(int16_t year, int8_t month, int8_t day) : year(year), month(month), day(day) {}
+    explicit inline Date(const DateTime& dt);
 
     inline bool operator==(const Date& rhs) const { return year == rhs.year && month == rhs.month && day == rhs.day; }
     inline bool operator!=(const Date& rhs) const { return !operator==(rhs); }
@@ -410,6 +411,22 @@ struct DateTime
     {
     }
 
+    explicit DateTime(const Date& dt,
+        int8_t hour = 0, int8_t minute = 0, int8_t second = 0, uint32_t nanosecond = 0,
+        int8_t tz_hour = 0, int8_t tz_minute = 0, bool tz_local_time = false)
+        : year(dt.year)
+        , month(dt.month)
+        , day(dt.day)
+        , hour(hour)
+        , minute(minute)
+        , second(second)
+        , nanosecond(nanosecond)
+        , tz_hour(tz_hour)
+        , tz_minute(tz_minute)
+        , tz_local(tz_local_time ? 1 : 0)
+    {
+    }
+
     static DateTime make_utc(int16_t year, int8_t month, int8_t day,
         int8_t hour = 0, int8_t minute = 0, int8_t second = 0, uint32_t nanosecond = 0)
     {
@@ -420,6 +437,13 @@ struct DateTime
         int8_t hour = 0, int8_t minute = 0, int8_t second = 0, uint32_t nanosecond = 0)
     {
         return DateTime(year, month, day, hour, minute, second, nanosecond, 0, 0, true);
+    }
+
+    // Returns true if this DateTime has any time or timezone data.
+    // Useful for checking if we can safely serialize as a Date instead of a DateTime.
+    inline bool has_time_or_timezone_data() const
+    {
+        return hour != 0 || minute != 0 || second != 0 || nanosecond != 0 || tz_hour != 0 || tz_minute != 0;
     }
 
     inline bool is_timezone_local() const { return tz_local == 1; }
@@ -452,6 +476,14 @@ struct DateTime
         return !operator==(rhs);
     }
 };
+
+
+inline Date::Date(const DateTime& dt)
+    : year(dt.year)
+    , month(dt.month)
+    , day(dt.day)
+{
+}
 
 
 inline bool Date::operator==(const DateTime& rhs) const

@@ -18,8 +18,6 @@ enum class ElementType : uint8_t
     Bytes,
     String,
     DateTime,
-    ExpressionIdentifier,
-    ExpressionOperator,
     ExpressionToken,
     Comment,
     BeginArray,
@@ -55,8 +53,6 @@ inline bool element_can_contain_value(ElementType type)
     case ElementType::Bytes:
     case ElementType::String:
     case ElementType::DateTime:
-    case ElementType::ExpressionIdentifier:
-    case ElementType::ExpressionOperator:
     case ElementType::ExpressionToken:
     case ElementType::Comment:
     case ElementType::ObjectKey:
@@ -88,8 +84,6 @@ inline bool element_can_contain_annotation(ElementType type)
     case ElementType::EndArray:
     case ElementType::EndObject:
     case ElementType::EndExpression:
-    case ElementType::ExpressionIdentifier:
-    case ElementType::ExpressionOperator:
     case ElementType::ExpressionToken:
     case ElementType::Comment:
     case ElementType::ObjectKey:
@@ -117,9 +111,8 @@ inline bool element_is_value_type(ElementType type)
     case ElementType::BeginObject:
         return true;
 
-    case ElementType::ExpressionIdentifier:
-    case ElementType::ExpressionOperator:
     case ElementType::Comment:
+    case ElementType::ExpressionToken:
     case ElementType::EndArray:
     case ElementType::EndExpression:
     case ElementType::ObjectKey:
@@ -143,8 +136,6 @@ inline bool element_is_expression_value_type(ElementType type)
     case ElementType::Bytes:
     case ElementType::String:
     case ElementType::DateTime:
-    case ElementType::ExpressionIdentifier:
-    case ElementType::ExpressionOperator:
     case ElementType::ExpressionToken:
     case ElementType::Comment:
         return true;

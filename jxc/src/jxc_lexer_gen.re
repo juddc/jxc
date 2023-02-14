@@ -113,17 +113,9 @@ expr_start:
 
     // expressions allow a limited subset of JXC syntax
 
-    // symbols that can be used as an operator token
-    operator = "|" | "&" | "!" | "=" | "+" | "-" | "*" | "/" | "\\" | "%" | "^" | "." | "?" | "~" | "<" | ">" | "`" | ";";
-
     // expression start/end
     "("                             { set_token(); ++expr_paren_depth; return TokenType::ParenOpen; }
     ")"                             { set_token(); --expr_paren_depth; if (expr_paren_depth < 0) { set_error_msg("Unexpected symbol `)` in expression"); return TokenType::Invalid; } else { return TokenType::ParenClose; } }
-
-    // allowed expression symbols
-    ","                             { set_token(); return TokenType::Comma; }
-    ":"                             { set_token(); return TokenType::Colon; }
-    "@"                             { set_token(); return TokenType::AtSymbol; }
 
     // allow square brackets, but enforce balanced brackets
     "["                             { set_token(); ++expr_bracket_depth; return TokenType::SquareBracketOpen; }
@@ -139,8 +131,28 @@ expr_start:
     // NB. we match *unsigned* numbers only here to avoid operator mangling issues
     unsigned_number_value           { set_token(); return TokenType::Number; }
 
-    // operators
-    operator                        { set_token(); return TokenType::ExpressionOperator; }
+    // symbols that can be used as an operator/syntax token inside expressions
+    ","                             { set_token(); return TokenType::Comma; }
+    ":"                             { set_token(); return TokenType::Colon; }
+    "@"                             { set_token(); return TokenType::AtSymbol; }
+    "|"                             { set_token(); return TokenType::Pipe; }
+    "&"                             { set_token(); return TokenType::Ampersand; }
+    "!"                             { set_token(); return TokenType::ExclamationPoint; }
+    "="                             { set_token(); return TokenType::Equals; }
+    "+"                             { set_token(); return TokenType::Plus; }
+    "-"                             { set_token(); return TokenType::Minus; }
+    "*"                             { set_token(); return TokenType::Asterisk; }
+    "/"                             { set_token(); return TokenType::Slash; }
+    "\\"                            { set_token(); return TokenType::Backslash; }
+    "%"                             { set_token(); return TokenType::Percent; }
+    "^"                             { set_token(); return TokenType::Caret; }
+    "."                             { set_token(); return TokenType::Period; }
+    "?"                             { set_token(); return TokenType::QuestionMark; }
+    "~"                             { set_token(); return TokenType::Tilde; }
+    "<"                             { set_token(); return TokenType::AngleBracketOpen; }
+    ">"                             { set_token(); return TokenType::AngleBracketClose; }
+    "`"                             { set_token(); return TokenType::Backtick; }
+    ";"                             { set_token(); return TokenType::Semicolon; }
 
     // literal constants
     "true"                          { set_token(); return TokenType::True; }

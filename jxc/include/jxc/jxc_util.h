@@ -146,11 +146,17 @@ const char* float_literal_type_to_string(FloatLiteralType type);
 FloatLiteralType get_float_literal_type(double value);
 
 // Converts a Date to ISO-8601
-std::string datetime_to_iso8601(const Date& dt);
+std::string date_to_iso8601(const Date& dt);
 
 // Converts a DateTime to ISO-8601
-std::string datetime_to_iso8601(const DateTime& dt);
+// If auto_strip_time is true, and the DateTime has no time data (see DateTime::has_time_or_timezone_data), this is serialized as just a Date.
+std::string datetime_to_iso8601(const DateTime& dt, bool auto_strip_time = false);
 
+// ostream overloads for Date and DateTime
+inline std::ostream& operator<<(std::ostream& os, const Date& dt) { os << date_to_iso8601(dt); return os; }
+inline std::ostream& operator<<(std::ostream& os, const DateTime& dt) { os << datetime_to_iso8601(dt); return os; }
+
+// JXC token types
 enum class TokenType : uint8_t
 {
     Invalid = 0,
@@ -166,7 +172,6 @@ enum class TokenType : uint8_t
     String,
     ByteString,
     DateTime,
-    ExpressionOperator,
 
     // syntax characters
     Colon,
@@ -189,6 +194,13 @@ enum class TokenType : uint8_t
     Ampersand,
     Percent,
     Semicolon,
+    Plus,
+    Minus,
+    Slash,
+    Backslash,
+    Caret,
+    Tilde,
+    Backtick,
 
     // misc
     LineBreak,
@@ -226,7 +238,6 @@ inline bool token_type_has_value(TokenType type)
     case TokenType::String:
     case TokenType::ByteString:
     case TokenType::DateTime:
-    case TokenType::ExpressionOperator:
         return true;
     default:
         break;

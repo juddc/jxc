@@ -506,20 +506,20 @@ Serializer& Serializer::value_date(Date value, StringQuoteMode quote)
     last_token_size = pre_write_token(TokenType::DateTime);
     last_token_size += output.write("dt");
     last_token_size += output.write(quote_char);
-    last_token_size += output.write(datetime_to_iso8601(value));
+    last_token_size += output.write(date_to_iso8601(value));
     last_token_size += output.write(quote_char);
     post_write_token();
     return *this;
 }
 
 
-Serializer& Serializer::value_datetime(DateTime value, StringQuoteMode quote)
+Serializer& Serializer::value_datetime(DateTime value, bool auto_strip_time, StringQuoteMode quote)
 {
     const char quote_char = get_quote_char(settings.default_quote, quote);
     last_token_size = pre_write_token(TokenType::DateTime);
     last_token_size += output.write("dt");
     last_token_size += output.write(quote_char);
-    last_token_size += output.write(datetime_to_iso8601(value));
+    last_token_size += output.write(datetime_to_iso8601(value, auto_strip_time));
     last_token_size += output.write(quote_char);
     post_write_token();
     return *this;

@@ -647,7 +647,7 @@ static void char_buffer_write_integer(detail::MiniBuffer<char, BufSize>& out_buf
 }
 
 
-std::string datetime_to_iso8601(const Date& dt)
+std::string date_to_iso8601(const Date& dt)
 {
     detail::MiniBuffer<char, 32> date_buf;
     size_t buf_index = 0;
@@ -669,7 +669,7 @@ std::string datetime_to_iso8601(const Date& dt)
 }
 
 
-std::string datetime_to_iso8601(const DateTime& dt)
+std::string datetime_to_iso8601(const DateTime& dt, bool auto_strip_time)
 {
     detail::MiniBuffer<char, 64> datetime_buf;
     const bool is_local = dt.is_timezone_local();
@@ -692,63 +692,66 @@ std::string datetime_to_iso8601(const DateTime& dt)
     char_buffer_write_char(datetime_buf, '-', buf_index);
     char_buffer_write_integer<2, 2>(datetime_buf, dt.day, buf_index);
 
-    // time sep
-    char_buffer_write_char(datetime_buf, 'T', buf_index);
-
-    // time
-    char_buffer_write_integer<2, 2>(datetime_buf, dt.hour, buf_index);
-    char_buffer_write_char(datetime_buf, ':', buf_index);
-    char_buffer_write_integer<2, 2>(datetime_buf, dt.minute, buf_index);
-    char_buffer_write_char(datetime_buf, ':', buf_index);
-    char_buffer_write_integer<2, 2>(datetime_buf, dt.second, buf_index);
-
-    if (dt.nanosecond > 0)
+    if (!auto_strip_time || dt.has_time_or_timezone_data())
     {
-        char_buffer_write_char(datetime_buf, '.', buf_index);
+        // time sep
+        char_buffer_write_char(datetime_buf, 'T', buf_index);
 
-        if ((dt.nanosecond % 1000000) == 0)
-        {
-            // If the value in nanoseconds can be converted to milliseconds with no data loss, write out the value in milliseconds
-            const uint32_t dt_milli = dt.nanosecond / 1000000;
-            char_buffer_write_integer<3, 3>(datetime_buf, dt_milli, buf_index);
-        }
-        else if ((dt.nanosecond % 1000) == 0)
-        {
-            // If the value in nanoseconds can be converted to microseconds with no data loss, write out the value in microseconds
-            const uint32_t dt_micro = dt.nanosecond / 1000;
-            char_buffer_write_integer<6, 6>(datetime_buf, dt_micro, buf_index);
-        }
-        else
-        {
-            // Write the full nanosecond value
-            char_buffer_write_integer<9, 9>(datetime_buf, dt.nanosecond, buf_index);
-        }
-    }
-
-    // time zone
-    if (is_local)
-    {
-        // for local times, don't write time zone info
-    }
-    else if (is_utc)
-    {
-        char_buffer_write_char(datetime_buf, 'Z', buf_index);
-    }
-    else
-    {
-        if (dt.tz_hour < 0)
-        {
-            char_buffer_write_char(datetime_buf, '-', buf_index);
-            char_buffer_write_integer<2, 2>(datetime_buf, -dt.tz_hour, buf_index);
-        }
-        else
-        {
-            char_buffer_write_char(datetime_buf, '+', buf_index);
-            char_buffer_write_integer<2, 2>(datetime_buf, dt.tz_hour, buf_index);
-        }
-
+        // time
+        char_buffer_write_integer<2, 2>(datetime_buf, dt.hour, buf_index);
         char_buffer_write_char(datetime_buf, ':', buf_index);
-        char_buffer_write_integer<2, 2>(datetime_buf, dt.tz_minute, buf_index);
+        char_buffer_write_integer<2, 2>(datetime_buf, dt.minute, buf_index);
+        char_buffer_write_char(datetime_buf, ':', buf_index);
+        char_buffer_write_integer<2, 2>(datetime_buf, dt.second, buf_index);
+
+        if (dt.nanosecond > 0)
+        {
+            char_buffer_write_char(datetime_buf, '.', buf_index);
+
+            if ((dt.nanosecond % 1000000) == 0)
+            {
+                // If the value in nanoseconds can be converted to milliseconds with no data loss, write out the value in milliseconds
+                const uint32_t dt_milli = dt.nanosecond / 1000000;
+                char_buffer_write_integer<3, 3>(datetime_buf, dt_milli, buf_index);
+            }
+            else if ((dt.nanosecond % 1000) == 0)
+            {
+                // If the value in nanoseconds can be converted to microseconds with no data loss, write out the value in microseconds
+                const uint32_t dt_micro = dt.nanosecond / 1000;
+                char_buffer_write_integer<6, 6>(datetime_buf, dt_micro, buf_index);
+            }
+            else
+            {
+                // Write the full nanosecond value
+                char_buffer_write_integer<9, 9>(datetime_buf, dt.nanosecond, buf_index);
+            }
+        }
+
+        // time zone
+        if (is_local)
+        {
+            // for local times, don't write time zone info
+        }
+        else if (is_utc)
+        {
+            char_buffer_write_char(datetime_buf, 'Z', buf_index);
+        }
+        else
+        {
+            if (dt.tz_hour < 0)
+            {
+                char_buffer_write_char(datetime_buf, '-', buf_index);
+                char_buffer_write_integer<2, 2>(datetime_buf, -dt.tz_hour, buf_index);
+            }
+            else
+            {
+                char_buffer_write_char(datetime_buf, '+', buf_index);
+                char_buffer_write_integer<2, 2>(datetime_buf, dt.tz_hour, buf_index);
+            }
+
+            char_buffer_write_char(datetime_buf, ':', buf_index);
+            char_buffer_write_integer<2, 2>(datetime_buf, dt.tz_minute, buf_index);
+        }
     }
 
     return std::string(datetime_buf.as_view(buf_index));
@@ -770,7 +773,6 @@ const char* token_type_to_string(TokenType type)
     case JXC_ENUMSTR(TokenType, String);
     case JXC_ENUMSTR(TokenType, ByteString);
     case JXC_ENUMSTR(TokenType, DateTime);
-    case JXC_ENUMSTR(TokenType, ExpressionOperator);
     case JXC_ENUMSTR(TokenType, Colon);
     case JXC_ENUMSTR(TokenType, Equals);
     case JXC_ENUMSTR(TokenType, Comma);
@@ -791,6 +793,13 @@ const char* token_type_to_string(TokenType type)
     case JXC_ENUMSTR(TokenType, Ampersand);
     case JXC_ENUMSTR(TokenType, Percent);
     case JXC_ENUMSTR(TokenType, Semicolon);
+    case JXC_ENUMSTR(TokenType, Plus);
+    case JXC_ENUMSTR(TokenType, Minus);
+    case JXC_ENUMSTR(TokenType, Slash);
+    case JXC_ENUMSTR(TokenType, Backslash);
+    case JXC_ENUMSTR(TokenType, Caret);
+    case JXC_ENUMSTR(TokenType, Tilde);
+    case JXC_ENUMSTR(TokenType, Backtick);
     case JXC_ENUMSTR(TokenType, LineBreak);
     case JXC_ENUMSTR(TokenType, EndOfStream);
     case TokenType::COUNT:
@@ -814,7 +823,6 @@ const char* token_type_to_symbol(TokenType type)
     //case TokenType::String: break;
     //case TokenType::DateTime: break;
     //case TokenType::ByteString: break;
-    //case TokenType::ExpressionOperator: break;
     case TokenType::Colon: return ":";
     case TokenType::Equals: return "=";
     case TokenType::Comma: return ",";
@@ -835,6 +843,13 @@ const char* token_type_to_symbol(TokenType type)
     case TokenType::Ampersand: return "&";
     case TokenType::Percent: return "%";
     case TokenType::Semicolon: return ";";
+    case TokenType::Plus: return "+";
+    case TokenType::Minus: return "-";
+    case TokenType::Slash: return "/";
+    case TokenType::Backslash: return "\\";
+    case TokenType::Caret: return "^";
+    case TokenType::Tilde: return "~";
+    case TokenType::Backtick: return "`";
     case TokenType::LineBreak: return "\n";
     //case TokenType::EndOfStream: break;
     default: break;
@@ -862,7 +877,6 @@ TokenType token_type_from_symbol(std::string_view sym)
         //case TokenType::String: break;
         //case TokenType::DateTime: break;
         //case TokenType::ByteString: break;
-        //case TokenType::ExpressionOperator: break;
         case ':': return TokenType::Colon;
         case '=': return TokenType::Equals;
         case ',': return TokenType::Comma;
@@ -883,6 +897,13 @@ TokenType token_type_from_symbol(std::string_view sym)
         case '&': return TokenType::Ampersand;
         case '%': return TokenType::Percent;
         case ';': return TokenType::Semicolon;
+        case '+': return TokenType::Plus;
+        case '-': return TokenType::Minus;
+        case '/': return TokenType::Slash;
+        case '\\': return TokenType::Backslash;
+        case '^': return TokenType::Caret;
+        case '~': return TokenType::Tilde;
+        case '`': return TokenType::Backtick;
         case '\n': return TokenType::LineBreak;
         default: break;
         }

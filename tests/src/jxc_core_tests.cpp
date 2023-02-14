@@ -308,7 +308,7 @@ TEST(jxc_core, JumpParserExpressions)
         TestJumpParser parser("(1 + 1)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
@@ -317,7 +317,7 @@ TEST(jxc_core, JumpParserExpressions)
         TestJumpParser parser("(true | false)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bool, make_token(TokenType::True)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "|")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Pipe, "|")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Bool, make_token(TokenType::False)));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
@@ -325,25 +325,25 @@ TEST(jxc_core, JumpParserExpressions)
     {
         TestJumpParser parser("(abc=def, qqq=(1 + 2 / 3 * 4), zzz~=5)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "abc")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "=")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "def")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Identifier, "abc")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Equals, "=")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Identifier, "def")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Comma, ",")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "qqq")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "=")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Identifier, "qqq")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Equals, "=")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::ParenOpen, "(")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "2")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "/")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Slash, "/")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "3")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "*")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Asterisk, "*")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "4")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::ParenClose, ")")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Comma, ",")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionIdentifier, make_token(TokenType::Identifier, "zzz")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "~")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "=")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Identifier, "zzz")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Tilde, "~")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Equals, "=")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "5")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
@@ -362,8 +362,8 @@ TEST(jxc_core, JumpParserUnaryOperatorExpressions)
         TestJumpParser parser("(1 - -1)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
@@ -372,7 +372,7 @@ TEST(jxc_core, JumpParserUnaryOperatorExpressions)
         TestJumpParser parser("(1+1)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
@@ -381,7 +381,7 @@ TEST(jxc_core, JumpParserUnaryOperatorExpressions)
         TestJumpParser parser("(1-1)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
@@ -389,10 +389,10 @@ TEST(jxc_core, JumpParserUnaryOperatorExpressions)
     {
         TestJumpParser parser("(+1++1)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
@@ -400,14 +400,14 @@ TEST(jxc_core, JumpParserUnaryOperatorExpressions)
     {
         TestJumpParser parser("(--1--1--)");
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionOperator, make_token(TokenType::ExpressionOperator, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
 }
@@ -763,17 +763,17 @@ TEST(jxc_core, BytesParsing)
 
 TEST(jxc_core, DateToISO8601)
 {
-    using jxc::Date, jxc::datetime_to_iso8601;
-    EXPECT_EQ(datetime_to_iso8601(Date()), "1970-01-01");
-    EXPECT_EQ(datetime_to_iso8601(Date(1970, 1, 1)), "1970-01-01");
-    EXPECT_EQ(datetime_to_iso8601(Date(-1, 1, 1)), "-0001-01-01");
-    EXPECT_EQ(datetime_to_iso8601(Date(0, 1, 1)), "0000-01-01");
-    EXPECT_EQ(datetime_to_iso8601(Date(1, 1, 1)), "0001-01-01");
-    EXPECT_EQ(datetime_to_iso8601(Date(-10000, 1, 1)), "-10000-01-01");
-    EXPECT_EQ(datetime_to_iso8601(Date(-10000, 12, 31)), "-10000-12-31");
-    EXPECT_EQ(datetime_to_iso8601(Date(2012, 12, 12)), "2012-12-12");
-    EXPECT_EQ(datetime_to_iso8601(Date(3012, 12, 12)), "3012-12-12");
-    EXPECT_EQ(datetime_to_iso8601(Date(10000, 12, 12)), "10000-12-12");
+    using jxc::Date, jxc::date_to_iso8601;
+    EXPECT_EQ(date_to_iso8601(Date()), "1970-01-01");
+    EXPECT_EQ(date_to_iso8601(Date(1970, 1, 1)), "1970-01-01");
+    EXPECT_EQ(date_to_iso8601(Date(-1, 1, 1)), "-0001-01-01");
+    EXPECT_EQ(date_to_iso8601(Date(0, 1, 1)), "0000-01-01");
+    EXPECT_EQ(date_to_iso8601(Date(1, 1, 1)), "0001-01-01");
+    EXPECT_EQ(date_to_iso8601(Date(-10000, 1, 1)), "-10000-01-01");
+    EXPECT_EQ(date_to_iso8601(Date(-10000, 12, 31)), "-10000-12-31");
+    EXPECT_EQ(date_to_iso8601(Date(2012, 12, 12)), "2012-12-12");
+    EXPECT_EQ(date_to_iso8601(Date(3012, 12, 12)), "3012-12-12");
+    EXPECT_EQ(date_to_iso8601(Date(10000, 12, 12)), "10000-12-12");
 }
 
 
@@ -788,6 +788,10 @@ TEST(jxc_core, DateTimeToISO8601)
     EXPECT_EQ(datetime_to_iso8601(DateTime(-10000, 1, 1)), "-10000-01-01T00:00:00Z");
     EXPECT_EQ(datetime_to_iso8601(DateTime(-10000, 12, 31)), "-10000-12-31T00:00:00Z");
     EXPECT_EQ(datetime_to_iso8601(DateTime(2012, 12, 12)), "2012-12-12T00:00:00Z");
+
+    // test auto-stripping the time component if it's all zeroes
+    EXPECT_EQ(datetime_to_iso8601(DateTime(2012, 12, 12, 0, 0, 0, 0), true), "2012-12-12");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(1997, 02, 19, 0, 0, 0, 0), true), "1997-02-19");
 
     EXPECT_EQ(datetime_to_iso8601(DateTime::make_utc(2007, 11, 22, 12, 21, 49, ms_to_ns(332))), "2007-11-22T12:21:49.332Z");
 
@@ -951,19 +955,19 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_date(jxc::Date(2025, 8, 21), StringQuoteMode::Single); }), "dt'2025-08-21'");
 
     // datetime
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_local(2025, 8, 21, 10, 25), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:00'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_local(2025, 8, 21, 10, 25, 5), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 1), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000000001Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 100000000), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.100Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383201024), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.383201024Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(24)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.024Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(602)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.602Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(500)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.500Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(1)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000001Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(123)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000123Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(8765)), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.008765Z'");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime(2025, 8, 21, 10, 25, 5, 0, -8, 0), StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05-08:00'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_local(2025, 8, 21, 10, 25), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:00'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_local(2025, 8, 21, 10, 25, 5), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 1), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000000001Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 100000000), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.100Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 383201024), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.383201024Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(24)), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.024Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(602)), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.602Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, ms_to_ns(500)), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.500Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(1)), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000001Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(123)), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.000123Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, us_to_ns(8765)), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05.008765Z'");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_datetime(jxc::DateTime(2025, 8, 21, 10, 25, 5, 0, -8, 0), false, StringQuoteMode::Single); }), "dt'2025-08-21T10:25:05-08:00'");
 
     // arrays
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.array_begin().array_end(); }), "[]");

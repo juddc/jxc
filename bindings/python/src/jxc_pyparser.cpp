@@ -623,10 +623,6 @@ py::object PyParser::parse_expr_value(const Element& ele)
         return parse_bytes_element(ele);
     case ElementType::DateTime:
         return parse_datetime_element(ele);
-    case ElementType::ExpressionIdentifier:
-        // fallthrough
-    case ElementType::ExpressionOperator:
-        // fallthrough
     case ElementType::ExpressionToken:
         return py::cast(ele.token.value);
     case ElementType::Comment:

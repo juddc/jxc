@@ -358,10 +358,6 @@ Value detail::ValueParser::parse_expression_as_array(TokenSpan annotation)
         case ElementType::Bytes:
             result.push_back(parse_bytes(ele.token, TokenSpan{}));
             break;
-        case ElementType::ExpressionIdentifier:
-            // fallthrough
-        case ElementType::ExpressionOperator:
-            // fallthrough
         case ElementType::ExpressionToken:
             result.push_back(ele.token.value.as_view());
             break;

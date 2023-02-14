@@ -251,8 +251,11 @@ struct value_t : base_value_t<value_t>
             break;
         }
         case ValueType::DateTime:
-            doc.value_datetime(as<datetime_t>());
+        {
+            const bool auto_strip_time = true;
+            doc.value_datetime(as<datetime_t>(), auto_strip_time);
             break;
+        }
         case ValueType::Array:
         {
             const auto& arr = as<array_t<value_t>>();
@@ -348,13 +351,14 @@ public:
         case jxc::ElementType::Number: return parse_number_element(ele);
         case jxc::ElementType::String: return parse_string_element(ele);
         case jxc::ElementType::Bytes: return parse_bytes_element(ele);
+        case jxc::ElementType::DateTime: return parse_datetime_element(ele);
         case jxc::ElementType::BeginArray: return parse_array();
         case jxc::ElementType::BeginExpression: return parse_expression();
         case jxc::ElementType::BeginObject: return parse_object();
         default:
             break;
         }
-        throw std::runtime_error("Unexpected element type for value");
+        throw std::runtime_error(std::string("Unexpected element type for value: ") + jxc::element_type_to_string(ele.type));
         return invalid_t{};
     }
 
@@ -478,11 +482,8 @@ public:
         case jxc::ElementType::String: return parse_string_element(ele);
         case jxc::ElementType::Bytes: return parse_bytes_element(ele);
         case jxc::ElementType::DateTime: return parse_datetime_element(ele);
-        case jxc::ElementType::ExpressionIdentifier: // fallthrough
-        case jxc::ElementType::ExpressionOperator: // fallthrough
-        case jxc::ElementType::ExpressionToken: // fallthrough
-        case jxc::ElementType::Comment:
-            return string_t(ele.token.value.data(), ele.token.value.size());
+        case jxc::ElementType::ExpressionToken: return string_t(ele.token.value.data(), ele.token.value.size());
+        case jxc::ElementType::Comment: return string_t(ele.token.value.data(), ele.token.value.size());
         default:
             break;
         }
@@ -587,6 +588,31 @@ size_t hash_object_key(const object_key_t& key)
 } // namespace CustomParser
 
 
+namespace test
+{
+template<typename LhsT, typename RhsT>
+void assert_equal(const char* lhs_str, const char* rhs_str, const LhsT& lhs, const RhsT& rhs)
+{
+    const bool result = lhs == rhs;
+    if (!result)
+    {
+        std::cerr << "Assertion failed: " << lhs_str << " (" << lhs << ") != " << rhs_str << " (" << rhs << ")\n";
+        std::abort();
+    }
+}
+void assert_true(const char* expr_str, bool result)
+{
+    if (!result)
+    {
+        std::cerr << "Assertion failed: " << expr_str << "\n";
+        std::abort();
+    }
+}
+#define ASSERT_EQUAL(LHS, RHS) test::assert_equal(#LHS, #RHS, (LHS), (RHS))
+#define ASSERT_TRUE(EXPR) test::assert_true(#EXPR, !!(EXPR))
+}
+
+
 int main(int argc, const char** argv)
 {
     using namespace CustomParser;
@@ -595,58 +621,57 @@ int main(int argc, const char** argv)
     {
         Parser parser("null");
         value_t value = parser.parse();
-        assert(value.is_null());
-        assert(value.to_jxc() == "null");
+        ASSERT_TRUE(value.is_null());
+        ASSERT_EQUAL(value.to_jxc(), "null");
     }
 
     // parse an integer
     {
         Parser parser("-991234");
         value_t value = parser.parse();
-        assert(value.is_integer());
-        assert(value.as<integer_t>() == -991234);
-        assert(value.to_jxc() == "-991234");
+        ASSERT_TRUE(value.is_integer());
+        ASSERT_EQUAL(value.as<integer_t>(), -991234);
+        ASSERT_EQUAL(value.to_jxc(), "-991234");
     }
 
     // parse a byte array
     {
         Parser parser("b64'( Cr9s n/8= )'");
         value_t value = parser.parse();
-        assert(value.is_bytes());
+        ASSERT_TRUE(value.is_bytes());
         const auto& bytes = value.as<bytes_t>();
-        assert(bytes.size() == 5);
-        assert(bytes[0] == 0x0a);
-        assert(bytes[1] == 0xbf);
-        assert(bytes[2] == 0x6c);
-        assert(bytes[3] == 0x9f);
-        assert(bytes[4] == 0xff);
+        ASSERT_EQUAL(bytes.size(), 5);
+        ASSERT_EQUAL(bytes[0], 0x0a);
+        ASSERT_EQUAL(bytes[1], 0xbf);
+        ASSERT_EQUAL(bytes[2], 0x6c);
+        ASSERT_EQUAL(bytes[3], 0x9f);
+        ASSERT_EQUAL(bytes[4], 0xff);
 
         jxc::SerializerSettings settings{};
-        assert(value.to_jxc(settings) == "b64\"Cr9sn/8=\"");
+        ASSERT_EQUAL(value.to_jxc(settings), "b64\"Cr9sn/8=\"");
     }
 
     // parse a more complex value
     {
-        Parser parser("[0, 1, true, null, 1.75, {q: -10.75, date: dt'2023-06-15'}]");
+        Parser parser("[0, 1, true, null, 1.75, {q: -10.75}, dt'2023-06-15']");
         value_t value = parser.parse();
-        assert(value.to_jxc(jxc::SerializerSettings::make_compact()) == "[0,1,true,null,1.75,{q:-10.75}]");
-        assert(value.is_array());
+        ASSERT_EQUAL(value.to_jxc(jxc::SerializerSettings::make_compact()), "[0,1,true,null,1.75,{q:-10.75},dt\"2023-06-15\"]");
+        ASSERT_TRUE(value.is_array());
         auto& arr = value.as<array_t<value_t>>();
-        assert(arr.size() == 6);
-        assert(arr[0].is_integer() && arr[0].as<integer_t>() == 0);
-        assert(arr[1].is_integer() && arr[1].as<integer_t>() == 1);
-        assert(arr[2].is_boolean() && static_cast<bool>(arr[2].as<boolean_t>()) == true);
-        assert(arr[3].is_null());
-        assert(arr[4].is_float() && arr[4].as<float_t>() == 1.75f);
-        assert(arr[5].is_object());
+        ASSERT_EQUAL(arr.size(), 7);
+        ASSERT_TRUE(arr[0].is_integer() && arr[0].as<integer_t>() == 0);
+        ASSERT_TRUE(arr[1].is_integer() && arr[1].as<integer_t>() == 1);
+        ASSERT_TRUE(arr[2].is_boolean() && static_cast<bool>(arr[2].as<boolean_t>()) == true);
+        ASSERT_TRUE(arr[3].is_null());
+        ASSERT_TRUE(arr[4].is_float() && arr[4].as<float_t>() == 1.75f);
+        ASSERT_TRUE(arr[5].is_object());
         auto& obj = arr[5].as<object_t<value_t>>();
-        assert(obj.size() == 2);
-        assert(obj.contains("q"));
-        assert(obj["q"].is_float());
-        assert(obj["q"].as<float_t>() == -10.75f);
-        assert(obj.contains("date"));
-        assert(obj["date"].is_datetime());
-        assert(obj["date"].as<datetime_t>() == datetime_t(2023, 6, 15));
+        ASSERT_EQUAL(obj.size(), 1);
+        ASSERT_TRUE(obj.contains("q"));
+        ASSERT_TRUE(obj["q"].is_float());
+        ASSERT_EQUAL(obj["q"].as<float_t>(), -10.75f);
+        ASSERT_TRUE(arr[6].is_datetime());
+        ASSERT_EQUAL(arr[6].as<datetime_t>(), datetime_t(2023, 6, 15));
     }
 
     // construct a value and serialize it
@@ -657,7 +682,7 @@ int main(int argc, const char** argv)
         value.as<array_t<value_t>>().push_back(null_t{});
         value.as<array_t<value_t>>().push_back(value_t::make_array());
         value.as<array_t<value_t>>().push_back(value_t::make_object());
-        assert(value.to_jxc(jxc::SerializerSettings::make_compact()) == "[1234,true,null,[],{}]");
+        ASSERT_EQUAL(value.to_jxc(jxc::SerializerSettings::make_compact()), "[1234,true,null,[],{}]");
     }
 
     jxc::print("All tests passed successfully.\n");
