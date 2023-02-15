@@ -1864,7 +1864,7 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
         if (!parser.require_number_as_string(1, 12, "fractional seconds", fractional_seconds_str, out_error)) { return false; }
 
         // we need the number of digits _before_ stripping leading zeroes to determine how to convert the value to nanoseconds
-        const int num_digits = fractional_seconds_str.size();
+        const int64_t num_digits = static_cast<int64_t>(fractional_seconds_str.size());
 
         // strip leading zeroes
         while (fractional_seconds_str.size() > 1 && fractional_seconds_str[0] == '0')
@@ -1896,7 +1896,7 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
                 {
                     multiplier *= 10;
                 }
-                out_datetime.nanosecond = fractional_seconds * multiplier;
+                out_datetime.nanosecond = static_cast<uint32_t>(fractional_seconds * multiplier);
             }
             else if (num_digits > 9)
             {
@@ -1906,7 +1906,7 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
                 {
                     divisor *= 10;
                 }
-                out_datetime.nanosecond = fractional_seconds / divisor;
+                out_datetime.nanosecond = static_cast<uint32_t>(fractional_seconds / divisor);
             }
             else
             {

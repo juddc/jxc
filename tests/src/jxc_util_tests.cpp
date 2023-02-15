@@ -250,16 +250,24 @@ TEST(jxc_util, FloatLiteralTypes)
     EXPECT_EQ(jxc::get_float_literal_type<double>(std::numeric_limits<double>::signaling_NaN()), jxc::FloatLiteralType::NotANumber);
 
     // positive infinity
+#if !defined(_MSC_VER)
     EXPECT_EQ(jxc::get_float_literal_type<float>(1.0f / 0.0f), jxc::FloatLiteralType::PosInfinity);
+#endif
     EXPECT_EQ(jxc::get_float_literal_type<float>(std::numeric_limits<float>::infinity()), jxc::FloatLiteralType::PosInfinity);
 
+#if !defined(_MSC_VER)
     EXPECT_EQ(jxc::get_float_literal_type<double>(1.0 / 0.0), jxc::FloatLiteralType::PosInfinity);
+#endif
     EXPECT_EQ(jxc::get_float_literal_type<double>(std::numeric_limits<double>::infinity()), jxc::FloatLiteralType::PosInfinity);
 
     // negative infinity
+#if !defined(_MSC_VER)
     EXPECT_EQ(jxc::get_float_literal_type<float>(-1.0f / 0.0f), jxc::FloatLiteralType::NegInfinity);
+#endif
     EXPECT_EQ(jxc::get_float_literal_type<float>(-std::numeric_limits<float>::infinity()), jxc::FloatLiteralType::NegInfinity);
 
+#if !defined(_MSC_VER)
     EXPECT_EQ(jxc::get_float_literal_type<double>(-1.0 / 0.0), jxc::FloatLiteralType::NegInfinity);
+#endif
     EXPECT_EQ(jxc::get_float_literal_type<double>(-std::numeric_limits<double>::infinity()), jxc::FloatLiteralType::NegInfinity);
 }
