@@ -537,8 +537,7 @@ const char* float_literal_type_to_string(FloatLiteralType type)
 template<size_t BufSize>
 static inline void char_buffer_write_char(detail::MiniBuffer<char, BufSize>& out_buf, char value, size_t& inout_index)
 {
-    // NB. MiniBuffer already has a JXC_ASSERT on operator[]. This extra assert is just for debugging use.
-    JXC_DEBUG_ASSERT(inout_index < out_buf.capacity());
+    JXC_ASSERT(inout_index < out_buf.capacity());
     out_buf[inout_index] = value;
     ++inout_index;
 }
@@ -609,9 +608,8 @@ static void char_buffer_write_integer(detail::MiniBuffer<char, BufSize>& out_buf
     size_t num_digits_written = 0;
 
     // add zero padding
-    while (num_digits_written < num_padding_zeroes)
+    while (num_digits_written < num_padding_zeroes && inout_index < out_buf.capacity())
     {
-        JXC_DEBUG_ASSERT(inout_index < out_buf.capacity());
         out_buf[inout_index] = '0';
         ++inout_index;
         ++start;
