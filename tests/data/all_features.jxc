@@ -1,10 +1,6 @@
 #
 # JXC format test file
 #
-# - Hash-style single-line comments only
-# - Can be parsed either as a single value, or with the document wrapped in an implicit document (less boilerplate for config files)
-# - Superset of JSON (any JSON file can be parsed correctly with a JXC parser)
-# - In arrays and objects, commas and newlines are both valid separators. Trailing commas are allowed.
 {
 
 basic_value_types: [
@@ -16,6 +12,8 @@ basic_value_types: [
     0, 1, 2, 3, 4, -10, -11, -12,
     # floats
     0.0, 3.141, -5.233, 123.456,
+    # float literals
+    nan, inf, +inf, -inf,
     # strings
     "", '', "abc", 'def', "\tzzzzzzz1234\n",
     # byte strings
@@ -30,25 +28,8 @@ basic_value_types: [
     (), (1 + 1), (true | false), (x += y), (abc=def, qqq=(1 + 2 / 3 * 4), zzz~=5),
 ]
 
-# "expression" is a special container value type that allows a series of tokens and non-container
-# values wrapped in parentheses.
-# The default parser simply converts them to an array of values (with identifiers treated as strings),
-# but they are most useful when parsed with a custom handler.
-# When writing a custom handler, it is highly recommended that you use annotations to select an
-# expression parser for any given expression.
+# "expression" is a special container value type that allows a series of tokens and non-container values wrapped in parentheses.
 expression_values: [
-    # Expressions allow identifiers, non-container values (without annotations), and any of the following symbols which can be used as operators:
-    # `|`, `&`, `!`, `=`, `<`, `>`, `+`, `-`, `*`, `/`, `%`, `^`, `.`, `?`, '~'
-    # Note that these operator symbols can be combined in up to 4-character combinations to produce any needed operator.
-
-    # `+`, `-`, `*`, `/`, `%`, `^`, `|`, `&`, `!`, `=`, `<`, `>`, `~`, `?`, `.`, `(`, `)`, `,`
-    # Note that while the tokens used are not interpreted by JXC (they are just data for use by the host application),
-    # some tokens have specific parsing rules. These rules are in place because they are useful for nearly all use-cases,
-    # and having them be part of the specification means less error-handling for the host-application to be responsible for.
-    #   `(` and `)`: inner parentheses are checked for matching pairs
-    #   `,`: more than one in a row is not allowed
-    #   Note that angle brackets (`<` and `>`) are not checked for matching pairs to allow their use as less-than and greater-than symbols.
-
     # empty expression
     ()
     (())
@@ -72,7 +53,7 @@ expression_values: [
 
     # boolean-style expressions
     (5 <= 4)
-    (5 < 3 || abc + 5 > 10 || qqq == null || false)
+    (5 < 3 || abc + 5 > 10 || qqq == null || false || 5 > inf)
     (true || false)
     (true === false or true)
 
@@ -85,7 +66,7 @@ expression_values: [
 
     # expressions as data
     ref(Core.Voxel.Air)
-    asset(StaticMesh'/Game/CoreArt/Environment/Trees/TreeExperiment02.TreeExperiment02')
+    asset(StaticMesh '/Game/CoreArt/Environment/Trees/TreeExperiment02.TreeExperiment02')
     (FVoxel(14).With('Phase', 3))
 ]
 
@@ -166,9 +147,6 @@ string_types: [
         }
     )cpp"
 
-    # JXC supports binary data by encoding it as hex (generally useful for small values)
-    # or base64 (generally useful for larger values).
-
     # Base64-encoded byte strings
     b64"anhjIGZvcm1hdA=="
 
@@ -188,42 +166,58 @@ string_types: [
     )"
 
     # Date values
+    dt"0001-01-01"
     dt"2004-11-02"
     dt"1602-02-14"
+    dt'1997-04-22'
+    dt'-0042-11-02'
+    dt'4999-10-28'
     dt"6054-04-22"
-    dt"0001-01-01"
+    dt'2023-02-14'
+    dt'-12345-01-01'
+    dt'+12345-01-01'
 
     # DateTime values
     dt"2023-02-09T14:11:04"
     dt"2023-02-09T14:11:04-08:00"
     dt"1998-03-11T17:14:12.456Z"
+    dt"1970-01-01T00:00:00Z"
+    dt"1970-01-01T00:00:00Z"
+    dt"-0001-01-01T00:00:00Z"
+    dt"0000-01-01T00:00:00Z"
+    dt"0001-01-01T01:01:01.000000001Z"
+    dt"0001-01-01T01:01:01.000000000001Z"
+    dt"-10000-01-01T00:00:00Z"
+    dt"-10000-12-31T00:00:00Z"
+    dt"2012-12-12T00:00:00Z"
+    dt"2007-11-22T12:21:49.332Z"
+    dt"2000-01-01T12:35:22.250"
+    dt"2023-02-10T08:22:59.777"
+    dt"-0050-12-31T14:49:10.205"
+    dt"12345-08-21T08:30:42.205+00:15"
+    dt"-12345-08-21T08:30:42.020500234+00:15"
+    dt"1999-08-21T08:30:42.205+00:15"
+    dt"1999-08-21T08:30:42.205-08:00"
+    dt"1999-08-21T08:30:42.205+11:45"
 
-    # JXC does not support custom string prefixes to avoid conflicts with future format revisions.
-    # Instead you can simply use type annotations to associate a tag or type. This also allows you
-    # to combine annotations with builtin prefixes (eg. `custom_str b64"/xEiu/8="`).
-    # Note that unlike container types, type annotations associated with single-value types MUST have
-    # whitespace separating it from the first character in the value (in this case the quote character)
-    # to avoid ambiguity.
     custom_string "abcdef"
     custom_string b64"/xEiu/8="
-    #regex r'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
+    regex r'([a-zA-Z_$][a-zA-Z0-9_$]*\.['"](.*)['"]))'
 
     # this is NOT VALID syntax, as `str` would be treated as an invalid builtin string prefix instead of an annotation.
     #custom_string"abcdef"
 ]
 
 numeric_types: [
-    # The two base number types are integer and floating-point
-    123,
-    123.456,
+    123         # int
+    123.456     # float
+    0xff        # hex
+    0b01101100  # binary
+    0o777       # octal
 
-    # You can also specify integer values using binary, hex, or octal
-    0xff
-    0b01101100
-    0o777
-
-    # Both number types support custom suffixes to provide a unit or type.
-    # The unit value is limited to a short identifier, at most 16 characters. ([a-zA-Z_%][a-zA-Z0-9_%]{0,15}).
+    # All number types support custom suffixes to provide a unit or type.
+    # You can optionally add an underscore between the number and the suffix as a visual separator.
+    # The unit value is limited to a short identifier, at most 15 characters. ([a-zA-Z%][a-zA-Z0-9_%]{1,15}).
     10px
     25.1%
     30mm
@@ -232,6 +226,10 @@ numeric_types: [
     15u8
     15_i64
     15.0f
+
+    # Note that hex literals _require_ the underscore separator to avoid parsing ambiguity
+    0x1f_u8
+    # 0x1fu8  # not valid
 
     # You can combine these suffixes with annotations if desired.
     int32_t 10px
@@ -251,11 +249,17 @@ object_keys: {
     false: "bool key (false)"
     null: "null key"
     1234: "integer key"
-    #123.456: false     # floating point values are not valid as keys
 
-    # Non-value keys, with identifiers that can contain `$`, `*`, and `_`, but cannot start with a number.
-    # These identifiers can be separated with `.` characters.
-    # Whitespace is not allowed (use a string key if whitespace must be in the key)
+    # floating point values are not valid as keys
+    #123.456: false
+
+    # nan and inf are considered floating point values, and as such are not valid object keys
+    #nan: false
+    #inf: false
+    #-inf: false
+    #+inf: false
+
+    # Identifiers
     identifier: 0
     identifier_with_underscore: 0
     dotted.identifier: 0
@@ -264,7 +268,6 @@ object_keys: {
     *: 0
     $: 0
     #.: 0       # not valid
-    #-: 0       # not valid
     *.abc.*.def.*: 0
     xfsroot.*: 'skip'
     $key$: null
@@ -301,11 +304,11 @@ webserver_config_example: {
         index: ['index.html', 'index.htm', 'index.php']
 
         default_type: 'application/octet-stream'
-        log_format.main: r"fmt(
+        log_format.main: (
             $remote_addr - $remote_user [$time_local]  $status
             "$request" $body_bytes_sent "$http_referer"
             "$http_user_agent" "$http_x_forwarded_for"
-        )fmt"
+        )
         access_log: format<main> 'logs/access.log'
         sendfile: true
         tcp_nopush: true
@@ -359,21 +362,15 @@ webserver_config_example: {
 stylesheet_example: {
     paragraph: attr<name='first', href='about:blank'> {
         width: 90%
-        # `calc` is actually an annotation here, and the part in parentheses is the "expression" value type.
-        # You can combine these to simulate a function-style syntax.
         height: calc(10% + 20px)
         font.size: 1.5em
         background.color: rgb[20, 50, 150]
     }
 
-    # By default, objects are backed by a hashmap, which does not allow duplicate keys.
-    # JXC itself does not care about duplicate keys - how objects are stored is an implementation detail.
-    # If you use a custom container type for objects with a particular annotation, and that
-    # container type allows duplicate keys, that makes it possible to allow syntax like this.
+    # While objects are usually backed by a hashmap, which does not allow duplicate keys, that's just an implementation detail.
+    # If you use a different storage backend or do second-stage parsing yourself, you can easily handle duplicate keys however you want.
     paragraph: attr<name='second'> {
         width: 90%
-        # using a type annotation with an empty expression is one way you could use an identifier instead of a string
-        # (identifiers can not be used as values, as that would create ambiguity when parsing)
         height: auto()
         font.size: 1.5em
         background.color: rgb[20, 50, 150]
@@ -381,13 +378,12 @@ stylesheet_example: {
     }
 
     $toggle: {
-        $var.accent.color: rgb[49, 49, 49]
-        $var.indicator.width: 25%
+        $var.accent_color: rgb[49, 49, 49]
         position: 'relative'
         min.width: 5vmin
         min.height: min(30px, 5vmin)
         box.shadow: (0 0 0.5vmin rgba(0, 0, 0, 0.4))
-        background: var(accent-color)
+        background: var(accent_color)
         border.size: max(2px, 0.2vmin)
         border.style: solid()
         border.color: rgb[134, 134, 50]
@@ -406,11 +402,11 @@ stylesheet_example: {
 # simple shell script
 shell_script: shell[
     cd 're2c'
-    mkdir ('-p', 'out')
+    mkdir (-p 'out')
     cd 'out'
     cmake '..'
-    cmake ('--build', '.')
-    cp ('./re2c', '../../../tools/re2c')
+    cmake (--build '.')
+    cp ('./re2c' '../../../tools/re2c')
 ]
 
 # arch linux pkgbuild
@@ -430,8 +426,8 @@ python311_pkgbuild: {
     source: 'https://www.python.org/ftp/python/${pkgver}/Python-${pkgver}.tar.xz'
     sha256sums: ['a57dc82d77358617ba65b9841cee1e3b441f386c3789ddc0676eca077f2951c3']
     validpgpkeys: [
-        '0D96DF4D4110E5C43FBFB17F2D347EA6AA65421D'  # Ned Deily (Python release signing key) <nad@python.org>
-        'E3FF2839C048B25C084DEBE9B26995E310250568'  # Łukasz Langa (GPG langa.pl) <lukasz@langa.pl>
+        '0D96DF4D4110E5C43FBFB17F2D347EA6AA65421D'  # Ned Deily (Python release signing key)
+        'E3FF2839C048B25C084DEBE9B26995E310250568'  # Łukasz Langa (GPG langa.pl)
     ]
     provides: ["python=$pkgver"]
 
@@ -474,7 +470,7 @@ python311_pkgbuild: {
     package: shell[
         cd "${srcdir}/Python-${pkgver}"
         # altinstall: /usr/bin/pythonX.Y but not /usr/bin/python or /usr/bin/pythonX
-        make ('DESTDIR="${pkgdir}"', 'altinstall', 'maninstall')
+        make ('DESTDIR="${pkgdir}"' altinstall maninstall)
 
         # Split tests
         rm.r '"$pkgdir"/usr/lib/python*/{test,ctypes/test,distutils/tests,idlelib/idle_test,lib2to3/tests,tkinter/test,unittest/test}'
@@ -485,15 +481,18 @@ python311_pkgbuild: {
         rm.f "${pkgdir}/usr/share/man/man1/python${_pymajver}.1"
 
         # Clean-up reference to build directory
-        sed.i ("s|$srcdir/Python-${pkgver}:||", "$pkgdir/usr/lib/python${_pybasever}/config-${_pybasever}-${CARCH}-linux-gnu/Makefile")
+        sed.i (
+            "s|$srcdir/Python-${pkgver}:||"
+            "$pkgdir/usr/lib/python${_pybasever}/config-${_pybasever}-${CARCH}-linux-gnu/Makefile"
+        )
 
         # Add useful scripts FS#46146
         install.dm755 '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/{i18n,scripts}'
-        install.m755 ('Tools/i18n/{msgfmt,pygettext}.py', '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/i18n/')
-        install.m755 ('Tools/scripts/{README,*py}', '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/scripts/')
+        install.m755 ('Tools/i18n/{msgfmt,pygettext}.py' '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/i18n/')
+        install.m755 ('Tools/scripts/{README,*py}' '"${pkgdir}"/usr/lib/python${_pybasever}/Tools/scripts/')
 
         # License
-        install.Dm644 ('LICENSE', "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE")
+        install.Dm644 ('LICENSE' "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE")
     ]
 }
 
@@ -515,7 +514,7 @@ renderer: Renderer {
         import os, sys
         # this is a multi-line string
         value = '''
-            oh hai python multi-line string that looks similar to the inu one but should still be easily parsable
+            python multi-line string
         '''
         if __name__ == "__main__":
             for i in range(10):

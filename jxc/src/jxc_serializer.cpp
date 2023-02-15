@@ -336,19 +336,17 @@ Serializer& Serializer::value_nan()
 }
 
 
-Serializer& Serializer::value_pos_infinity()
+Serializer& Serializer::value_inf(bool negative)
 {
     last_token_size = pre_write_token(TokenType::Number);
-    last_token_size += output.write("+inf");
-    post_write_token();
-    return *this;
-}
-
-
-Serializer& Serializer::value_neg_infinity()
-{
-    last_token_size = pre_write_token(TokenType::Number);
-    last_token_size += output.write("-inf");
+    if (negative)
+    {
+        last_token_size += output.write("-inf");
+    }
+    else
+    {
+        last_token_size += output.write("inf");
+    }
     post_write_token();
     return *this;
 }
@@ -362,9 +360,9 @@ Serializer& Serializer::value_float(double value, std::string_view suffix, int32
     case FloatLiteralType::NotANumber:
         return value_nan();
     case FloatLiteralType::PosInfinity:
-        return value_pos_infinity();
+        return value_inf();
     case FloatLiteralType::NegInfinity:
-        return value_neg_infinity();
+        return value_inf(true);
     default:
         break;
     }

@@ -189,6 +189,7 @@ TEST(jxc_core, JumpParserSimple)
 
     // float literals
     EXPECT_PARSE_SINGLE("nan", make_element(ElementType::Number, make_token(TokenType::Number, "nan")));
+    EXPECT_PARSE_SINGLE("inf", make_element(ElementType::Number, make_token(TokenType::Number, "inf")));
     EXPECT_PARSE_SINGLE("+inf", make_element(ElementType::Number, make_token(TokenType::Number, "+inf")));
     EXPECT_PARSE_SINGLE("-inf", make_element(ElementType::Number, make_token(TokenType::Number, "-inf")));
 
@@ -415,35 +416,6 @@ TEST(jxc_core, JumpParserUnaryOperatorExpressions)
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
         EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
     }
-
-    {
-        TestJumpParser parser("(-inf)");
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "-inf")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
-    }
-
-    {
-        TestJumpParser parser("(+inf)");
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "+inf")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
-    }
-
-    {
-        TestJumpParser parser("(--2++inf--inf+5)");
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginExpression, make_token(TokenType::ParenOpen)));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "2")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "+inf")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Minus, "-")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "-inf")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ExpressionToken, make_token(TokenType::Plus, "+")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "5")));
-        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndExpression, make_token(TokenType::ParenClose)));
-    }
 }
 
 
@@ -625,6 +597,7 @@ TEST(jxc_core, NumberParsing)
     EXPECT_PARSE_NUMBER("-1.25555555555551f", '-', "", "1.25555555555551", 0, "f");
 
     EXPECT_PARSE_FLOAT_LITERAL("nan", '+', FloatLiteralType::NotANumber);
+    EXPECT_PARSE_FLOAT_LITERAL("inf", '+', FloatLiteralType::PosInfinity);
     EXPECT_PARSE_FLOAT_LITERAL("+inf", '+', FloatLiteralType::PosInfinity);
     EXPECT_PARSE_FLOAT_LITERAL("-inf", '-', FloatLiteralType::NegInfinity);
 }
@@ -845,6 +818,11 @@ TEST(jxc_core, DateTimeToISO8601)
     EXPECT_EQ(datetime_to_iso8601(DateTime::make_local(2000, 1, 1, 12, 35, 22, ms_to_ns(250))), "2000-01-01T12:35:22.250");
     EXPECT_EQ(datetime_to_iso8601(DateTime::make_local(2023, 2, 10, 8, 22, 59, ms_to_ns(777))), "2023-02-10T08:22:59.777");
     EXPECT_EQ(datetime_to_iso8601(DateTime::make_local(-50, 12, 31, 14, 49, 10, ms_to_ns(205))), "-0050-12-31T14:49:10.205");
+
+    // timezones
+    EXPECT_EQ(datetime_to_iso8601(DateTime(1999, 8, 21, 8, 30, 42, ms_to_ns(205), 0, 15)), "1999-08-21T08:30:42.205+00:15");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(1999, 8, 21, 8, 30, 42, ms_to_ns(205), -8, 0)), "1999-08-21T08:30:42.205-08:00");
+    EXPECT_EQ(datetime_to_iso8601(DateTime(1999, 8, 21, 8, 30, 42, ms_to_ns(205), 11, 45)), "1999-08-21T08:30:42.205+11:45");
 }
 
 
@@ -986,12 +964,12 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::quiet_NaN()); }), "nan");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::signaling_NaN()); }), "nan");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_nan(); }), "nan");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<float>::infinity()); }), "+inf");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::infinity()); }), "+inf");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_pos_infinity(); }), "+inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<float>::infinity()); }), "inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<double>::infinity()); }), "inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_inf(); }), "inf");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-std::numeric_limits<float>::infinity()); }), "-inf");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-std::numeric_limits<double>::infinity()); }), "-inf");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_neg_infinity(); }), "-inf");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_inf(true); }), "-inf");
 
     // strings
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_string("", StringQuoteMode::Auto); }), "\"\"");
@@ -1040,6 +1018,7 @@ TEST(jxc_core, SerializerSimple)
     // expressions
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().expression_end(); }), "()");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_int(1).op("+").value_int(2).expression_end(); }), "(1+2)");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_float(1.5, "cm", 2, true).op("+").value_inf().expression_end(); }), "(1.50cm+inf)");
 
     // annotations
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.annotation("list<int>").value_null(); }), "list<int> null");

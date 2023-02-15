@@ -136,7 +136,7 @@ expr_start:
     "false"                         { set_token(); return TokenType::False; }
     "null"                          { set_token(); return TokenType::Null; }
     "nan"                           { set_token(); return TokenType::Number; }
-    (minus | plus) "inf"            { set_token(); return TokenType::Number; }
+    "inf"                           { set_token(); return TokenType::Number; }
 
     // symbols that can be used as an operator/syntax token inside expressions
     ","                             { set_token(); return TokenType::Comma; }
@@ -288,7 +288,7 @@ regular:
 
     // numbers
     "nan"                           { set_token(); return TokenType::Number; }
-    (minus | plus) "inf"            { set_token(); return TokenType::Number; }
+    (minus | plus)? "inf"           { set_token(); return TokenType::Number; }
     number_value                    { set_token(); return TokenType::Number; }
 
     // identifiers

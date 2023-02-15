@@ -188,10 +188,10 @@ void PyEncoder::encode_value(py::object val)
             doc.value_nan();
             return;
         case FloatLiteralType::PosInfinity:
-            doc.value_pos_infinity();
+            doc.value_inf();
             return;
         case FloatLiteralType::NegInfinity:
-            doc.value_neg_infinity();
+            doc.value_inf(true);
             return;
         default:
             break;

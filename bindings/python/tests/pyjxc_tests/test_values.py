@@ -104,14 +104,20 @@ class SimpleValueTests(unittest.TestCase):
         self.assertFalse(math.isfinite(jxc.loads('+inf')))
         self.assertFalse(math.isfinite(jxc.loads('-inf')))
         self.assertTrue(math.isnan(jxc.loads('nan')))
+        self.assertTrue(math.isinf(jxc.loads('inf')))
         self.assertTrue(math.isinf(jxc.loads('+inf')))
         self.assertTrue(math.isinf(jxc.loads('-inf')))
+        self.assertEqual(jxc.loads('inf'), float('inf'))
         self.assertEqual(jxc.loads('+inf'), float('inf'))
         self.assertEqual(jxc.loads('-inf'), -float('inf'))
+        # inside expressions
+        self.assertEqual(jxc.loads('(inf)', default_expr_parse_mode=jxc.ExpressionParseMode.ValueList), [float('inf')])
+        self.assertEqual(jxc.loads('(+inf)', default_expr_parse_mode=jxc.ExpressionParseMode.ValueList), ['+', float('inf')])
+        self.assertEqual(jxc.loads('(-inf)', default_expr_parse_mode=jxc.ExpressionParseMode.ValueList), ['-', float('inf')])
 
     def test_serialize_float_literals(self):
         self.assertEqual(jxc.dumps(float('nan')), 'nan')
-        self.assertEqual(jxc.dumps(float('inf')), '+inf')
+        self.assertEqual(jxc.dumps(float('inf')), 'inf')
         self.assertEqual(jxc.dumps(-float('inf')), '-inf')
 
     def test_parse_float_suffixes(self):

@@ -21,6 +21,7 @@ value: Sequence[
                 MatchGroupRef "string_base64"
                 MatchGroupRef "string_datetime"
                 MatchGroupRef "number"
+                MatchGroupRef "float_literal"
                 String "true"
                 String "false"
                 String "null"
@@ -66,6 +67,7 @@ annotation_inner: Sequence[
         MatchGroupRef "string_raw"
         MatchGroupRef "string_datetime"
         MatchGroupRef "number"
+        MatchGroupRef "float_literal"
         String "true"
         String "false"
         String "null"
@@ -172,6 +174,8 @@ expression_item: Sequence[
         String "true"
         String "false"
         String "null"
+        String "nan"
+        String "inf"
         MatchGroupRef "expression_operator"
         MatchGroupRef "line_break"
         Character ','
@@ -615,6 +619,17 @@ base64_digit: Choice[
     Character '+'
     Character '/'
     Character '='
+]
+
+float_literal: Choice[
+    String "nan"
+    Sequence[
+        Choice<Optional>[
+            Character '+'
+            Character '-'
+        ]
+        String "inf"
+    ]
 ]
 
 whitespace_optional: Choice<ZeroOrMore>[

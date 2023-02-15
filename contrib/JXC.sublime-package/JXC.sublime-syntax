@@ -12,13 +12,17 @@ variables:
   hex_number_type_suffix: '(_[a-zA-Z_%][a-zA-Z0-9_%]{0,15})?'
   number_prefix: '[\-\+]?'
 
-  constant_value: 'true|false|null'
+  constant_value: 'true|false|null|nan|inf'
   number_start: '[\-\+0-9]'
   string_start: '{{quote_s}}|{{quote_d}}'
   string_raw_start: '{{str_prefix_raw}}{{quote_s}}|{{str_prefix_raw}}{{quote_d}}'
   string_base64_start: '{{str_prefix_base64}}{{quote_s}}|{{str_prefix_base64}}{{quote_d}}'
+  string_datetime_start: '{{str_prefix_datetime}}{{quote_s}}|{{str_prefix_datetime}}{{quote_d}}'
+  date_value: '([+-]?[0-9]{4,5})-([0-9]{2})-([0-9]{2})'
+  time_value: '([0-9]{2}):([0-9]{2})((:)([0-9]{2}))?(\.[0-9]{1,12})?'
+  timezone_value: '(Z)|([+-])([0-9]{2}):([0-9]{2})'
 
-  value_start: '{{constant_value}}|{{number_start}}|{{string_start}}|{{string_raw_start}}|{{string_base64_start}}|\[|\(|\{'
+  value_start: '{{constant_value}}|{{number_start}}|{{string_start}}|{{string_raw_start}}|{{string_base64_start}}|{{string_datetime_start}}|\[|\(|\{'
   
   bin_digit: '[01]+'
   oct_digit: '[0-7]+'
@@ -31,6 +35,7 @@ variables:
   quote_d: \"
   str_prefix_raw: 'r'
   str_prefix_base64: 'b64'
+  str_prefix_datetime: 'dt'
   expr_combinable_operator: '[\|\&\!\=\+\-\*\/\%\^\?\~\<\>\;]'
 
   identifier: '[a-zA-Z_$][a-zA-Z0-9_$]*'
@@ -65,6 +70,19 @@ contexts:
     - meta_scope: meta.constant.jxc
     - match: \b(?:false|true)\b
       scope: constant.language.boolean.jxc
+
+  constant_nan:
+    - meta_scope: meta.constant.jxc
+    - match: \bnan\b
+      scope: constant.language.nan.jxc
+
+  constant_inf:
+    - meta_scope: meta.constant.jxc
+    - match: ([+-])?(inf)
+      captures:
+        0: constant.language.inf.jxc
+        1: keyword.operator.arithmetic.jxc
+        2: constant.language.inf.jxc
 
   number_integer:
     - meta_scope: meta.number.jxc
@@ -141,6 +159,10 @@ contexts:
         5: punctuation.definition.string.end.jxc
         6: punctuation.definition.string.end.jxc
 
+    # error highlighting for raw strings without parens
+    - match: (r)(["'])(.*)(\2)
+      scope: invalid.illegal.jxc
+
   string_raw_multi_line:
     - meta_scope: meta.string_raw.jxc
     - meta_include_prototype: false
@@ -163,10 +185,55 @@ contexts:
     - include: string_raw_single_line
     - include: string_raw_multi_line
 
+  string_datetime:
+    - match: '(dt)([{{quote_s}}{{quote_d}}])({{date_value}})(\2)'
+      captures:
+        0: string.quoted.datetime.jxc
+        1: storage.type.string.datetime.jxc
+        2: storage.type.string.quote.jxc
+        3: constant.numeric.date.jxc
+        4: constant.numeric.date.year.jxc
+        5: constant.numeric.date.month.jxc
+        6: constant.numeric.date.day.jxc
+        7: storage.type.string.quote.jxc
+
+    - match: '(dt)([{{quote_s}}{{quote_d}}])({{date_value}})((T){{time_value}})({{timezone_value}})?(\2)'
+      captures:
+        0: string.quoted.datetime.jxc
+
+        1: storage.type.string.datetime.jxc
+        2: storage.type.string.quote.jxc
+
+        3: constant.numeric.date.jxc
+        4: constant.numeric.date.year.jxc
+        5: constant.numeric.date.month.jxc
+        6: constant.numeric.date.day.jxc
+
+        7: constant.numeric.time.jxc
+        8: storage.type.time.jxc
+        9: constant.numeric.time.hour.jxc
+        10: constant.numeric.time.minute.jxc
+        13: constant.numeric.time.second.jxc
+        14: constant.numeric.time.fractional_second.jxc
+
+        15: storage.type.timezone.jxc
+        18: constant.timezone.hour.jxc
+        19: constant.timezone.minute.jxc
+
+        20: storage.type.string.quote.jxc
+
+    - match: '(dt)([{{quote_s}}{{quote_d}}])(.*)(\2)'
+      captures:
+        0: string.quoted.datetime.jxc
+        1: storage.type.string.datetime.jxc
+        2: storage.type.string.quote.jxc
+        3: invalid.illegal.jxc
+        4: storage.type.string.quote.jxc
+
   string_bytes_single_line:
     - meta_scope: meta.byte_string.jxc
     # single-line base64-encoded byte string
-    - match: (b64)([\"\'])([a-zA-Z0-9\+\/]*)(\={0,2})(\2)
+    - match: (b64)([\"\'])([a-zA-Z0-9\+\/]*)(\={0,3})(\2)
       captures:
         1: storage.type.string.jxc
         2: punctuation.definition.string.begin.jxc
@@ -185,13 +252,17 @@ contexts:
       push:
         - match: '[a-zA-Z0-9\+\/]+'
           scope: constant.numeric.integer.hexadecimal.jxc
-        - match: '\={0,2}'
+        - match: '\={0,3}'
           scope: constant.numeric.integer.hexadecimal.jxc
         - match: '[^a-zA-Z0-9\+\/\=\s\)]'
           scope: invalid.illegal.jxc
         - match: \)\2
           scope: punctuation.definition.string.end.jxc
           pop: true
+
+    # error highlighting for strings that didn't match the base64 regexes
+    - match: (b64)([\"\'])(.*)(\2)
+      scope: invalid.illegal.jxc
 
   inside-string-single-quote:
     - meta_scope: string.quoted.single.jxc
@@ -288,11 +359,14 @@ contexts:
   expr_value:
     - include: constant_null
     - include: constant_bool
+    - include: constant_nan
+    - include: constant_inf
     - include: number_integer
     - include: number_float
     - include: string_raw_single_line
     - include: string_bytes_single_line
     - include: string_single_line
+    - include: string_datetime
     - include: expr_operator
     - include: expr_identifier
 
@@ -302,6 +376,11 @@ contexts:
     - include: number_integer
     - include: string_single_line
     - include: string_raw_single_line
+
+    # error highlighting for nan or inf object keys
+    - match: (nan|[+-]?inf)(?!\.)
+      scope: invalid.illegal.jxc
+
     - match: '{{object_key}}'
       scope: string.identifier.jxc
 
@@ -343,6 +422,8 @@ contexts:
   annotation_inner:
     - include: constant_null
     - include: constant_bool
+    - include: constant_nan
+    - include: constant_inf
     - include: string_bytes_single_line
     - include: string_raw_single_line
     - match: '{{identifier}}'
@@ -356,6 +437,7 @@ contexts:
     - include: number_float
     - include: number_integer
     - include: string_single_line
+    - include: string_datetime
     - match: \(
       scope: punctuation.section.generic.begin.jxc
       push:
@@ -396,12 +478,15 @@ contexts:
       push: annotation
     - include: constant_null
     - include: constant_bool
+    - include: constant_nan
+    - include: constant_inf
     - include: number_float
     - include: number_integer
     - include: string_bytes_single_line
     - include: string_bytes_multi_line
     - include: string_raw
     - include: string_single_line
+    - include: string_datetime
     - include: list
     - include: expr
     - include: object
