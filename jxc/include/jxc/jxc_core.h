@@ -18,8 +18,8 @@
 #include "jxc/jxc_format.h"
 
 #define JXC_VERSION_MAJOR 0
-#define JXC_VERSION_MINOR 8
-#define JXC_VERSION_PATCH 4
+#define JXC_VERSION_MINOR 9
+#define JXC_VERSION_PATCH 0
 
 #if !defined(JXC_ENABLE_RELEASE_ASSERTS)
 #define JXC_ENABLE_RELEASE_ASSERTS 1
