@@ -28,6 +28,7 @@ from _pyjxc import (
     element_can_contain_value,
     element_is_expression_value_type,
     element_is_value_type,
+    set_custom_assert_handler,
 )
 
 from . import (encode, decode)

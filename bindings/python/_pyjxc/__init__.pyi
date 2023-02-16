@@ -1027,6 +1027,8 @@ def element_is_value_type(arg0: ElementType) -> bool:
     elements)
     """
 
+def have_custom_assert_handler() -> bool: ...
+
 invalid_idx: int = 18446744073709551615
 def is_ascii_escape_char(codepoint, quote_char: str = '\x00') -> bool:
     """

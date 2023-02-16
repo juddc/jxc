@@ -364,6 +364,7 @@ class ExpressionProxy
 private:
     Serializer& parent;
     int64_t num_tokens = 0;
+    bool skip_next_space = false;
 
     ExpressionProxy(Serializer& parent) : parent(parent)
     {
@@ -373,7 +374,12 @@ private:
     // auto-add spacing before a token if we have existing tokens
     inline void pre()
     {
-        if (parent.settings.pretty_print && num_tokens > 0 && parent.output.get_last_char() != ' ')
+        // if we were told to skip adding whitespace, do so now and then reset the flag
+        if (skip_next_space)
+        {
+            skip_next_space = false;
+        }
+        else if (parent.settings.pretty_print && num_tokens > 0 && parent.output.get_last_char() != ' ')
         {
             parent.write(' ');
         }
@@ -408,13 +414,15 @@ public:
 
 #undef JXC_EXPR_TOK
 
-    // direct write (string)
-    inline ExpressionProxy& write(std::string_view value) { parent.write(value); return *this; }
+    // Direct write (string)
+    // This function suppresses auto-adding whitespace to the token following it, to give exact whitespace control.
+    inline ExpressionProxy& write(std::string_view value) { parent.write(value); skip_next_space = true; return *this; }
 
-    // direct write (char)
-    inline ExpressionProxy& write(char value) { parent.write(value); return *this; }
+    // Direct write (char)
+    // This function suppresses auto-adding whitespace to the token following it, to give exact whitespace control.
+    inline ExpressionProxy& write(char value) { parent.write(value); skip_next_space = true; return *this; }
 
-    // direct write (token)
+    // Direct write (token)
     inline ExpressionProxy& token(TokenType token_type)
     {
         // true, false, and null are multi-character tokens and we should handle whitespace correctly for them.
@@ -440,7 +448,7 @@ public:
 
     // helpers
     inline ExpressionProxy& comma() { parent.write(','); return *this; }
-    inline ExpressionProxy& paren_open() { parent.write('('); return *this; }
+    inline ExpressionProxy& paren_open() { parent.write('('); skip_next_space = true; return *this; }
     inline ExpressionProxy& paren_close() { parent.write(')'); return *this; }
 
     // end expression and return to the parent serializer

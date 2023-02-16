@@ -170,7 +170,6 @@ uint32_t python_value_to_codepoint(py::object value)
 }
 
 
-
 PYBIND11_MODULE(_pyjxc, m)
 {
     using namespace jxc;
@@ -180,18 +179,28 @@ PYBIND11_MODULE(_pyjxc, m)
 
     m.def("set_custom_assert_handler", [](py::object handler)
     {
-        set_custom_assert_handler([handler](std::string_view file, int line, std::string_view cond, std::string&& msg)
+        if (handler.is_none())
         {
-            try
+            clear_custom_assert_handler();
+        }
+        else
+        {
+            set_custom_assert_handler([handler](std::string_view file, int line, std::string_view cond, std::string&& msg)
             {
-                handler(file, line, cond, msg);
-            }
-            catch (const py::cast_error& e)
-            {
-                jxc::print("Got Python cast error in assert handler: {}\n", e.what());
-            }
-        });
+                py::gil_scoped_acquire gil{};
+                try
+                {
+                    handler(file, line, cond, msg);
+                }
+                catch (const py::cast_error& e)
+                {
+                    jxc::print("Got Python cast error in assert handler: {}\n", e.what());
+                }
+            });
+        }
     });
+
+    m.def("have_custom_assert_handler", &have_custom_assert_handler);
 
     py::enum_<LogLevel>(m, "LogLevel")
         .value("Info", LogLevel::Info)
@@ -210,6 +219,7 @@ PYBIND11_MODULE(_pyjxc, m)
         {
             set_custom_log_handler([handler](LogLevel level, std::string&& msg)
             {
+                py::gil_scoped_acquire gil{};
                 handler(py::cast(level), py::cast(std::move(msg)));
             });
         }

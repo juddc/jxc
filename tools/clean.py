@@ -15,6 +15,7 @@ CLEAN_FILES = [
     "jxc.egg-info/",
     "*.pyc",
     "bindings/python/jxc/__pycache__/",
+    "tools/jxdocgen/__pycache__/",
 ]
 
 CLEAN_FILES_MSVC = [

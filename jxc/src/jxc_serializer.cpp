@@ -257,7 +257,13 @@ Serializer& Serializer::value_int_hex(int64_t value, std::string_view suffix)
         last_token_size += output.write('-');
         value = -value;
     }
-    last_token_size += output.write(jxc::format("0x{:x}{}", value, suffix));
+    last_token_size += output.write(jxc::format("0x{:x}", value));
+    if (suffix.size() > 0)
+    {
+        // hex values require an underscore before the suffix
+        last_token_size += output.write('_');
+        last_token_size += output.write(suffix);
+    }
     post_write_token();
     return *this;
 }
