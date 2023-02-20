@@ -35,25 +35,27 @@ Until 1.0 is released, expect a few language and API changes.
 }
 ```
 
-# Core tenets
+# Core Language Tenets
 
 - **Human Writable**. JXC allows single, double quoted, and multi-line raw strings. Comments are allowed. Unquoted identifiers may be used as object keys. In lists and objects, trailing commas are allowed, and line breaks may be used in place of commas if desired.
 
-- **Human Readable**. Type annotations and numeric suffixes show the intended use of objects, lists, and numbers. To avoid ambiguity and maintain clarity, JXC does not allow unquoted strings as a normal value type. Indentation is not syntactically relevant.
+- **Human Readable**. Value annotations and numeric suffixes show the intended use of objects, lists, and numbers. To avoid ambiguity and maintain clarity, JXC does not allow unquoted strings as a normal value type. Indentation is not syntactically relevant.
 
-- **Syntax/Parsing Flexibility**. Different applications have different needs. JXC is intended to be extensible. It supports custom annotations on values, custom numeric suffixes, and custom expressions, all of which can be handled by custom parsers to store data in custom data types in whatever language you're using. All of these extensions should be syntactically unambiguous, and opt-in. From a performance point of view, you should only pay for what you use.
+- **Syntax/Parsing Flexibility**. Different applications have different needs. JXC is extensible via expressions, which you can parse yourself to support custom syntaxes. These can be useful for simple math expressions or even embedding snippets of scripting language code. If you want a data format that can elegantly support features such as `calc()` in CSS, you can build it with JXC.
 
 # Core Features
 
-- **JSON**. JXC is a superset of JSON. All valid JSON syntax is also valid JXC syntax. If you find any valid JSON that JXC does not handle, please submit a bug report!
+- **JSON**. JXC is a superset of JSON. All valid JSON syntax is also valid JXC syntax. If you're already using JSON for your config files and want more flexibility, it's easy to migrate to JXC. If you find any valid JSON that JXC does not handle, please submit a bug report!
 
 - **Numeric Suffixes**. JXC allows custom suffixes on numeric types, such as `10px`, `20.5%`, or `2.34_f32`. These suffixes can be evaluated at runtime and handled by your application however is needed, such as for conversion, storage, or data validation.
 
-- **Annotations**. JXC allows annotations at the beginning of any value (eg. `vec3[0,0,1]`). The annotation syntax is flexible and you can use it for whatever purpose you need for your application - there are no builtin annotations. While the primary purpose is to store type information, they could also be used to store arbitrary metadata. This data can be read as a string, or, for more complex use-cases, it can be read as a list of tokens for use by a custom parser (for example, to implement generics).
+- **Annotations**. JXC allows annotations at the beginning of any value (eg. `vec3[0,0,1]`). The annotation syntax is flexible and you can use it for whatever purpose you need for your application - there are no built-in or reserved annotations. While their primary purpose is to store type information, they can also be used to store arbitrary metadata. This data can be read as a string, or, for more complex use-cases, it can be read as a list of tokens you can parse yourself (for example, to implement generics).
 
 - **Expressions**. In addition to lists and objects, JXC has a third "container" type - expressions. These are tokenized but not parsed, so you can use expressions to effectively add custom syntax when needed. These pair very well with annotations, which you could use to select how to parse an expression.
 
 - **Raw Strings**. Raw strings (`r'()'`) are strings that do not support escape characters, allowing a much greater range of possible values without dealing with escaping every single backslash or quote character. If you add a heredoc, they also allow line breaks for even greater flexibility (`r'HEREDOC()HEREDOC'`). Raw strings are excellent for regular expressions or embedding other languages.
+
+- **DateTime Strings**. DateTime strings (`dt"2023-02-20"` or `dt"2023-02-20T10:40:05.025Z"`) are strings that only support ISO-8601 datetimes. Having a standard, first-class way to store dates and timestamps is incredibly useful for data such as log files or exported database tables. When using the Python bindings, these parse and serialize directly to datetime objects.
 
 - **Base64 Strings**. JXC has first-class support for Base-64 encoded strings (`b64"anhjIGZvcm1hdA=="`) to make it easy to include binary data when needed. You can add parentheses to allow whitespace and line breaks anywhere to improve readability (`b64"(  anhjIGZvc  m1hdA==  )"`).
 
@@ -61,7 +63,7 @@ Until 1.0 is released, expect a few language and API changes.
 The JXC reference implementation library has a two-stage parser. The first parsing stage handles JXC's syntax and yields a clear list of elements without allocating any memory for your data. The second-stage parser takes these elements and converts them into the appropriate data types, allocating memory however is needed for your environment. This means that language bindings are very efficient because each scripting language can have its own second-stage parser that allows that language to manage memory and data types appropriately. There are several second-stage parsers you can use depending on your use-case. If your application uses the C++ stdlib, you can use the C++ second-stage parser that uses a union type (`jxc::Value`) which can contain any valid JXC value as well as their associated annotations and numeric suffixes. If you have more complex needs (such as integrating with a game engine), writing a custom second-stage parser is not difficult (there is an example custom parser in `jxc_examples/src/custom_parser.cpp`).
 
 # Python Usage
-JXC includes first-class, fully featured Python bindings. It has two APIs - a more flexible but verbose one, and one that's similar to `json.loads` and `json.dumps`.
+JXC includes first-class, fully featured Python bindings. It has two APIs - one that works similarly to `json.loads` and `json.dumps`, and a more flexible but verbose one.
 
 ## Parsing in Python
 ```python-repl
