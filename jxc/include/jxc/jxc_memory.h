@@ -63,7 +63,7 @@ inline char* _jxc_strncpy(char* dest, size_t dest_size, const char* src, size_t 
     if (dest_size > 0)
     {
         size_t idx = 0;
-        while (idx < src_size && src[idx] != '\0')
+        while (idx < src_size && idx < dest_size && src[idx] != '\0')
         {
             dest[idx] = src[idx];
             ++idx;
