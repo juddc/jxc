@@ -416,6 +416,78 @@ py::object PyParser::parse_value(const Element& ele)
 }
 
 
+static py::object python_int_from_string(std::string_view str, int base = 10, int32_t multiplier = 1)
+{
+    char* pend = nullptr;
+    PyObject* val = PyLong_FromString(str.data(), &pend, base);
+    if (PyErr_Occurred() != nullptr)
+    {
+        throw py::error_already_set();
+    }
+    JXC_ASSERT(pend != nullptr && pend == str.data() + str.size());
+    if (multiplier == 1)
+    {
+        return py::reinterpret_steal<py::int_>(val);
+    }
+    return py::reinterpret_steal<py::int_>(val) * py::int_(multiplier);
+}
+
+
+// Constructs a Python int directly from a string.
+// This allows creating integers larger than int64_t and uint64_t can handle because of Python's variable-width integers.
+static py::object parse_python_large_integer(const util::NumberTokenSplitResult& number)
+{
+    JXC_DEBUG_ASSERT(number.is_integer());
+    py::object result;
+
+    int32_t multiplier = 1;
+    if (number.sign == '-')
+    {
+        multiplier *= -1;
+    }
+
+    // number.is_integer() should check for this
+    JXC_DEBUG_ASSERT(number.exponent >= 0);
+
+    if (number.exponent > 0)
+    {
+        int32_t exp = number.exponent;
+        while (exp > 0)
+        {
+            multiplier *= 10;
+            --exp;
+        }
+    }
+
+    if (number.prefix.size() == 2)
+    {
+        switch (number.prefix[1])
+        {
+        case 'x':
+        case 'X':
+            result = python_int_from_string(number.value, 16, multiplier);
+            break;
+        case 'b':
+        case 'B':
+            result = python_int_from_string(number.value, 2, multiplier);
+            break;
+        case 'o':
+        case 'O':
+            result = python_int_from_string(number.value, 8, multiplier);
+            break;
+        default:
+            throw py::value_error(jxc::format("Invalid numeric prefix {}", jxc::detail::debug_string_repr(number.prefix)));
+        }
+    }
+    else
+    {
+        result = python_int_from_string(number.value, 10, multiplier);
+    }
+
+    return result;
+}
+
+
 py::object PyParser::parse_number_element(const Element& ele)
 {
     JXC_ASSERT(ele.token.type == TokenType::Number);
@@ -439,44 +511,45 @@ py::object PyParser::parse_number_element(const Element& ele)
         }
     }
 
+    py::object result;
+
     if (number.is_integer())
     {
-        int64_t int_value = 0;
-        if (!util::parse_number<int64_t>(ele.token, int_value, number, parse_error))
+        if (number.value.size() <= 18)
         {
-            JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
-        }
-
-        py::object result = py::int_(int_value);
-        if (suffix_construct)
-        {
-            result = suffix_construct->construct(result, ele, parse_error);
-            if (parse_error.is_err)
+            // INT64_MAX is 19 digits, so 1-18 digits should always be safe for an int64_t conversion without errors
+            int64_t int_value = 0;
+            if (!util::parse_number<int64_t>(ele.token, int_value, number, parse_error))
             {
                 JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
             }
+
+            result = py::int_(int_value);
         }
-        return result;
+        else
+        {
+            result = parse_python_large_integer(number);
+        }
     }
     else
     {
-        double float_value = 0.0;
-        if (!util::parse_number<double>(ele.token, float_value, number, parse_error))
+        double result_float = 0.0;
+        if (!util::parse_number<double>(ele.token, result_float, number, parse_error))
         {
             JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
         }
-
-        py::object result = py::float_(float_value);
-        if (suffix_construct)
-        {
-            result = suffix_construct->construct(result, ele, parse_error);
-            if (parse_error.is_err)
-            {
-                JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
-            }
-        }
-        return result;
+        result = py::float_(result_float);
     }
+
+    if (suffix_construct)
+    {
+        result = suffix_construct->construct(result, ele, parse_error);
+        if (parse_error.is_err)
+        {
+            JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
+        }
+    }
+    return result;
 }
 
 
