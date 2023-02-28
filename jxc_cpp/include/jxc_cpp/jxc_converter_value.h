@@ -13,7 +13,7 @@ struct Converter<Value>
 
     static std::string get_annotation()
     {
-        return "value";
+        return "any";
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -21,13 +21,13 @@ struct Converter<Value>
         DocumentSerializer::serialize_value(doc, value);
     }
 
-    static value_type parse(JumpParser& parser)
+    static value_type parse(conv::Parser& parser, TokenSpan anno)
     {
         ErrorInfo err;
         value_type result = detail::ValueParser(parser, err).parse(parser.value());
         if (result.is_invalid() && err.is_err)
         {
-            throw parse_error(jxc::format("Failed to parse value: {}", err.to_string()));
+            throw parse_error("Failed to parse value", err);
         }
         return result;
     }

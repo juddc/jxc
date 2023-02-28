@@ -312,7 +312,7 @@ std::string ErrorInfo::to_string(std::string_view buffer) const
     {
         if (buffer_start_idx < buffer.size() && buffer_end_idx < buffer.size() && buffer_end_idx >= buffer_start_idx)
         {
-            return prefix + detail::debug_string_repr(buffer.substr(buffer_start_idx, buffer_end_idx - buffer_start_idx), '`');
+            return prefix + detail::debug_string_repr(buffer.substr(buffer_start_idx, buffer_end_idx - buffer_start_idx + 1), '`');
         }
         else if (buffer_start_idx < buffer.size())
         {

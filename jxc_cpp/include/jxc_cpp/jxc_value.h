@@ -6,6 +6,7 @@
 
 
 JXC_BEGIN_NAMESPACE(jxc)
+
 JXC_BEGIN_NAMESPACE(detail)
 
 enum class AnnotationDataType : uint8_t

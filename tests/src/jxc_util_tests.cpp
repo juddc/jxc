@@ -187,6 +187,83 @@ TEST(jxc_util, StringViewHelpers)
 }
 
 
+TEST(jxc_core, TokenSpans)
+{
+    using namespace jxc;
+
+    std::string anno_source = "array<set<string>>";
+
+    auto make_token_view = [&anno_source](TokenType type, size_t start_idx, size_t length) -> Token
+    {
+        JXC_ASSERT(length > 0);
+        JXC_ASSERT(start_idx < anno_source.size());
+        JXC_ASSERT(start_idx + length <= anno_source.size());
+        return Token(
+            type,
+            start_idx,
+            start_idx + length,
+            FlexString::make_view(std::string_view(anno_source).substr(start_idx, length)));
+    };
+
+    // instead of parsing the annotation, we'll specify the substring slices and token types manually
+    std::vector<Token> tok_data = {
+        make_token_view(TokenType::Identifier, 0, 5),
+        make_token_view(TokenType::AngleBracketOpen, 5, 1),
+            make_token_view(TokenType::Identifier, 6, 3),
+            make_token_view(TokenType::AngleBracketOpen, 9, 1),
+                make_token_view(TokenType::Identifier, 10, 6),
+            make_token_view(TokenType::AngleBracketClose, 16, 1),
+        make_token_view(TokenType::AngleBracketClose, 17, 1)
+    };
+
+    // make a TokenSpan view based on the owned vector
+    TokenSpan span = TokenSpan(tok_data[0], tok_data.size());
+
+    // make sure our manual string index numbers are correct
+    EXPECT_EQ(tok_data[0].value, "array");
+    EXPECT_EQ(tok_data[1].value, "<");
+    EXPECT_EQ(tok_data[2].value, "set");
+    EXPECT_EQ(tok_data[3].value, "<");
+    EXPECT_EQ(tok_data[4].value, "string");
+    EXPECT_EQ(tok_data[5].value, ">");
+    EXPECT_EQ(tok_data[6].value, ">");
+
+    // make sure the TokenSpan tokens match the ones in the owned tok_data vector
+    EXPECT_EQ(span.size(), tok_data.size());
+    EXPECT_EQ(span[0], tok_data[0]);
+    EXPECT_EQ(span[1], tok_data[1]);
+    EXPECT_EQ(span[2], tok_data[2]);
+    EXPECT_EQ(span[3], tok_data[3]);
+    EXPECT_EQ(span[4], tok_data[4]);
+    EXPECT_EQ(span[5], tok_data[5]);
+    EXPECT_EQ(span[6], tok_data[6]);
+
+    // the span should equal itself (using a whitespace-independent equality function)
+    EXPECT_TRUE(span.equals_annotation_string_lexed(" array < set < string > > "));
+    EXPECT_FALSE(span.equals_annotation_string_lexed("std.array < std.set < string > > "));
+
+    // the span's source should be identical to a copy of our original source
+    EXPECT_EQ(span.source(), std::string(anno_source));
+
+    // make sure we can use slice to get the inner generic parts
+    TokenSpan inner = span.slice(2, 4);
+    EXPECT_EQ(inner.size(), 4);
+    EXPECT_EQ(inner.source(), "set<string>");
+    EXPECT_TRUE(inner.equals_annotation_string_lexed(" set < string > "));
+    EXPECT_FALSE(inner.equals_annotation_string_lexed(" set < std.string > "));
+
+    // test slice params
+    EXPECT_EQ(span.slice(4).size(), 3);
+    EXPECT_EQ(span.slice(5).size(), 2);
+    EXPECT_EQ(span.slice(6).size(), 1);
+    EXPECT_EQ(span.slice(7).start, nullptr);
+    EXPECT_EQ(span.slice(4, 999999).size(), 3);
+    EXPECT_EQ(span.slice(5, 999999).size(), 2);
+    EXPECT_EQ(span.slice(6, 999999).size(), 1);
+    EXPECT_EQ(span.slice(7, 999999).start, nullptr);
+}
+
+
 TEST(jxc_util, TokenTypeMetadata)
 {
     using namespace jxc;
@@ -270,4 +347,160 @@ TEST(jxc_util, FloatLiteralTypes)
     EXPECT_EQ(jxc::get_float_literal_type<double>(-1.0 / 0.0), jxc::FloatLiteralType::NegInfinity);
 #endif
     EXPECT_EQ(jxc::get_float_literal_type<double>(-std::numeric_limits<double>::infinity()), jxc::FloatLiteralType::NegInfinity);
+}
+
+
+TEST(jxc_util, StringIntegerComparison)
+{
+    using jxc::detail::decimal_integer_string_less_than_or_equal;
+
+    auto not_decimal_integer_string_less_than_or_equal = [](std::string_view lhs, std::string_view rhs)
+    {
+        return !decimal_integer_string_less_than_or_equal(lhs, rhs);
+    };
+
+    EXPECT_PRED2(decimal_integer_string_less_than_or_equal, "99", "101");
+    EXPECT_PRED2(decimal_integer_string_less_than_or_equal, "100", "101");
+    EXPECT_PRED2(decimal_integer_string_less_than_or_equal, "101", "101");
+    EXPECT_PRED2(not_decimal_integer_string_less_than_or_equal, "102", "101");
+}
+
+
+TEST(jxc_util, IntegerFitTests)
+{
+    using jxc::detail::unsigned_integer_value_fits_in_type;
+    using jxc::detail::signed_integer_value_fits_in_type;
+
+    // 0..255
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(0));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(64));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(200));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(255));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint8_t>(256));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint8_t>(500));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint8_t>(99999999));
+
+    // 0..65535
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint16_t>(0));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint16_t>(64));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint16_t>(25123));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint16_t>(65534));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint16_t>(65535));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint16_t>(65536));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint16_t>(99999999));
+
+    // 0..4294967295
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint32_t>(0));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint32_t>(64));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint32_t>(3123433123));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint32_t>(4294967294));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint32_t>(4294967295));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint32_t>(4294967296));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint32_t>(99999999999));
+    EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint32_t>(1234999999999));
+
+    // -128..127
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int8_t>(-9999999));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int8_t>(-500));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int8_t>(-129));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int8_t>(-128));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int8_t>(-50));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int8_t>(0));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int8_t>(50));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int8_t>(127));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int8_t>(128));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int8_t>(500));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int8_t>(99999999));
+
+    // -32768..32767
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(-99999999));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(-50000));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(-32769));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(-32768));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(-32767));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(-20000));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(-10000));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(-500));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(-1));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(0));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(1));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(500));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(10000));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(20000));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(32766));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int16_t>(32767));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(32768));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(32769));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(40000));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(50000));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int16_t>(999999999));
+    
+    // -2147483648..2147483647
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(-90000000000));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(-3000000000));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(-2147483650));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(-2147483649));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(-2147483648));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(-2147483647));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(-99999999));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(-5000));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(-1));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(0));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(1));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(5000));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(99999999));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(2147483645));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(2147483646));
+    EXPECT_TRUE(signed_integer_value_fits_in_type<int32_t>(2147483647));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(2147483648));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(2147483649));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(3000000000));
+    EXPECT_FALSE(signed_integer_value_fits_in_type<int32_t>(9000000000000));
+}
+
+
+enum class NotABitmaskEnum : uint8_t
+{
+    None = 0,
+    A = 1 << 0,
+    B = 1 << 1,
+};
+
+enum class BitmaskTest : uint8_t
+{
+    None = 0,
+    A = 1 << 0,
+    B = 1 << 1,
+    C = 1 << 2,
+    D = 1 << 3,
+    E = 1 << 4,
+};
+
+JXC_BITMASK_ENUM(BitmaskTest);
+
+TEST(jxc_util, BitmaskEnums)
+{
+    BitmaskTest val = BitmaskTest::A | BitmaskTest::B | BitmaskTest::C;
+
+    // test comparing flags directly
+    EXPECT_NE(val & BitmaskTest::A, BitmaskTest::None);
+
+    // test comparing flags with the jxc::is_set helper
+    EXPECT_TRUE(jxc::is_set(val, BitmaskTest::A));
+    EXPECT_TRUE(jxc::is_set(val, BitmaskTest::B));
+    EXPECT_TRUE(jxc::is_set(val, BitmaskTest::C));
+    EXPECT_FALSE(jxc::is_set(val, BitmaskTest::D));
+    EXPECT_FALSE(jxc::is_set(val, BitmaskTest::E));
+
+    // removing and adding flags
+    val &= ~BitmaskTest::B;
+    val |= BitmaskTest::E;
+    EXPECT_TRUE(jxc::is_set(val, BitmaskTest::A));
+    EXPECT_FALSE(jxc::is_set(val, BitmaskTest::B));
+    EXPECT_TRUE(jxc::is_set(val, BitmaskTest::C));
+    EXPECT_FALSE(jxc::is_set(val, BitmaskTest::D));
+    EXPECT_TRUE(jxc::is_set(val, BitmaskTest::E));
+
+    // this should not compile because NotABitmaskEnum is not a bitmask
+    //EXPECT_TRUE(jxc::is_set(NotABitmaskEnum::A, NotABitmaskEnum::A));
 }

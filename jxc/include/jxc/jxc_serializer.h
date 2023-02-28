@@ -399,6 +399,10 @@ public:
     inline ExpressionProxy& value_int_hex(int64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_int_hex(value, suffix)); }
     inline ExpressionProxy& value_int_oct(int64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_int_oct(value, suffix)); }
     inline ExpressionProxy& value_int_bin(int64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_int_bin(value, suffix)); }
+    inline ExpressionProxy& value_uint(uint64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_uint(value, suffix)); }
+    inline ExpressionProxy& value_uint_hex(uint64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_uint_hex(value, suffix)); }
+    inline ExpressionProxy& value_uint_oct(uint64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_uint_oct(value, suffix)); }
+    inline ExpressionProxy& value_uint_bin(uint64_t value, std::string_view suffix = std::string_view{}) { JXC_EXPR_TOK(parent.value_uint_bin(value, suffix)); }
     inline ExpressionProxy& value_nan() { JXC_EXPR_TOK(parent.value_nan()); }
     inline ExpressionProxy& value_inf(bool negative = false) { JXC_EXPR_TOK(parent.value_inf(negative)); }
     inline ExpressionProxy& value_float(double value, std::string_view suffix = std::string_view{}, int32_t precision = 8, bool fixed = false) { JXC_EXPR_TOK(parent.value_float(value, suffix, precision, fixed)); }

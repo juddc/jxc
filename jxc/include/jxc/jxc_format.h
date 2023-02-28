@@ -246,7 +246,18 @@ public:
     template<typename T>
     inline FormatBuffer& operator<<(const T& value)
     {
-        buffer << value;
+        if constexpr (
+#if JXC_CPP20
+            std::is_same_v<T, char8_t> ||
+#endif
+            std::is_same_v<T, wchar_t> || std::is_same_v<T, char16_t> || std::is_same_v<T, char32_t>)
+        {
+            buffer << static_cast<uint32_t>(value);
+        }
+        else
+        {
+            buffer << value;
+        }
         return *this;
     }
 
@@ -480,6 +491,12 @@ auto transform_format_argument(const char (&string_literal)[N])
     return std::string_view(string_literal, N - 1);
 }
 
+template<size_t N>
+std::string format(const char (&format_str)[N])
+{
+    return std::string(format_str);
+}
+
 } // namespace detail_format
 
 
@@ -490,20 +507,25 @@ std::string format(const char (&format_str)[N])
 }
 
 
-template<typename... TArgs>
-std::string format(std::string_view format_str, TArgs&&... args)
+template<size_t N, typename... TArgs>
+std::string format(const char (&format_str)[N], TArgs&&... args)
 {
+    // N is the string length PLUS the trailing null terminator
+    static_assert(N > 0);
+    static constexpr size_t format_str_len = N - 1;
+    const std::string_view format_str_view = std::string_view{ &format_str[0], format_str_len };
+
     auto values = std::make_tuple(detail_format::transform_format_argument(std::forward<TArgs>(args))...);
     constexpr size_t num_values = std::tuple_size_v<decltype(values)>;
-    detail_format::FormatParser parser(format_str);
+    detail_format::FormatParser parser(format_str_view);
     const size_t num_args_in_format_str = parser.num_arguments();
     if (num_args_in_format_str == detail_format::FormatParser::invalid_format_arg)
     {
-        JXC_FORMATTING_ERROR("Syntax error in format string `", format_str, "`");
+        JXC_FORMATTING_ERROR("Syntax error in format string `", format_str_view, "`");
     }
     else if (num_args_in_format_str != num_values)
     {
-        JXC_FORMATTING_ERROR("Format string `", format_str, "` has ", num_args_in_format_str,
+        JXC_FORMATTING_ERROR("Format string `", format_str_view, "` has ", num_args_in_format_str,
             " arguments, but format function got ", num_values, " arguments");
     }
 
@@ -533,7 +555,7 @@ std::string format(std::string_view format_str, TArgs&&... args)
     {
         if (parser.value_is_argument())
         {
-            JXC_FORMATTING_ERROR("Unexpected extra arguments in format string '", format_str, "'");
+            JXC_FORMATTING_ERROR("Unexpected extra arguments in format string '", format_str_view, "'");
         }
         buffer << parser.value();
     }

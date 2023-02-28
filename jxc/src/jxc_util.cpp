@@ -371,14 +371,14 @@ size_t encode(char* buf, size_t buf_len, size_t& inout_index, uint32_t codepoint
 {
     auto push_byte = [&buf, &inout_index, buf_len](uint8_t byte_value)
     {
-        JXC_DEBUG_ASSERTF(inout_index + 1 < buf_len, "Ran out of space in output buffer while encoding utf-8 string");
+        JXC_DEBUG_ASSERTF(inout_index + 1 <= buf_len, "Ran out of space in output buffer while encoding utf-8 string");
         buf[inout_index] = static_cast<char>(byte_value);
         ++inout_index;
     };
 
     auto ensure_size = [&inout_index, buf_len](size_t num_bytes)
     {
-        JXC_ASSERTF(inout_index + num_bytes < buf_len, "Ran out of space in output buffer while encoding utf-8 string");
+        JXC_ASSERTF(inout_index + num_bytes <= buf_len, "Ran out of space in output buffer while encoding utf-8 string");
     };
 
     auto encode_replacement_char = [&]() -> size_t
@@ -534,7 +534,7 @@ const char* float_literal_type_to_string(FloatLiteralType type)
 }
 
 
-template<size_t BufSize>
+template<uint16_t BufSize>
 static inline void char_buffer_write_char(detail::MiniBuffer<char, BufSize>& out_buf, char value, size_t& inout_index)
 {
     JXC_ASSERT(inout_index < out_buf.capacity());
@@ -543,7 +543,7 @@ static inline void char_buffer_write_char(detail::MiniBuffer<char, BufSize>& out
 }
 
 
-template<uint32_t MinNumDigits, uint32_t MaxNumDigits, typename IntType, size_t BufSize>
+template<uint32_t MinNumDigits, uint32_t MaxNumDigits, typename IntType, uint16_t BufSize>
 static void char_buffer_write_integer(detail::MiniBuffer<char, BufSize>& out_buf, IntType value, size_t& inout_index)
 {
     static_assert(std::is_integral_v<IntType>, "write_value only supports integer types");
@@ -1064,6 +1064,19 @@ bool TokenSpan::operator==(std::string_view rhs) const
 
     // size() will return 0 if start is nullptr - it's safe to deref here
     return start->type == token_type_from_symbol(rhs) && (!token_type_has_value(start->type) || start->value.as_view() == rhs);
+}
+
+
+TokenSpan TokenSpan::slice(size_t start_idx, size_t length) const
+{
+    TokenSpan result = {};
+    if (start_idx < num_tokens)
+    {
+        result.start = &start[start_idx];
+        const size_t tokens_remaining = num_tokens - start_idx - 1;
+        result.num_tokens = (length > tokens_remaining) ? tokens_remaining : length;
+    }
+    return result;
 }
 
 

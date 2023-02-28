@@ -80,15 +80,19 @@ project "jxc_cpp"
     dependson { "jxc" }
     links { "jxc" }
     files {
+        "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_cpp_core.h",
         "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_converter.h",
         "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_converter_std.h",
         "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_converter_value.h",
+        "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_converter_struct.h",
+        "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_converter_enum.h",
         "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_document.h",
         "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_map.h",
         "%{prj.location}/jxc_cpp/include/jxc_cpp/jxc_value.h",
 
         "%{prj.location}/jxc_cpp/src/jxc_document.cpp",
         "%{prj.location}/jxc_cpp/src/jxc_value.cpp",
+        "%{prj.location}/jxc_cpp/src/jxc_converter.cpp",
     }
     includedirs {
         "%{prj.location}/jxc/include",
@@ -152,11 +156,13 @@ project "test_jxc"
         "%{prj.location}/tests/src/jxc_core_tests.h",
         "%{prj.location}/tests/src/jxc_util_tests.h",
         "%{prj.location}/tests/src/jxc_cpp_tests.h",
+        "%{prj.location}/tests/src/jxc_converter_tests.h",
 
         "%{prj.location}/tests/src/jxc_tests.cpp",
         "%{prj.location}/tests/src/jxc_core_tests.cpp",
         "%{prj.location}/tests/src/jxc_util_tests.cpp",
         "%{prj.location}/tests/src/jxc_cpp_tests.cpp",
+        "%{prj.location}/tests/src/jxc_converter_tests.cpp",
     }
     includedirs {
         "%{prj.location}/tests",
@@ -254,5 +260,8 @@ project "example_basic_jxc_cpp_value"
 project "example_custom_parser"
     setup_example_project("custom_parser.cpp", { "jxc" })
 
-project "example_web_server"
-    setup_example_project("web_server.cpp", { "jxc" })
+project "example_web_server_using_second_stage_parser"
+    setup_example_project("web_server_using_second_stage_parser.cpp", { "jxc" })
+
+project "example_web_server_using_converter"
+    setup_example_project("web_server_using_converter.cpp", { "jxc_cpp", "jxc" })

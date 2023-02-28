@@ -134,6 +134,16 @@ concept Float = is_float_type<T>;
 template<typename T>
 concept Number = is_numeric_type<T>;
 
+// any type that could be used as a character
+template<typename T>
+concept Character = std::same_as<T, char>
+    || std::same_as<T, wchar_t>
+#if JXC_CPP20
+    || std::same_as<T, char8_t>
+#endif
+    || std::same_as<T, char16_t>
+    || std::same_as<T, char32_t>;
+
 template<typename T>
 concept StringLiteral = !std::is_null_pointer_v<T> && std::same_as<T, const char*>;
 
@@ -650,6 +660,83 @@ constexpr inline std::string_view cast_string_to_view(const T& val)
     return std::string_view{ val.data(), val.size() };
 }
 
+// trait for all enums declared as bitmasks
+template<typename T>
+struct IsBitmask
+{
+    static constexpr bool value = false;
+};
+
+#if JXC_HAVE_CONCEPTS
+template<typename T>
+concept Bitmask = IsBitmask<T>::value;
+#endif
+
 } // namespace traits
 
+// Used for bitmask enums - returns true if a given bitmask value has a flag enabled
+template<JXC_CONCEPT(traits::Bitmask) T>
+inline bool is_set(T value, T flag)
+{
+    static_assert(traits::IsBitmask<T>::value, "is_set only works on bitmask enums");
+    return (static_cast<std::underlying_type_t<T>>(value) & static_cast<std::underlying_type_t<T>>(flag)) != static_cast<std::underlying_type_t<T>>(0);
+}
+
 } // namespace jxc
+
+
+// Enables bitmask operators for an enum type
+#define JXC_BITMASK_ENUM(ENUM_TYPE) \
+    template<> \
+    struct jxc::traits::IsBitmask<ENUM_TYPE> { \
+        static_assert(std::is_enum_v<ENUM_TYPE>, "JXC_BITMASK_ENUM is only intended for enum types (" #ENUM_TYPE " is not an enum)"); \
+        static constexpr bool value = true; \
+    }
+
+
+// declare bitmask operators as globals - they only apply when the bitmask enum trait is enabled
+
+template<typename T>
+inline std::enable_if_t<jxc::traits::IsBitmask<T>::value, T> operator|(T lhs, T rhs)
+{
+    return static_cast<T>(static_cast<std::underlying_type_t<T>>(lhs) | static_cast<std::underlying_type_t<T>>(rhs));
+}
+
+template<typename T>
+inline std::enable_if_t<jxc::traits::IsBitmask<T>::value, T> operator&(T lhs, T rhs)
+{
+    return static_cast<T>(static_cast<std::underlying_type_t<T>>(lhs) & static_cast<std::underlying_type_t<T>>(rhs));
+}
+
+template<typename T>
+inline std::enable_if_t<jxc::traits::IsBitmask<T>::value, T> operator^(T lhs, T rhs)
+{
+    return static_cast<T>(static_cast<std::underlying_type_t<T>>(lhs) ^ static_cast<std::underlying_type_t<T>>(rhs));
+}
+
+template<typename T>
+inline std::enable_if_t<jxc::traits::IsBitmask<T>::value, T> operator~(T self)
+{
+    return static_cast<T>(~static_cast<std::underlying_type_t<T>>(self));
+}
+
+template<typename T>
+inline std::enable_if_t<jxc::traits::IsBitmask<T>::value, T> operator|=(T& self, T rhs)
+{
+    self = static_cast<T>(static_cast<std::underlying_type_t<T>>(self) | static_cast<std::underlying_type_t<T>>(rhs));
+    return self;
+}
+
+template<typename T>
+inline std::enable_if_t<jxc::traits::IsBitmask<T>::value, T> operator&=(T& self, T rhs)
+{
+    self = static_cast<T>(static_cast<std::underlying_type_t<T>>(self) & static_cast<std::underlying_type_t<T>>(rhs));
+    return self;
+}
+
+template<typename T>
+inline std::enable_if_t<jxc::traits::IsBitmask<T>::value, T> operator^=(T& self, T rhs)
+{
+    self = static_cast<T>(static_cast<std::underlying_type_t<T>>(self) ^ static_cast<std::underlying_type_t<T>>(rhs));
+    return self;
+}

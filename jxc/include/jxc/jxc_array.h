@@ -7,8 +7,8 @@
 #include "jxc/jxc_type_traits.h"
 
 
-namespace jxc::detail
-{
+JXC_BEGIN_NAMESPACE(jxc)
+JXC_BEGIN_NAMESPACE(detail)
 
 // simple fixed-size array with a defined size
 template<typename T, uint16_t MaxSize>
@@ -729,13 +729,10 @@ static_assert(traits::ConstructibleFromIterator<FixedArray<int, 16>>, "FixedArra
 static_assert(traits::ConstructibleFromIterator<ArrayBuffer<int, 16>>, "ArrayBuffer can be constructed with a begin and end iterator");
 #endif
 
-} // namespace jxc::detail
-
-namespace jxc
-{
+JXC_END_NAMESPACE(detail)
 
 // Byte array that can store a small number of bytes inline without any allocations
 using SmallByteArray = detail::ArrayBuffer<uint8_t, 16>;
 
-} // namespace jxc
+JXC_END_NAMESPACE(jxc)
 

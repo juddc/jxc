@@ -2,8 +2,7 @@
 #include "fastfloat.h"
 
 
-namespace jxc
-{
+JXC_BEGIN_NAMESPACE(jxc)
 
 const char* element_type_to_string(ElementType type)
 {
@@ -156,7 +155,7 @@ std::string JumpParser::get_profiler_results(bool) { return std::string{}; }
 #define JP_BLOCK_TIMER_CTX(CTX_NAME)
 #endif
 
-bool JumpParser::advance_separator(TokenType container_close_type, const char* cur_jump_block_name)
+bool JumpParser::lexer_advance_separator(TokenType container_close_type, const char* cur_jump_block_name)
 {
     JP_BLOCK_TIMER_CTX(advance_separator);
     bool found_comma = false;
@@ -177,16 +176,16 @@ bool JumpParser::advance_separator(TokenType container_close_type, const char* c
                 return false;
             }
             found_comma = true;
-            if (!advance_skip_comments()) { return false; }
+            if (!lexer_advance_skip_comments()) { return false; }
             break;
 
         case TokenType::LineBreak:
             ++found_linebreaks;
-            if (!advance_skip_comments()) { return false; }
+            if (!lexer_advance_skip_comments()) { return false; }
             break;
 
         case TokenType::Comment:
-            if (!advance_skip_comments()) { return false; }
+            if (!lexer_advance_skip_comments()) { return false; }
             break;
 
         default:
@@ -214,13 +213,13 @@ bool JumpParser::next()
     tok.reset();
     annotation_buffer.clear();
 
-#define JP_ADVANCE() do { if (!advance()) { goto jp_end; } } while(0)
+#define JP_ADVANCE() do { if (!lexer_advance()) { goto jp_end; } } while(0)
 
-#define JP_ADVANCE_SKIP_COMMENTS() do { if (!advance_skip_comments()) { goto jp_end; } } while(0)
+#define JP_ADVANCE_SKIP_COMMENTS() do { if (!lexer_advance_skip_comments()) { goto jp_end; } } while(0)
 
-#define JP_SKIP_OVER_LINE_BREAKS() do { if (!skip_over_line_breaks()) { goto jp_end; } } while(0)
+#define JP_SKIP_OVER_LINE_BREAKS() do { if (!lexer_skip_over_line_breaks()) { goto jp_end; } } while(0)
 
-#define JP_ADVANCE_SEPARATOR(CONTAINER_CLOSE_TOK_TYPE) do { if (!advance_separator(CONTAINER_CLOSE_TOK_TYPE, cur_jump_block_name)) { goto jp_end; } } while(0)
+#define JP_ADVANCE_SEPARATOR(CONTAINER_CLOSE_TOK_TYPE) do { if (!lexer_advance_separator(CONTAINER_CLOSE_TOK_TYPE, cur_jump_block_name)) { goto jp_end; } } while(0)
 
 #define JP_YIELD(ELEMENT_TYPE) do { \
         current_value.type = (ELEMENT_TYPE); \
@@ -756,8 +755,240 @@ jp_jump_block_reached_end_without_yield:
 }
 
 
-namespace util
+AnnotationParser::AnnotationParser(TokenSpan anno, const std::function<void(const ErrorInfo&)>& on_error_callback)
+    : anno(anno)
+    , on_error_callback(on_error_callback)
 {
+    if (anno.size() > 0 && anno[0].type != TokenType::Identifier && anno[0].type != TokenType::ExclamationPoint)
+    {
+        set_error(jxc::format("Annotations may not start with token {}", token_type_to_string(anno[0].type)));
+    }
+}
+
+
+void AnnotationParser::set_error(std::string&& err_msg, size_t start_idx, size_t end_idx)
+{
+    if (start_idx == invalid_idx && anno.size() > 0)
+    {
+        start_idx = anno[0].start_idx;
+    }
+    if (end_idx == invalid_idx && anno.size() > 0)
+    {
+        end_idx = anno[anno.size() - 1].end_idx;
+    }
+
+    err = ErrorInfo(std::move(err_msg), start_idx, end_idx);
+    if (on_error_callback)
+    {
+        on_error_callback(err);
+    }
+}
+
+
+bool AnnotationParser::advance()
+{
+    ++idx;
+    if (idx < anno.size())
+    {
+        switch (anno[idx].type)
+        {
+        case TokenType::AngleBracketOpen:
+            ++angle_bracket_depth;
+            break;
+        case TokenType::AngleBracketClose:
+            --angle_bracket_depth;
+            if (angle_bracket_depth < 0)
+            {
+                set_error("Unmatched close angle bracket", anno[idx].start_idx, anno[idx].end_idx);
+                return false;
+            }
+            break;
+        case TokenType::ParenOpen:
+            if (angle_bracket_depth <= 0)
+            {
+                set_error("Parens can only appear in annotations inside angle brackets", anno[idx].start_idx, anno[idx].end_idx);
+                return false;
+            }
+            ++paren_depth;
+            break;
+        case TokenType::ParenClose:
+            --paren_depth;
+            if (paren_depth < 0)
+            {
+                set_error("Unmatched close paren", anno[idx].start_idx, anno[idx].end_idx);
+                return false;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
+
+bool AnnotationParser::advance_required()
+{
+    if (!advance())
+    {
+        set_error(jxc::format("Unexpected end of stream while parsing annotation {}", detail::debug_string_repr(anno.source().as_view())));
+        return false;
+    }
+    return true;
+}
+
+
+bool AnnotationParser::done_required()
+{
+    if (!done())
+    {
+        set_error(jxc::format("Expected end of stream, got {}", token_type_to_string(anno[idx].type)), anno[idx].start_idx, anno[idx].end_idx);
+        return false;
+    }
+    return true;
+}
+
+
+bool AnnotationParser::require(TokenType tok_type, std::string_view tok_value)
+{
+    if (done())
+    {
+        set_error(jxc::format("Unexpected end of stream while parsing annotation {}", detail::debug_string_repr(anno.source().as_view())));
+        return false;
+    }
+    else if (anno[idx].type != tok_type)
+    {
+        set_error(jxc::format("Expected token type {}, got {}", token_type_to_string(tok_type), token_type_to_string(anno[idx].type)),
+            anno[idx].start_idx, anno[idx].end_idx);
+        return false;
+    }
+    else if (tok_value.size() > 0 && anno[idx].value.as_view() != tok_value)
+    {
+        set_error(jxc::format("Expected token value {}, got {}", detail::debug_string_repr(tok_value), detail::debug_string_repr(anno[idx].value.as_view())),
+            anno[idx].start_idx, anno[idx].end_idx);
+        return false;
+    }
+    return true;
+}
+
+
+bool AnnotationParser::require_then_advance(TokenType tok_type, std::string_view tok_value)
+{
+    if (!require(tok_type, tok_value))
+    {
+        return false;
+    }
+    return advance();
+}
+
+
+TokenSpan AnnotationParser::skip_over_generic_value()
+{
+    // prev token must be an open angle bracket
+    JXC_ASSERT(idx > 0 && anno[idx - 1].type == TokenType::AngleBracketOpen);
+
+    // this must be true if the previous assert was true
+    JXC_DEBUG_ASSERT(angle_bracket_depth > 0);
+
+    const size_t start_idx = idx;
+    size_t num_tokens_inside_generic = 0;
+
+    const int64_t orig_angle = angle_bracket_depth;
+    const int64_t orig_paren = paren_depth;
+
+    while (advance())
+    {
+        switch (anno[idx].type)
+        {
+        case TokenType::AngleBracketClose:
+            if (angle_bracket_depth == orig_angle - 1)
+            {
+                // we started inside angle brackets, those angle brackets just closed
+                return anno.slice(start_idx, num_tokens_inside_generic - 1);
+            }
+            break;
+
+        case TokenType::Comma:
+            if (orig_angle == angle_bracket_depth && orig_paren == paren_depth)
+            {
+                // angle and paren depth is the same as when we started and we hit a comma, so we're done
+                return anno.slice(start_idx, num_tokens_inside_generic - 1);
+            }
+            break;
+
+        default:
+            break;
+        }
+
+        ++num_tokens_inside_generic;
+    }
+
+    return TokenSpan();
+}
+
+
+JXC_BEGIN_NAMESPACE(detail)
+
+
+bool decimal_integer_string_less_than_or_equal(std::string_view lhs, std::string_view rhs)
+{
+    // no empty strings
+    JXC_DEBUG_ASSERT(lhs.size() > 0);
+    JXC_DEBUG_ASSERT(rhs.size() > 0);
+
+    // no leading zeroes - the first character is only allowed to be '0' if the string's length is 1
+    JXC_DEBUG_ASSERT(lhs.size() <= 1 || lhs.front() != '0');
+    JXC_DEBUG_ASSERT(rhs.size() <= 1 || rhs.front() != '0');
+
+    if (lhs.size() < rhs.size())
+    {
+        // lhs has less digits than rhs, so it's clearly smaller
+        return true;
+    }
+    else if (lhs.size() > rhs.size())
+    {
+        // lhs has more digits than rhs, so it's clearly larger
+        return false;
+    }
+    
+    JXC_DEBUG_ASSERT(lhs.size() == rhs.size());
+    const size_t num_digits = lhs.size();
+
+    // Given two strings of decimal digits with the same length, we want to determine if lhs <= rhs.
+    // To do this, we just have to iterate over each digit. If the rhs digit in each column is equal to the lhs digit,
+    // we keep iterating. If the lhs digit is greater than the the rhs digit, then it's not going to fit. If the lhs digit is smaller,
+    // then we know it will fit regardless of the remaining digits and can return true.
+    // Example:
+    // lhs = 9 2 3 4
+    // rhs = 9 1 3 0
+    // First digits (lhs=9, rhs=9) are equal, so continue.
+    // Second digits (lhs=2, rhs=1), 2 > 1, so the whole lhs value must be smaller than rhs, and we return false.
+
+    for (size_t i = num_digits - 1; i < num_digits; i++)
+    {
+        JXC_DEBUG_ASSERT(util::is_decimal_digit(lhs[i]) && util::is_decimal_digit(rhs[i]));
+        if (lhs[i] == rhs[i])
+        {
+            continue;
+        }
+        else
+        {
+            // Digits are not the same, so we're done.
+            return lhs[i] < rhs[i];
+        }
+    }
+    return true;
+}
+
+
+JXC_END_NAMESPACE(detail)
+
+
+JXC_BEGIN_NAMESPACE(util)
 
 
 bool string_is_number_base_10(std::string_view value)
@@ -868,6 +1099,13 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
 
     std::string_view value = number_token.value.as_view();
 
+    // read sign prefix
+    if (value[0] == '-' || value[0] == '+')
+    {
+        out_result.sign = value[0];
+        value = value.substr(1);
+    }
+
     if (value.size() == 0)
     {
         out_error = ErrorInfo{ "Number token value is empty", number_token.start_idx, number_token.end_idx };
@@ -888,12 +1126,8 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
         return true;
     }
 
-    // read sign prefix
-    if (value[0] == '-' || value[0] == '+')
-    {
-        out_result.sign = value[0];
-        value = value.substr(1);
-    }
+    // the rest of this function assumes that value is at least 2 characters
+    JXC_DEBUG_ASSERT(value.size() > 1);
 
     // check for float literal types
     if (value.size() == 3)
@@ -1034,14 +1268,7 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
         if (idx > exponent_start_idx)
         {
             std::string_view exp_digits = value.substr(exponent_start_idx, idx - exponent_start_idx);
-            if (string_to_number_decimal(exp_digits, out_result.exponent))
-            {
-                if (exponent_is_negative)
-                {
-                    out_result.exponent = -out_result.exponent;
-                }
-            }
-            else
+            if (!string_to_number_decimal(exponent_is_negative ? '-' : '+', exp_digits, out_result.exponent))
             {
                 out_error = ErrorInfo{ jxc::format("Failed to parse exponent '{}'", exp_digits), number_token.start_idx, number_token.end_idx };
                 return false;
@@ -1204,22 +1431,22 @@ size_t get_string_required_buffer_size(std::string_view value)
 
             // This is tricky. This function can't return errors and should be very fast, so we're forced to overestimate
             // the required size at the cost of needing to allocate more memory for strings when parsing. In particular,
-            // for unicode escapes, ideally we don't want to parse those escapes here, because then we'd have to handle
-            // practically all unicode edge cases.
+            // for unicode escapes we don't want to parse those escapes here, because then we'd have to handle practically
+            // all unicode edge cases.
             // There are some good opportunities for optimization here.
             switch (escape_seq_type)
             {
             case '0':
             case 'a':
             case 'b':
-            case 'f':
-            case 'n':
-            case 'r':
             case 't':
+            case 'n':
             case 'v':
-            case '\\':
-            case '\'':
+            case 'f':
+            case 'r':
             case '\"':
+            case '\'':
+            case '\\':
                 // single-character normal escape
                 required_size += 1;
                 break;
@@ -1319,10 +1546,10 @@ bool parse_string_escapes_to_buffer(std::string_view value, size_t token_start_i
         }
 
         const int32_t num_bytes_for_codepoint = detail::utf8::num_codepoint_bytes(hex_cp);
-        if (out_num_chars_written + num_bytes_for_codepoint >= string_buffer_size)
+        if (out_num_chars_written + num_bytes_for_codepoint > string_buffer_size)
         {
-            out_error = ErrorInfo(jxc::format("Ran out of space while encoding {} codepoint `{}` in string at index {} (str={}, buf size={}, wrote num chars={})",
-                hex_type, hex_seq, start_index, detail::debug_string_repr(string_value), string_buffer_size, out_num_chars_written), token_start_idx, token_end_idx);
+            out_error = ErrorInfo(jxc::format("Ran out of space while encoding {} codepoint `{}` (which requires {} bytes) in string at index {} (str={}, buf size={}, wrote num chars={})",
+                hex_type, hex_seq, num_bytes_for_codepoint, start_index, detail::debug_string_repr(string_value), string_buffer_size, out_num_chars_written), token_start_idx, token_end_idx);
             return false;
         }
 
@@ -1358,18 +1585,19 @@ bool parse_string_escapes_to_buffer(std::string_view value, size_t token_start_i
             // check the escape sequence type
             switch (escape_seq_type)
             {
-                // single-character normal escape
+            // single-character normal escape
             case '0': write_char('\0'); break;
             case 'a': write_char('\a'); break;
             case 'b': write_char('\b'); break;
-            case 'f': write_char('\f'); break;
-            case 'n': write_char('\n'); break;
-            case 'r': write_char('\r'); break;
             case 't': write_char('\t'); break;
+            case 'n': write_char('\n'); break;
             case 'v': write_char('\v'); break;
-            case '\\': write_char('\\'); break;
-            case '\'': write_char('\''); break;
+            case 'f': write_char('\f'); break;
+            case 'r': write_char('\r'); break;
             case '\"': write_char('\"'); break;
+            case '\'': write_char('\''); break;
+            case '\\': write_char('\\'); break;
+            
             case 'x':
                 if (!parse_hex_escape(value, val_idx, "hex", 2))
                 {
@@ -1687,7 +1915,7 @@ struct DateTimeTokenParser
     }
 
     template<typename IntType>
-    bool require_number(size_t min_digits, size_t max_digits, const char* number_type, IntType& out_value, ErrorInfo& out_error)
+    bool require_number(char sign_char, size_t min_digits, size_t max_digits, const char* number_type, IntType& out_value, ErrorInfo& out_error)
     {
         static_assert(std::is_integral_v<IntType>, "require_number requires an integer type");
 
@@ -1705,7 +1933,7 @@ struct DateTimeTokenParser
             number_str = number_str.substr(1);
         }
 
-        if (!string_to_number_decimal<IntType>(number_str, out_value))
+        if (!string_to_number_decimal<IntType>(sign_char, number_str, out_value))
         {
             out_error = ErrorInfo(jxc::format("Invalid DateTime: {} is not a valid {}", detail::debug_string_repr(number_str), number_type),
                 tok_start_idx, tok_end_idx);
@@ -1776,20 +2004,15 @@ bool parse_date_token(const Token& datetime_token, Date& out_date, ErrorInfo& ou
     }
     else
     {
-        year_sign = '\0';
+        year_sign = '+';
     }
 
-    if (!parser.require_number(4, 6, "year", out_date.year, out_error)) { return false; }
+    if (!parser.require_number(year_sign, 4, 6, "year", out_date.year, out_error)) { return false; }
     if (!parser.require_char('-', out_error)) { return false; }
-    if (!parser.require_number(2, 2, "month", out_date.month, out_error)) { return false; }
+    if (!parser.require_number('+', 2, 2, "month", out_date.month, out_error)) { return false; }
     if (!parser.require_char('-', out_error)) { return false; }
-    if (!parser.require_number(2, 2, "day", out_date.day, out_error)) { return false; }
+    if (!parser.require_number('+', 2, 2, "day", out_date.day, out_error)) { return false; }
     if (!parser.require_done(out_error)) { return false; }
-
-    if (year_sign == '-')
-    {
-        out_date.year = -out_date.year;
-    }
 
     return true;
 }
@@ -1820,16 +2043,11 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
         year_sign = '\0';
     }
 
-    if (!parser.require_number(4, 6, "year", out_datetime.year, out_error)) { return false; }
+    if (!parser.require_number(year_sign, 4, 6, "year", out_datetime.year, out_error)) { return false; }
     if (!parser.require_char('-', out_error)) { return false; }
-    if (!parser.require_number(2, 2, "month", out_datetime.month, out_error)) { return false; }
+    if (!parser.require_number('+', 2, 2, "month", out_datetime.month, out_error)) { return false; }
     if (!parser.require_char('-', out_error)) { return false; }
-    if (!parser.require_number(2, 2, "day", out_datetime.day, out_error)) { return false; }
-
-    if (year_sign == '-')
-    {
-        out_datetime.year = -out_datetime.year;
-    }
+    if (!parser.require_number('+', 2, 2, "day", out_datetime.day, out_error)) { return false; }
 
     if (parser.at_end())
     {
@@ -1844,15 +2062,15 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
     }
 
     if (!parser.require_char('T', out_error)) { return false; }
-    if (!parser.require_number(2, 2, "hour", out_datetime.hour, out_error)) { return false; }
+    if (!parser.require_number('+', 2, 2, "hour", out_datetime.hour, out_error)) { return false; }
     if (!parser.require_char(':', out_error)) { return false; }
-    if (!parser.require_number(2, 2, "minute", out_datetime.minute, out_error)) { return false; }
+    if (!parser.require_number('+', 2, 2, "minute", out_datetime.minute, out_error)) { return false; }
 
     // seconds can be optional
     if (parser.peek_char() == ':')
     {
         parser.advance();
-        if (!parser.require_number(2, 2, "second", out_datetime.second, out_error)) { return false; }
+        if (!parser.require_number('+', 2, 2, "second", out_datetime.second, out_error)) { return false; }
     }
 
     // if we have fractional seconds, parse those and convert the value to nanoseconds
@@ -1881,7 +2099,7 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
         {
             // convert to integer
             int64_t fractional_seconds = 0;
-            if (!string_to_number_decimal(fractional_seconds_str, fractional_seconds))
+            if (!string_to_number_decimal('+', fractional_seconds_str, fractional_seconds))
             {
                 out_error = ErrorInfo(jxc::format("Failed to convert fractional seconds value {} to number", detail::debug_string_repr(fractional_seconds_str)),
                     datetime_token.start_idx, datetime_token.end_idx);
@@ -1944,14 +2162,10 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
     case '+':
     case '-':
         out_datetime.tz_local = 0;
-        if (!parser.require_number(2, 2, "timezone hour offset", out_datetime.tz_hour, out_error)) { return false; }
+        if (!parser.require_number(tz_prefix, 2, 2, "timezone hour offset", out_datetime.tz_hour, out_error)) { return false; }
         if (!parser.require_char(':', out_error)) { return false; }
-        if (!parser.require_number(2, 2, "timezone minute offset", tz_minute_offset, out_error)) { return false; }
+        if (!parser.require_number('+', 2, 2, "timezone minute offset", tz_minute_offset, out_error)) { return false; }
         out_datetime.tz_minute = tz_minute_offset;
-        if (tz_prefix == '-')
-        {
-            out_datetime.tz_hour = -out_datetime.tz_hour;
-        }
         return parser.require_done(out_error);
 
     default:
@@ -1960,113 +2174,8 @@ bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, E
 
     out_error = ErrorInfo("Failed parsing DateTime: unknown error", datetime_token.start_idx, datetime_token.end_idx);
     return false;
-
-
-#if 0
-
-    // Require either 20 or 25 characters. Allow 10 chars only if require_time_data is false.
-    if (value.size() != 25 && value.size() != 20 && (value.size() != 10 || require_time_data))
-    {
-        if (require_time_data)
-        {
-            out_error = ErrorInfo(jxc::format("Invalid DateTime token: expected datetime value in the form {} or {}, got {}",
-                date_format_ymd_hms, date_format_ymd_hms_tz, detail::debug_string_repr(value)),
-                datetime_token.start_idx, datetime_token.end_idx);
-        }
-        else
-        {
-            out_error = ErrorInfo(jxc::format("Invalid DateTime token: expected datetime value in the form {}, {} or {}, got {}",
-                date_format_ymd, date_format_ymd_hms, date_format_ymd_hms_tz, detail::debug_string_repr(value)),
-                datetime_token.start_idx, datetime_token.end_idx);
-        }
-        return false;
-    }
-
-    DateTimeTokenParser parser(datetime_token, value);
-
-    // date component
-    if (!parser.require_number(4, "year", out_datetime.year, out_error)) { return false; }
-    if (!parser.require_char('-', out_error)) { return false; }
-    if (!parser.require_number(2, "month", out_datetime.month, out_error)) { return false; }
-    if (!parser.require_char('-', out_error)) { return false; }
-    if (!parser.require_number(2, "day", out_datetime.day, out_error)) { return false; }
-    
-    if (parser.at_end())
-    {
-        JXC_DEBUG_ASSERT(!require_time_data);
-        // no time or timezone specified - explicitly zero out those values.
-        out_datetime.hour = 0;
-        out_datetime.minute = 0;
-        out_datetime.second = 0;
-        out_datetime.tz_hour = 0;
-        out_datetime.tz_minute = 0;
-        return true;
-    }
-
-    if (!parser.require_char('T', out_error)) { return false; }
-    if (!parser.require_number(2, "hour", out_datetime.hour, out_error)) { return false; }
-    if (!parser.require_char(':', out_error)) { return false; }
-    if (!parser.require_number(2, "minute", out_datetime.minute, out_error)) { return false; }
-    if (!parser.require_char(':', out_error)) { return false; }
-    if (!parser.require_number(2, "second", out_datetime.second, out_error)) { return false; }
-
-    // Z suffix indicates UTC time zone
-    const char tz_char = parser.peek_char();
-    parser.advance();
-
-    auto set_tz_error = [&]() -> bool
-    {
-        out_error = ErrorInfo(jxc::format("Invalid DateTime token: value must end with 'Z', or a timezone offset in the form \"+HH:MM\" or \"-HH:MM\" (got suffix {})",
-            detail::debug_string_repr(value.substr(parser.index))),
-            datetime_token.start_idx, datetime_token.end_idx);
-        return false;
-    };
-
-    switch (tz_char)
-    {
-    case '-':
-        if (parser.chars_remaining_including_current() != 5)
-        {
-            return set_tz_error();
-        }
-        JXC_DEBUG_ASSERT(value.size() == 25);
-        if (!parser.require_number(2, "timezone hour offset", out_datetime.tz_hour, out_error)) { return false; }
-        if (!parser.require_char(':', out_error)) { return false; }
-        if (!parser.require_number(2, "timezone minute offset", out_datetime.tz_minute, out_error)) { return false; }
-        if (!parser.require_done(out_error)) { return false; }
-
-        // this is a negative time zone offset
-        out_datetime.tz_hour = -out_datetime.tz_hour;
-        return true;
-
-    case '+':
-        if (parser.chars_remaining_including_current() != 5)
-        {
-            return set_tz_error();
-        }
-        JXC_DEBUG_ASSERT(value.size() == 25);
-        if (!parser.require_number(2, "timezone hour offset", out_datetime.tz_hour, out_error)) { return false; }
-        if (!parser.require_char(':', out_error)) { return false; }
-        if (!parser.require_number(2, "timezone minute offset", out_datetime.tz_minute, out_error)) { return false; }
-        if (!parser.require_done(out_error)) { return false; }
-        return true;
-
-    case 'Z':
-        if (!parser.require_done(out_error)) { return false; }
-        JXC_DEBUG_ASSERT(value.size() == 20);
-        out_datetime.tz_hour = 0;
-        out_datetime.tz_minute = 0;
-        return true;
-
-    default:
-        break;
-    }
-
-    return set_tz_error();
-
-#endif
 }
 
-} // namespace util
+JXC_END_NAMESPACE(util)
 
-} // namespace jxc
+JXC_END_NAMESPACE(jxc)

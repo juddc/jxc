@@ -4,7 +4,6 @@
 #include <string>
 #include <string_view>
 #include <functional>
-#include <variant>
 #include <chrono>
 #include <array>
 #include <optional>
@@ -377,6 +376,7 @@ public:
     size_t num_tokens = 0;
 
     TokenSpan() = default;
+    TokenSpan(std::nullptr_t) : start(nullptr), num_tokens(0) {}
     TokenSpan(Token& start, size_t num_tokens) : start(&start), num_tokens(num_tokens) {}
 
     TokenSpan(const TokenSpan& rhs) = default;
@@ -423,6 +423,22 @@ public:
 
     friend bool operator==(std::string_view lhs, const TokenSpan& rhs) { return rhs.operator==(lhs); }
     friend bool operator!=(std::string_view lhs, const TokenSpan& rhs) { return rhs.operator!=(lhs); }
+
+    // Returns the start_idx value from the first token, and the end_idx value from the last token.
+    // Useful for error messages.
+    std::pair<size_t, size_t> get_index_span() const
+    {
+        if (num_tokens > 0 && start != nullptr)
+        {
+            return std::make_pair(start->start_idx, operator[](num_tokens - 1).end_idx);
+        }
+        else
+        {
+            return std::make_pair(invalid_idx, invalid_idx);
+        }
+    }
+
+    TokenSpan slice(size_t start_idx, size_t length = invalid_idx) const;
 
     // compares this token span to a string by lexing the string into tokens and comparing each token individually
     bool equals_annotation_string_lexed(std::string_view str) const;
@@ -653,6 +669,110 @@ public:
     inline std::string to_repr() const { return to_token_span().to_repr(); }
     inline std::string to_string() const { return to_token_span().to_string(); }
 };
+
+
+JXC_BEGIN_NAMESPACE(detail)
+
+template<typename T>
+struct DebugTypeName
+{
+    static constexpr std::string name() { return typeid(T).name(); }
+};
+
+// helper for adding a DebugTypeName specialization
+#define JXC_DEFINE_DEBUG_TYPE_NAME(CPP_TYPE) \
+    template<> struct ::jxc::DebugTypeName { \
+        static constexpr std::string name() { return #CPP_TYPE; } \
+    }
+
+template<typename T>
+constexpr std::string get_type_name()
+{
+    // strip pointer/reference/const/volatile
+    if constexpr (std::is_pointer_v<T>) { return get_type_name<std::remove_pointer_t<T>>(); }
+    else if constexpr (std::is_reference_v<T>) { return get_type_name<std::remove_reference_t<T>>(); }
+    else if constexpr (std::is_const_v<T>) { return get_type_name<std::remove_const_t<T>>(); }
+    else if constexpr (std::is_volatile_v<T>) { return get_type_name<std::remove_volatile_t<T>>(); }
+
+#define JXC_TYPE_EQUALS(TYPE) constexpr (std::is_same_v<T, TYPE>) { return #TYPE; }
+
+    // C++ language types
+    else if JXC_TYPE_EQUALS(const char*)
+    else if JXC_TYPE_EQUALS(bool)
+    else if JXC_TYPE_EQUALS(uint8_t)
+    else if JXC_TYPE_EQUALS(uint16_t)
+    else if JXC_TYPE_EQUALS(uint32_t)
+    else if JXC_TYPE_EQUALS(uint64_t)
+    else if JXC_TYPE_EQUALS(size_t)
+    else if JXC_TYPE_EQUALS(int8_t)
+    else if JXC_TYPE_EQUALS(int16_t)
+    else if JXC_TYPE_EQUALS(int32_t)
+    else if JXC_TYPE_EQUALS(int64_t)
+    else if JXC_TYPE_EQUALS(char)
+    else if JXC_TYPE_EQUALS(wchar_t)
+#if JXC_CPP20
+    else if JXC_TYPE_EQUALS(char8_t)
+#endif
+    else if JXC_TYPE_EQUALS(char16_t)
+    else if JXC_TYPE_EQUALS(char32_t)
+    else if JXC_TYPE_EQUALS(std::string)
+    else if JXC_TYPE_EQUALS(std::string_view)
+    else if JXC_TYPE_EQUALS(std::wstring)
+    else if JXC_TYPE_EQUALS(std::wstring_view)
+    else if JXC_TYPE_EQUALS(nullptr_t)
+
+    // JXC types
+    else if JXC_TYPE_EQUALS(TokenType)
+    else if JXC_TYPE_EQUALS(Token)
+    else if JXC_TYPE_EQUALS(TokenSpan)
+    else if JXC_TYPE_EQUALS(OwnedTokenSpan)
+    else if JXC_TYPE_EQUALS(FlexString)
+    else if JXC_TYPE_EQUALS(BytesView)
+    else if JXC_TYPE_EQUALS(SmallByteArray)
+    else if JXC_TYPE_EQUALS(FloatLiteralType)
+    else if JXC_TYPE_EQUALS(Timer)
+    else if JXC_TYPE_EQUALS(Date)
+    else if JXC_TYPE_EQUALS(DateTime)
+    else if JXC_TYPE_EQUALS(StringQuoteMode)
+    else if JXC_TYPE_EQUALS(SerializerSettings)
+
+#undef JXC_TYPE_EQUALS
+
+    // for any other types, use the DebugTypeName trait struct
+    return DebugTypeName<T>::name();
+}
+
+template<typename T>
+struct DebugTypeName<std::vector<T>>
+{
+    static constexpr const char* name() { return jxc::format("std::vector<{}>", get_type_name<T>()); }
+};
+
+template<typename T, size_t MaxSize>
+struct DebugTypeName<std::array<T, MaxSize>>
+{
+    static constexpr const char* name() { return jxc::format("std::array<{}, {}>", get_type_name<T>(), MaxSize); }
+};
+
+template<typename T, uint16_t MaxSize>
+struct DebugTypeName<FixedArray<T, MaxSize>>
+{
+    static constexpr const char* name() { return jxc::format("FixedArray<{}, {}>", get_type_name<T>(), MaxSize); }
+};
+
+template<typename T, uint16_t MaxSize>
+struct DebugTypeName<ArrayBuffer<T, MaxSize>>
+{
+    static constexpr const char* name() { return jxc::format("ArrayBuffer<{}, {}>", get_type_name<T>(), MaxSize); }
+};
+
+template<typename T, uint16_t MaxSize>
+struct DebugTypeName<MiniBuffer<T, MaxSize>>
+{
+    static constexpr const char* name() { return jxc::format("MiniBuffer<{}, {}>", get_type_name<T>(), MaxSize); }
+};
+
+JXC_END_NAMESPACE(detail)
 
 
 JXC_END_NAMESPACE(jxc)

@@ -237,6 +237,12 @@ TEST(jxc_cpp_value, Parsing)
     }
 
     {
+        Value val = jxc::parse("-123.456");
+        EXPECT_TRUE(val.is_float());
+        EXPECT_EQ(val.as_float(), -123.456);
+    }
+
+    {
         Value val = jxc::parse("[1, 2, true, ObjectType null]");
         EXPECT_EQ(val.get_type(), ValueType::Array);
         EXPECT_EQ(val.size(), 4);

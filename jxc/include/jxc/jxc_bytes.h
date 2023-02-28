@@ -100,7 +100,7 @@ JXC_END_NAMESPACE(traits)
 JXC_BEGIN_NAMESPACE(detail)
 
 // Simple stack-based char buffer, generally intended for small strings, but could be used for anything
-template<typename T, size_t BufSize>
+template<typename T, uint16_t BufSize>
 struct MiniBuffer
 {
     using value_type = T;

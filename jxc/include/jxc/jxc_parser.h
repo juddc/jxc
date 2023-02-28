@@ -161,6 +161,16 @@ inline bool element_is_expression_value_type(ElementType type)
 }
 
 
+JXC_BEGIN_NAMESPACE(util)
+
+inline bool is_decimal_digit(char ch) { return ch >= '0' && ch <= '9'; }
+inline bool is_hex_digit(char ch) { return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'); }
+inline bool is_octal_digit(char ch) { return ch >= '0' && ch <= '7'; }
+inline bool is_binary_digit(char ch) { return ch == '0' || ch == '1'; }
+
+JXC_END_NAMESPACE(util)
+
+
 template<typename T>
 struct TElement
 {
@@ -258,7 +268,7 @@ using OwnedElement = TElement<OwnedTokenSpan>;
 
 class JumpParser
 {
-private:
+protected:
     enum JumpState : uint8_t
     {
         JS_Value = 0,
@@ -292,9 +302,12 @@ private:
         static constexpr int32_t max_bracket_depth = std::numeric_limits<int32_t>::max() - 2;
     };
 
+protected:
+    ErrorInfo error;
+
+private:
     std::string_view buffer;
     Lexer lexer;
-    ErrorInfo error;
     Token tok;
     Element current_value;
 
@@ -327,12 +340,12 @@ private:
         }
     }
 
-    JXC_FORCEINLINE bool advance()
+    JXC_FORCEINLINE bool lexer_advance()
     {
         return lexer.next(tok, error);
     }
 
-    JXC_FORCEINLINE bool advance_skip_comments()
+    JXC_FORCEINLINE bool lexer_advance_skip_comments()
     {
         if (!lexer.next(tok, error)) { return false; }
         while (tok.type == TokenType::Comment)
@@ -342,7 +355,7 @@ private:
         return true;
     }
 
-    JXC_FORCEINLINE bool skip_over_line_breaks()
+    JXC_FORCEINLINE bool lexer_skip_over_line_breaks()
     {
         while (tok.type == TokenType::LineBreak || tok.type == TokenType::Comment)
         {
@@ -351,9 +364,11 @@ private:
         return true;
     }
 
-    bool advance_separator(TokenType container_close_type, const char* cur_jump_block_name);
+    bool lexer_advance_separator(TokenType container_close_type, const char* cur_jump_block_name);
 
 public:
+    JumpParser() = default;
+
     JumpParser(std::string_view buffer)
         : buffer(buffer)
         , lexer(buffer.data(), buffer.size())
@@ -387,6 +402,195 @@ public:
 };
 
 
+// Utility parser that can be used to simpify parsing annotation TokenSpan values
+struct AnnotationParser
+{
+    TokenSpan anno;
+    size_t idx = 0;
+    int64_t paren_depth = 0;
+    int64_t angle_bracket_depth = 0;
+    ErrorInfo err;
+    std::function<void(const ErrorInfo&)> on_error_callback;
+
+    explicit AnnotationParser(TokenSpan anno, const std::function<void(const ErrorInfo&)>& on_error_callback = nullptr);
+
+private:
+    void set_error(std::string&& err_msg, size_t start_idx = invalid_idx, size_t end_idx = invalid_idx);
+
+public:
+    inline bool has_error() const { return err.is_err; }
+
+    bool advance();
+
+    bool advance_required();
+
+    inline bool done() const { return idx >= anno.size(); }
+
+    bool done_required();
+
+    inline const Token& current() const { JXC_ASSERT(idx < anno.size()); return anno[idx]; }
+
+    bool require(TokenType tok_type, std::string_view tok_value = std::string_view{});
+
+    bool require_then_advance(TokenType tok_type, std::string_view tok_value = std::string_view{});
+
+    // Return true if the current token matches the given type and value.
+    // Same as require() but without setting an error on failure.
+    inline bool equals(TokenType tok_type, std::string_view tok_value = std::string_view{}) const
+    {
+        return !done() && anno[idx].type == tok_type && (tok_value.size() == 0 || anno[idx].value == tok_value);
+    }
+
+    // Call this only when the previous token type was AngleBracketOpen.
+    // Skips over an inner generic value, stopping at either a matching AngleBracketClose, or a Comma at the same depth.
+    // Returns a TokenSpan for the tokens skipped.
+    TokenSpan skip_over_generic_value();
+};
+
+
+JXC_BEGIN_NAMESPACE(detail)
+
+template<typename T>
+inline T sign_char_to_multiplier(char sign_char)
+{
+    if constexpr (std::is_unsigned_v<T>)
+    {
+        JXC_DEBUG_ASSERT(sign_char == '+');
+        return 1;
+    }
+    else
+    {
+        return (sign_char == '-') ? static_cast<T>(-1) : static_cast<T>(1);
+    }
+}
+
+// Given two decimal integer strings, returns lhs <= rhs.
+// This function assumes clean inputs: both values must be at least 1 character and with no leading zeroes.
+// Values should have no sign character.
+bool decimal_integer_string_less_than_or_equal(std::string_view lhs, std::string_view rhs);
+
+// Checks if an integer in string form is less than or equal to the max value for that type.
+// Takes a value without a sign char that is assumed to be positive.
+template<typename T>
+inline bool value_lte_int_max(std::string_view value)
+{
+    static_assert(std::is_integral_v<T>);
+
+    if (value.size() == 0)
+    {
+        return true;
+    }
+
+    // all chars must be decimal digits
+#if JXC_DEBUG
+    for (size_t i = 0; i < value.size(); i++)
+    {
+        JXC_ASSERT(util::is_decimal_digit(value[i]));
+    }
+#endif
+
+    if constexpr (std::is_same_v<T, uint8_t>) { return decimal_integer_string_less_than_or_equal(value, "255"); }
+    else if constexpr (std::is_same_v<T, uint16_t>) { return decimal_integer_string_less_than_or_equal(value, "65535"); }
+    else if constexpr (std::is_same_v<T, uint32_t>) { return decimal_integer_string_less_than_or_equal(value, "4294967295"); }
+    else if constexpr (std::is_same_v<T, uint64_t>) { return decimal_integer_string_less_than_or_equal(value, "18446744073709551615"); }
+    else if constexpr (std::is_same_v<T, int8_t>) { return decimal_integer_string_less_than_or_equal(value, "127"); }
+    else if constexpr (std::is_same_v<T, int16_t>) { return decimal_integer_string_less_than_or_equal(value, "32767"); }
+    else if constexpr (std::is_same_v<T, int32_t>) { return decimal_integer_string_less_than_or_equal(value, "2147483647"); }
+    else if constexpr (std::is_same_v<T, int64_t>) { return decimal_integer_string_less_than_or_equal(value, "9223372036854775807"); }
+
+    return false;
+}
+
+// Checks if an integer in string form is greater than or equal to the min value for that type.
+// Takes a value without a sign char that is assumed to be negative.
+template<typename T>
+inline bool value_gte_int_min(std::string_view value)
+{
+    static_assert(std::is_integral_v<T> && std::is_signed_v<T>);
+
+    if (value.size() == 0)
+    {
+        return true;
+    }
+
+    // all chars must be decimal digits
+#if JXC_DEBUG
+    for (size_t i = 0; i < value.size(); i++)
+    {
+        JXC_ASSERT(util::is_decimal_digit(value[i]));
+    }
+#endif
+
+    if constexpr (std::is_same_v<T, int8_t>) { return decimal_integer_string_less_than_or_equal(value, "128"); }
+    else if constexpr (std::is_same_v<T, int16_t>) { return decimal_integer_string_less_than_or_equal(value, "32768"); }
+    else if constexpr (std::is_same_v<T, int32_t>) { return decimal_integer_string_less_than_or_equal(value, "2147483648"); }
+    else if constexpr (std::is_same_v<T, int64_t>) { return decimal_integer_string_less_than_or_equal(value, "9223372036854775808"); }
+
+    return false;
+}
+
+
+// determines if a signed integer would fit in a smaller signed integer type
+template<typename T>
+constexpr bool signed_integer_value_fits_in_type(int64_t value)
+{
+    static_assert(std::is_integral_v<T>, "signed_integer_value_fits_in_type requires an integer type");
+    static_assert(std::is_signed_v<T>, "signed_integer_value_fits_in_type requires a signed integer type");
+
+    if constexpr (std::is_same_v<T, int8_t>)
+    {
+        return value >= static_cast<int64_t>(INT8_MIN) && value <= static_cast<int64_t>(INT8_MAX);
+    }
+    else if constexpr (std::is_same_v<T, int16_t>)
+    {
+        return value >= static_cast<int64_t>(INT16_MIN) && value <= static_cast<int64_t>(INT16_MAX);
+    }
+    else if constexpr (std::is_same_v<T, int32_t>)
+    {
+        return value >= static_cast<int64_t>(INT32_MIN) && value <= static_cast<int64_t>(INT32_MAX);
+    }
+    else if constexpr (std::is_same_v<T, int64_t>)
+    {
+        // value is same as the input type, so it can't be out of range
+        return true;
+    }
+
+    JXC_UNREACHABLE("Unreachable");
+    return false;
+}
+
+// determines if an unsigned integer would fit in a smaller unsigned integer type
+template<typename T>
+constexpr bool unsigned_integer_value_fits_in_type(uint64_t value)
+{
+    static_assert(std::is_integral_v<T>, "unsigned_integer_value_fits_in_type requires an integer type");
+    static_assert(std::is_unsigned_v<T>, "unsigned_integer_value_fits_in_type requires an unsigned integer type");
+
+    if constexpr (std::is_same_v<T, uint8_t>)
+    {
+        return value <= static_cast<uint64_t>(UINT8_MAX);
+    }
+    else if constexpr (std::is_same_v<T, uint16_t>)
+    {
+        return value <= static_cast<uint64_t>(UINT16_MAX);
+    }
+    else if constexpr (std::is_same_v<T, uint32_t>)
+    {
+        return value <= static_cast<uint64_t>(UINT32_MAX);
+    }
+    else if constexpr (std::is_same_v<T, uint64_t>)
+    {
+        // value is same as the input type, so it can't be out of range
+        return true;
+    }
+
+    JXC_UNREACHABLE("Unreachable");
+    return false;
+}
+
+JXC_END_NAMESPACE(detail)
+
+
 JXC_BEGIN_NAMESPACE(util)
 
 
@@ -409,31 +613,18 @@ inline bool parse_bool(std::string_view value, bool& out_result)
 }
 
 
-inline bool is_decimal_digit(char ch) { return ch >= '0' && ch <= '9'; }
-inline bool is_hex_digit(char ch) { return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'); }
-inline bool is_octal_digit(char ch) { return ch >= '0' && ch <= '7'; }
-inline bool is_binary_digit(char ch) { return ch == '0' || ch == '1'; }
-
-
 inline int32_t char_to_int(char ch)
 {
-    switch (ch)
+    if (ch >= '0' && ch <= '9')
     {
-    case '0': return 0;
-    case '1': return 1;
-    case '2': return 2;
-    case '3': return 3;
-    case '4': return 4;
-    case '5': return 5;
-    case '6': return 6;
-    case '7': return 7;
-    case '8': return 8;
-    case '9': return 9;
-    default: break;
+        return ch - '0';
     }
     JXC_ASSERTF(is_decimal_digit(ch), "char_to_int requires a decimal digit char, got {}", detail::debug_char_repr(ch));
     return 0;
 }
+
+
+inline int32_t char_to_int_unchecked(char ch) { return ch - '0'; }
 
 
 bool string_is_number_base_10(std::string_view value);
@@ -465,66 +656,157 @@ inline bool string_to_float(std::string_view value, T& out_value)
 
 // converts a string with a base-10 numeric value to any numeric type (int or float)
 template<typename T>
-inline bool string_to_number_decimal(std::string_view value, T& out_result)
+inline bool string_to_number_decimal(char sign_char, std::string_view value, T& out_result, bool* out_overflow = nullptr)
 {
     static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "string_to_number_decimal requires a numeric type");
+
+    // strip leading zeroes
+    while (value.size() >= 2 && value[0] == '0' && value[1] == '0')
+    {
+        value = value.substr(1);
+    }
+
+    // empty value
     if (value.size() == 0)
     {
+        out_result = 0;
         return false;
     }
 
-    JXC_DEBUG_ASSERT(string_is_number_base_10(value));
+    JXC_DEBUG_ASSERTF(string_is_number_base_10(value), "Invalid decimal number {}", detail::debug_string_repr(value));
+
+    // handle unsigned integers with a negative sign
+    if constexpr (std::is_unsigned_v<T>)
+    {
+        if (sign_char == '-')
+        {
+            out_result = 0;
+
+            // negative zero is fine
+            if (value == "0")
+            {
+                return true;
+            }
+
+            // no other negative values are valid
+            if (out_overflow != nullptr)
+            {
+                *out_overflow = true;
+            }
+            return false;
+        }
+    }
 
     // fast-path for single-character decimal numbers
     if (value.size() == 1)
     {
+        if constexpr (std::is_unsigned_v<T>)
+        {
+            if (sign_char == '-')
+            {
+                out_result = 0;
+            }
+        }
+
         if (is_decimal_digit(value[0]))
         {
-            out_result = static_cast<T>(char_to_int(value[0]));
+            out_result = static_cast<T>(char_to_int(value[0])) * detail::sign_char_to_multiplier<T>(sign_char);
             return true;
         }
         return false;
     }
-    else if (value.size() == 2 && value[0] == '-')
-    {
-        if constexpr (std::is_unsigned_v<T>)
-        {
-            out_result = static_cast<T>(0);
-            return value[1] == '0'; // unsigned conversion is only valid for `-0`
-        }
-        else
-        {
-            if (is_decimal_digit(value[1]))
-            {
-                out_result = static_cast<T>(-char_to_int(value[1]));
-                return true;
-            }
-            else
-            {
-                out_result = static_cast<T>(0);
-                return false;
-            }
-        }
-    }
 
     if constexpr (std::is_floating_point_v<T>)
     {
-        // can use this instead if you want to get rid of the fast_float dependency (it's significantly slower though)
+        // use the fast_float library to convert floating point values
+        if (!string_to_float<T>(value, out_result))
+        {
+            return false;
+        }
+
+        // can use this instead if you want to get rid of fast_float (it's about 4x slower though)
         //out_result = static_cast<T>(strtold(value.data(), nullptr));
 
-        return string_to_float<T>(value, out_result);
+        out_result *= detail::sign_char_to_multiplier<T>(sign_char);
+        return true;
     }
-    else
+    else if constexpr (std::is_integral_v<T>)
     {
-        out_result = static_cast<T>(strtoll(value.data(), nullptr, 10));
+        // max value for uint64 is 20 digits long, so if we have more than that, we can't store it in any standard integer type
+        if (value.size() > 20)
+        {
+            if (out_overflow != nullptr)
+            {
+                *out_overflow = true;
+            }
+            out_result = 0;
+            return false;
+        }
+
+        // check for invalid digits
+        for (size_t i = 0; i < value.size(); i++)
+        {
+            if (!is_decimal_digit(value[i]))
+            {
+                out_result = 0;
+                return false;
+            }
+        }
+
+        // if the value is signed and negative, check if it's greater than or equal to the minimum value for this int type
+        if constexpr (std::is_signed_v<T>)
+        {
+            if (sign_char == '-' && !detail::value_gte_int_min<T>(value))
+            {
+                if (out_overflow != nullptr)
+                {
+                    *out_overflow = true;
+                }
+                out_result = 0;
+                return false;
+            }
+        }
+
+        // check if the value is less than or equal to the maximum value for this int type
+        if (sign_char == '+' && !detail::value_lte_int_max<T>(value))
+        {
+            if (out_overflow != nullptr)
+            {
+                *out_overflow = true;
+            }
+            out_result = 0;
+            return false;
+        }
+
+        if constexpr (std::is_unsigned_v<T>)
+        {
+            out_result = static_cast<T>(strtoull(value.data(), nullptr, 10));
+        }
+        else
+        {
+            out_result = static_cast<T>(strtoll(value.data(), nullptr, 10)) * detail::sign_char_to_multiplier<T>(sign_char);
+
+            // edge case - if the value is exactly INT64_MIN, then we actually end up with INT64_MIN+1,
+            // because we can't represent abs(INT64_MIN) before factoring in the multiplier.
+            if constexpr (std::is_same_v<T, int64_t>)
+            {
+                if (sign_char == '-' && out_result == (INT64_MIN + 1) && value == "9223372036854775808")
+                {
+                    out_result = INT64_MIN;
+                }
+            }
+        }
+
+        return true;
     }
 
-    return true;
+    JXC_UNREACHABLE("unreachable: string_to_number_decimal");
+    return false;
 }
 
 
 template<typename T>
-inline bool string_to_number_hex(std::string_view value, T& out_result)
+inline bool string_to_number_hex(char sign_char, std::string_view value, T& out_result)
 {
     static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "string_to_number_hex requires a numeric type");
     if (value.size() == 0)
@@ -541,13 +823,14 @@ inline bool string_to_number_hex(std::string_view value, T& out_result)
         }
     }
 #endif
-    out_result = static_cast<T>(strtoll(value.data(), nullptr, 16));
+
+    out_result = static_cast<T>(strtoll(value.data(), nullptr, 16)) * detail::sign_char_to_multiplier<T>(sign_char);
     return true;
 }
 
 
 template<typename T>
-inline bool string_to_number_octal(std::string_view value, T& out_result)
+inline bool string_to_number_octal(char sign_char, std::string_view value, T& out_result)
 {
     static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "string_to_number_octal requires a numeric type");
     if (value.size() == 0)
@@ -564,13 +847,13 @@ inline bool string_to_number_octal(std::string_view value, T& out_result)
         }
     }
 #endif
-    out_result = static_cast<T>(strtol(value.data(), nullptr, 8));
+    out_result = static_cast<T>(strtol(value.data(), nullptr, 8)) * detail::sign_char_to_multiplier<T>(sign_char);
     return true;
 }
 
 
 template<typename T>
-inline bool string_to_number_binary(std::string_view value, T& out_result)
+inline bool string_to_number_binary(char sign_char, std::string_view value, T& out_result)
 {
     static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "string_to_number_binary requires a numeric type");
     if (value.size() == 0)
@@ -587,7 +870,7 @@ inline bool string_to_number_binary(std::string_view value, T& out_result)
         }
     }
 #endif
-    out_result = static_cast<T>(strtol(value.data(), nullptr, 2));
+    out_result = static_cast<T>(strtol(value.data(), nullptr, 2)) * detail::sign_char_to_multiplier<T>(sign_char);
     return true;
 }
 
@@ -631,23 +914,17 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
 template<typename T>
 bool parse_number(const Token& tok, T& out_value, const NumberTokenSplitResult& number, ErrorInfo& out_error)
 {
-    auto apply_sign = [&tok](char ch, T& val, ErrorInfo& out_err) -> bool
+    // test for unsigned negative values
+    if constexpr (std::is_unsigned_v<T>)
     {
-        if (ch == '-')
+        if (number.sign == '-' && number.value != "0")
         {
-            if constexpr (std::is_unsigned_v<T>)
-            {
-                out_err = ErrorInfo{ "parse_number got an unsigned type, but the number is negative", tok.start_idx, tok.end_idx };
-                return false;
-            }
-            else
-            {
-                val = -val;
-            }
+            out_error = ErrorInfo{ "parse_number got an unsigned type, but the number is negative", tok.start_idx, tok.end_idx };
+            return false;
         }
-        return true;
-    };
+    }
 
+    // handle float literal types
     if constexpr (std::is_floating_point_v<T>)
     {
         switch (number.float_type)
@@ -689,37 +966,31 @@ bool parse_number(const Token& tok, T& out_value, const NumberTokenSplitResult& 
         {
         case 'x':
         case 'X':
-            if (string_to_number_hex<T>(number.value, out_value))
-            {
-                return apply_sign(number.sign, out_value, out_error);
-            }
-            else
+            if (!string_to_number_hex<T>(number.sign, number.value, out_value))
             {
                 out_error = ErrorInfo{ jxc::format("Value {} is not a valid hex literal", detail::debug_string_repr(number.value)), tok.start_idx, tok.end_idx };
                 return false;
             }
+            return true;
+
         case 'b':
         case 'B':
-            if (string_to_number_binary<T>(number.value, out_value))
-            {
-                return apply_sign(number.sign, out_value, out_error);
-            }
-            else
+            if (!string_to_number_binary<T>(number.sign, number.value, out_value))
             {
                 out_error = ErrorInfo{ jxc::format("Value {} is not a valid binary literal", detail::debug_string_repr(number.value)), tok.start_idx, tok.end_idx };
                 return false;
             }
+            return true;
+
         case 'o':
         case 'O':
-            if (string_to_number_octal<T>(number.value, out_value))
-            {
-                return apply_sign(number.sign, out_value, out_error);
-            }
-            else
+            if (!string_to_number_octal<T>(number.sign, number.value, out_value))
             {
                 out_error = ErrorInfo{ jxc::format("Value {} is not a valid octal literal", detail::debug_string_repr(number.value)), tok.start_idx, tok.end_idx };
                 return false;
             }
+            return true;
+
         default:
             break;
         }
@@ -727,14 +998,21 @@ bool parse_number(const Token& tok, T& out_value, const NumberTokenSplitResult& 
         return false;
     }
 
-    if (!string_to_number_decimal<T>(number.value, out_value))
+    bool overflow_error = false;
+    if (!string_to_number_decimal<T>(number.sign, number.value, out_value, &overflow_error))
     {
-        out_error = ErrorInfo{ jxc::format("Value {} is not a valid decimal literal", detail::debug_string_repr(number.value)), tok.start_idx, tok.end_idx };
-        return false;
-    }
-
-    if (!apply_sign(number.sign, out_value, out_error))
-    {
+        if (overflow_error)
+        {
+            out_error = ErrorInfo{ jxc::format("Value {} is too large for integer type {}",
+                detail::debug_string_repr(number.value), detail::get_type_name<T>()),
+                tok.start_idx, tok.end_idx };
+        }
+        else
+        {
+            out_error = ErrorInfo{ jxc::format("Value {} is not a valid decimal literal for type {}",
+                detail::debug_string_repr(number.value), detail::get_type_name<T>()),
+                tok.start_idx, tok.end_idx };
+        }
         return false;
     }
 
@@ -760,6 +1038,36 @@ bool parse_number(const Token& tok, T& out_value, const NumberTokenSplitResult& 
         }
     }
 
+    return true;
+}
+
+
+// General-purpose number parsing function.
+// Also an example of how to use split_number_token_value and parse_number together.
+template<typename NumberType, typename SuffixStringType = std::string>
+bool parse_number_simple(const Token& tok, NumberType& out_value, ErrorInfo& out_error, SuffixStringType* out_suffix = nullptr)
+{
+    if (tok.type != TokenType::Number)
+    {
+        out_error = ErrorInfo(jxc::format("Expected Number token, got {}", token_type_to_string(tok.type)), tok.start_idx, tok.end_idx);
+        return false;
+    }
+
+    NumberTokenSplitResult number;
+    if (!split_number_token_value(tok, number, out_error))
+    {
+        return false;
+    }
+
+    if (!parse_number<NumberType>(tok, out_value, number, out_error))
+    {
+        return false;
+    }
+
+    if (out_suffix != nullptr)
+    {
+        *out_suffix = SuffixStringType(number.suffix);
+    }
     return true;
 }
 
@@ -857,7 +1165,7 @@ bool parse_string_escapes_to_buffer(std::string_view string_value, size_t string
 // Parses a string token to a string buffer. Use get_string_token_required_buffer_size() to compute the size of the output buffer.
 bool parse_string_token_to_buffer(const Token& string_token, char* out_buffer, size_t buffer_size, size_t& out_num_chars_written, ErrorInfo& out_error);
 
-// Parses a string token to a resizable string buffer (eg. std::string or std::vector<char>)
+// Parses a string token to a resizable character buffer (eg. std::string or std::vector<char>)
 template<JXC_CONCEPT(traits::StringBuffer) T>
 bool parse_string_token(const Token& string_token, T& out_string_buffer, ErrorInfo& out_error)
 {

@@ -1017,7 +1017,7 @@ TEST(jxc_core, SerializerSimple)
 
     // expressions
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().expression_end(); }), "()");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_int(1).op("+").value_int(2).expression_end(); }), "(1+2)");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_uint(1).op("+").value_uint(2).expression_end(); }), "(1+2)");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_float(1.5, "cm", 2, true).op("+").value_inf().expression_end(); }), "(1.50cm+inf)");
 
     // annotations
