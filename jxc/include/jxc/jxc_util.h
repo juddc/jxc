@@ -353,7 +353,7 @@ struct Token
 };
 
 
-struct OwnedTokenSpan;
+struct TokenList;
 
 
 namespace detail
@@ -362,29 +362,29 @@ FlexString concat_token_values(const Token* first_token, size_t token_count);
 } // namespace detail
 
 
-struct TokenSpan
+struct TokenView
 {
-    friend struct OwnedTokenSpan;
+    friend struct TokenList;
 
 private:
     inline void check_index(size_t idx) const
     {
         JXC_ASSERT(start != nullptr);
-        JXC_ASSERTF(idx < num_tokens, "Index {} out of range for TokenSpan with {} tokens", idx, num_tokens);
+        JXC_ASSERTF(idx < num_tokens, "Index {} out of range for TokenView with {} tokens", idx, num_tokens);
     }
 
 public:
     Token* start = nullptr;
     size_t num_tokens = 0;
 
-    TokenSpan() = default;
-    TokenSpan(std::nullptr_t) : start(nullptr), num_tokens(0) {}
-    TokenSpan(Token& start, size_t num_tokens) : start(&start), num_tokens(num_tokens) {}
+    TokenView() = default;
+    TokenView(std::nullptr_t) : start(nullptr), num_tokens(0) {}
+    TokenView(Token& start, size_t num_tokens) : start(&start), num_tokens(num_tokens) {}
 
-    TokenSpan(const TokenSpan& rhs) = default;
-    TokenSpan& operator=(const TokenSpan& rhs) = default;
+    TokenView(const TokenView& rhs) = default;
+    TokenView& operator=(const TokenView& rhs) = default;
 
-    explicit TokenSpan(const OwnedTokenSpan& rhs);
+    explicit TokenView(const TokenList& rhs);
 
     inline size_t size() const { return (start != nullptr) ? num_tokens : 0; }
 
@@ -393,7 +393,7 @@ public:
     inline Token& operator[](size_t idx) { check_index(idx); return start[idx]; }
     inline const Token& operator[](size_t idx) const { check_index(idx); return start[idx]; }
 
-    inline bool operator==(const TokenSpan& rhs) const
+    inline bool operator==(const TokenView& rhs) const
     {
         if (num_tokens != rhs.num_tokens)
         {
@@ -415,16 +415,16 @@ public:
         return true;
     }
 
-    inline bool operator!=(const TokenSpan& rhs) const { return !operator==(rhs); }
+    inline bool operator!=(const TokenView& rhs) const { return !operator==(rhs); }
 
-    bool operator==(const OwnedTokenSpan& rhs) const;
-    inline bool operator!=(const OwnedTokenSpan& rhs) const { return !operator==(rhs); }
+    bool operator==(const TokenList& rhs) const;
+    inline bool operator!=(const TokenList& rhs) const { return !operator==(rhs); }
 
     bool operator==(std::string_view rhs) const;
     inline bool operator!=(std::string_view rhs) const { return !operator==(rhs); }
 
-    friend bool operator==(std::string_view lhs, const TokenSpan& rhs) { return rhs.operator==(lhs); }
-    friend bool operator!=(std::string_view lhs, const TokenSpan& rhs) { return rhs.operator!=(lhs); }
+    friend bool operator==(std::string_view lhs, const TokenView& rhs) { return rhs.operator==(lhs); }
+    friend bool operator!=(std::string_view lhs, const TokenView& rhs) { return rhs.operator!=(lhs); }
 
     // Returns the start_idx value from the first token, and the end_idx value from the last token.
     // Useful for error messages.
@@ -440,7 +440,7 @@ public:
         }
     }
 
-    TokenSpan slice(size_t start_idx, size_t length = invalid_idx) const;
+    TokenView slice(size_t start_idx, size_t length = invalid_idx) const;
 
     // compares this token span to a string by lexing the string into tokens and comparing each token individually
     bool equals_annotation_string_lexed(std::string_view str) const;
@@ -457,7 +457,7 @@ public:
     uint64_t hash() const;
 
     // Computes the hash of a string as if it was a token. If tok_type is not specified, guesses at the token type
-    // based on the value. This is mainly useful for map implementations that use TokenSpans as a key.
+    // based on the value. This is mainly useful for map implementations that use TokenLists as a key.
     static uint64_t hash_string_as_single_token(std::string_view str, TokenType tok_type = TokenType::Invalid);
 
     // Returns a string view representing the original text of the entire token span.
@@ -612,25 +612,25 @@ inline void byte_to_hex(uint8_t value, char& out_char_a, char& out_char_b)
 } // namespace detail
 
 
-struct OwnedTokenSpan
+struct TokenList
 {
-    friend struct TokenSpan;
+    friend struct TokenView;
 
     detail::ArrayBuffer<Token, 16> tokens;
     FlexString src;
 
-    OwnedTokenSpan() = default;
-    OwnedTokenSpan(const OwnedTokenSpan& rhs) { copy_from_internal(rhs); }
-    explicit OwnedTokenSpan(TokenSpan span) { copy_from_internal(span); }
+    TokenList() = default;
+    TokenList(const TokenList& rhs) { copy_from_internal(rhs); }
+    explicit TokenList(TokenView span) { copy_from_internal(span); }
 
-    OwnedTokenSpan(OwnedTokenSpan&& rhs) = default;
-    OwnedTokenSpan& operator=(OwnedTokenSpan&& rhs) = default;
+    TokenList(TokenList&& rhs) = default;
+    TokenList& operator=(TokenList&& rhs) = default;
 
-    static std::optional<OwnedTokenSpan> parse(std::string_view source, std::string* out_error = nullptr);
-    static std::optional<OwnedTokenSpan> parse_annotation(std::string_view annotation, std::string* out_error = nullptr);
-    static std::optional<OwnedTokenSpan> parse_expression(std::string_view expression, std::string* out_error = nullptr);
+    static std::optional<TokenList> parse(std::string_view source, std::string* out_error = nullptr);
+    static std::optional<TokenList> parse_annotation(std::string_view annotation, std::string* out_error = nullptr);
+    static std::optional<TokenList> parse_expression(std::string_view expression, std::string* out_error = nullptr);
 
-    static inline OwnedTokenSpan parse_annotation_checked(std::string_view annotation)
+    static inline TokenList parse_annotation_checked(std::string_view annotation)
     {
         std::string err;
         auto result = parse_annotation(annotation, &err);
@@ -639,9 +639,9 @@ struct OwnedTokenSpan
     }
 
     // Assumes that the input string is a valid identifier and returns it as an annotation
-    static inline OwnedTokenSpan from_identifier(std::string_view identifier)
+    static inline TokenList from_identifier(std::string_view identifier)
     {
-        OwnedTokenSpan result;
+        TokenList result;
         JXC_ASSERT(is_valid_identifier(identifier));
         result.tokens.push(Token(TokenType::Identifier, 0, identifier.size() - 1, FlexString::make_owned(identifier)));
         return result;
@@ -662,25 +662,25 @@ struct OwnedTokenSpan
 
 private:
     // This is not a safe conversion in all cases.
-    // Notably, TokenSpan::source() assumes that all token values are contiguous string views.
-    TokenSpan to_token_span() const { const size_t sz = tokens.size(); return (sz > 0) ? TokenSpan{ const_cast<Token&>(tokens.front()), sz } : TokenSpan{}; }
+    // Notably, TokenView::source() assumes that all token values are contiguous string views.
+    TokenView to_token_span() const { const size_t sz = tokens.size(); return (sz > 0) ? TokenView{ const_cast<Token&>(tokens.front()), sz } : TokenView{}; }
 
 public:
     inline explicit operator bool() const { return tokens.size() > 0; }
     inline Token& operator[](size_t idx) { return tokens[idx]; }
     inline const Token& operator[](size_t idx) const { return tokens[idx]; }
 
-    inline bool operator==(const TokenSpan& rhs) const { return to_token_span() == rhs; }
-    inline bool operator!=(const TokenSpan& rhs) const { return to_token_span() != rhs; }
+    inline bool operator==(const TokenView& rhs) const { return to_token_span() == rhs; }
+    inline bool operator!=(const TokenView& rhs) const { return to_token_span() != rhs; }
 
-    inline bool operator==(const OwnedTokenSpan& rhs) const { return to_token_span() == rhs.to_token_span(); }
-    inline bool operator!=(const OwnedTokenSpan& rhs) const { return to_token_span() != rhs.to_token_span(); }
+    inline bool operator==(const TokenList& rhs) const { return to_token_span() == rhs.to_token_span(); }
+    inline bool operator!=(const TokenList& rhs) const { return to_token_span() != rhs.to_token_span(); }
 
     inline bool operator==(std::string_view rhs) const { return to_token_span() == rhs; }
     inline bool operator!=(std::string_view rhs) const { return to_token_span() != rhs; }
 
-    friend bool operator==(std::string_view lhs, const OwnedTokenSpan& rhs) { return rhs.operator==(lhs); }
-    friend bool operator!=(std::string_view lhs, const OwnedTokenSpan& rhs) { return rhs.operator!=(lhs); }
+    friend bool operator==(std::string_view lhs, const TokenList& rhs) { return rhs.operator==(lhs); }
+    friend bool operator!=(std::string_view lhs, const TokenList& rhs) { return rhs.operator!=(lhs); }
 
     void reset() { tokens.clear(); }
 
@@ -748,8 +748,8 @@ constexpr std::string get_type_name()
     // JXC types
     else if JXC_TYPE_EQUALS(TokenType)
     else if JXC_TYPE_EQUALS(Token)
-    else if JXC_TYPE_EQUALS(TokenSpan)
-    else if JXC_TYPE_EQUALS(OwnedTokenSpan)
+    else if JXC_TYPE_EQUALS(TokenView)
+    else if JXC_TYPE_EQUALS(TokenList)
     else if JXC_TYPE_EQUALS(FlexString)
     else if JXC_TYPE_EQUALS(BytesView)
     else if JXC_TYPE_EQUALS(SmallByteArray)

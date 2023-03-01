@@ -11,28 +11,28 @@ TEST(jxc_cpp_converter, ConverterCppTypeToAnnotation)
     EXPECT_EQ(
         cpp_type_to_annotation(
             "std::vector<int32_t>"),
-        jxc::OwnedTokenSpan::parse_annotation(
+        jxc::TokenList::parse_annotation(
             "std.vector<int32_t>"));
 
     EXPECT_EQ(
         cpp_type_to_annotation(
             "std::array<std::string,16>"),
-        jxc::OwnedTokenSpan::parse_annotation(
+        jxc::TokenList::parse_annotation(
             "std.array<std.string, 16>"));
 
     EXPECT_EQ(cpp_type_to_annotation(
             "std::conditional_t<value_type_is_trivial, ValueType, const ValueType&>"),
-        jxc::OwnedTokenSpan::parse_annotation(
+        jxc::TokenList::parse_annotation(
             "std.conditional_t<value_type_is_trivial, ValueType, const ValueType&>"));
 
     EXPECT_EQ(cpp_type_to_annotation(
             "::jxc::detail::FixedArray<::jxc::detail::FixedArray<int32_t>>"),
-        jxc::OwnedTokenSpan::parse_annotation(
+        jxc::TokenList::parse_annotation(
             "jxc.detail.FixedArray<jxc.detail.FixedArray<int32_t>>"));
 
     EXPECT_EQ(cpp_type_to_annotation(
             "std::vector<std::optional<std::vector<int32_t>>>"),
-        jxc::OwnedTokenSpan::parse_annotation(
+        jxc::TokenList::parse_annotation(
             "std.vector<std.optional<std.vector<int32_t>>>"));
 }
 
@@ -944,7 +944,7 @@ struct jxc::Converter<TestFullyCustomStruct>
         doc.object_end();
     }
 
-    static value_type parse(jxc::conv::Parser& parser, jxc::TokenSpan generic_anno)
+    static value_type parse(jxc::conv::Parser& parser, jxc::TokenView generic_anno)
     {
         value_type result;
 
@@ -954,7 +954,7 @@ struct jxc::Converter<TestFullyCustomStruct>
 
         parser.require(jxc::ElementType::BeginObject);
 
-        if (TokenSpan struct_anno = parser.get_value_annotation(generic_anno))
+        if (TokenView struct_anno = parser.get_value_annotation(generic_anno))
         {
             auto anno_parser = parser.parse_annotation(struct_anno);
             anno_parser.require_then_advance(jxc::TokenType::Identifier, get_annotation());

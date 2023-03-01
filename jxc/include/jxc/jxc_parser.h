@@ -212,9 +212,9 @@ struct TElement
         annotation.reset();
     }
 
-    inline TElement<TokenSpan> view() const
+    inline TElement<TokenView> view() const
     {
-        if constexpr (std::is_same_v<anno_type, TokenSpan>)
+        if constexpr (std::is_same_v<anno_type, TokenView>)
         {
             return { type, token.view(), annotation };
         }
@@ -224,9 +224,9 @@ struct TElement
         }
     }
 
-    inline TElement<OwnedTokenSpan> copy() const
+    inline TElement<TokenList> copy() const
     {
-        return { type, token.copy(), OwnedTokenSpan(annotation) };
+        return { type, token.copy(), TokenList(annotation) };
     }
 
 private:
@@ -262,8 +262,8 @@ public:
 };
 
 
-using Element = TElement<TokenSpan>;
-using OwnedElement = TElement<OwnedTokenSpan>;
+using Element = TElement<TokenView>;
+using OwnedElement = TElement<TokenList>;
 
 
 class JumpParser
@@ -402,17 +402,17 @@ public:
 };
 
 
-// Utility parser that can be used to simpify parsing annotation TokenSpan values
+// Utility parser that can be used to simpify parsing annotation TokenView values
 struct AnnotationParser
 {
-    TokenSpan anno;
+    TokenView anno;
     size_t idx = 0;
     int64_t paren_depth = 0;
     int64_t angle_bracket_depth = 0;
     ErrorInfo err;
     std::function<void(const ErrorInfo&)> on_error_callback;
 
-    explicit AnnotationParser(TokenSpan anno, const std::function<void(const ErrorInfo&)>& on_error_callback = nullptr);
+    explicit AnnotationParser(TokenView anno, const std::function<void(const ErrorInfo&)>& on_error_callback = nullptr);
 
 private:
     void set_error(std::string&& err_msg, size_t start_idx = invalid_idx, size_t end_idx = invalid_idx);
@@ -443,8 +443,8 @@ public:
 
     // Call this only when the current token type is AngleBracketOpen or Comma.
     // Skips over an inner generic value, stopping at either a matching AngleBracketClose, or a Comma at the same depth.
-    // Returns a TokenSpan for the tokens skipped.
-    TokenSpan skip_over_generic_value();
+    // Returns a TokenView for the tokens skipped.
+    TokenView skip_over_generic_value();
 };
 
 

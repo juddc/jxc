@@ -46,7 +46,7 @@ JXC_BEGIN_NAMESPACE(detail)
 
 struct ValueParser
 {
-    using MakeValueFunc = const std::function<Value(ValueParser&, ElementType, const Token&, TokenSpan)>;
+    using MakeValueFunc = const std::function<Value(ValueParser&, ElementType, const Token&, TokenView)>;
 
     JumpParser& parser;
     ErrorInfo& parse_error;
@@ -55,7 +55,7 @@ struct ValueParser
 
 private:
     template<typename T>
-    inline Value make_value_internal(const T& val, TokenSpan anno)
+    inline Value make_value_internal(const T& val, TokenView anno)
     {
         Value result(val);
         if (anno)
@@ -66,7 +66,7 @@ private:
     }
 
     template<typename T>
-    inline Value make_value_internal(const T& val, std::string_view number_suffix, TokenSpan anno)
+    inline Value make_value_internal(const T& val, std::string_view number_suffix, TokenView anno)
     {
         Value result(val, number_suffix);
         if (anno)
@@ -92,17 +92,17 @@ public:
     {
     }
 
-    Value parse_number(const Token& tok, TokenSpan annotation);
-    Value parse_bool(const Token& tok, TokenSpan annotation);
-    Value parse_null(const Token& tok, TokenSpan annotation);
-    Value parse_string(const Token& tok, TokenSpan annotation);
-    Value parse_bytes(const Token& tok, TokenSpan annotation);
-    Value parse_array(TokenSpan annotation);
-    Value parse_expression_as_string(TokenSpan annotation);
-    Value parse_expression_as_array(TokenSpan annotation);
+    Value parse_number(const Token& tok, TokenView annotation);
+    Value parse_bool(const Token& tok, TokenView annotation);
+    Value parse_null(const Token& tok, TokenView annotation);
+    Value parse_string(const Token& tok, TokenView annotation);
+    Value parse_bytes(const Token& tok, TokenView annotation);
+    Value parse_array(TokenView annotation);
+    Value parse_expression_as_string(TokenView annotation);
+    Value parse_expression_as_array(TokenView annotation);
     Value parse_key(const Token& tok);
-    Value parse_object(TokenSpan annotation);
-    Value parse_value(ElementType element_type, const Token& tok, TokenSpan annotation, bool expr_as_string = false);
+    Value parse_object(TokenView annotation);
+    Value parse_value(ElementType element_type, const Token& tok, TokenView annotation, bool expr_as_string = false);
 
     Value parse(const Element& ele);
 };
@@ -126,12 +126,12 @@ public:
 
 private:
     // Makes a deduplicated copy of an annotation that's owned by this Document, then returns
-    // a new TokenSpan pointing to our local copy.
+    // a new TokenView pointing to our local copy.
     // This is needed because the parser does not handle memory allocation or ownership at all,
-    // so we can't just store an existing TokenSpan - we need to cache it ourselves.
+    // so we can't just store an existing TokenView - we need to cache it ourselves.
     // Because annotations tend to be duplicated all over a document, deduplicating can
     // potentially save a large amount of memory.
-    TokenSpan copy_annotation(TokenSpan anno);
+    TokenView copy_annotation(TokenView anno);
 
 private:
     bool advance();

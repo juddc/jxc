@@ -34,7 +34,7 @@ bool is_python_datetime(py::handle value)
 JXC_END_NAMESPACE(detail)
 
 template<typename T>
-auto bind_tokenspan(py::module_& m, const char* name)
+auto bind_tokenlist(py::module_& m, const char* name)
 {
     return py::class_<T>(m, name)
         .def("__bool__", &T::operator bool)
@@ -45,7 +45,7 @@ auto bind_tokenspan(py::module_& m, const char* name)
         .def("__repr__", &T::to_repr)
         .def("__str__", &T::to_string)
         .def("__hash__", &T::hash)
-        .def("copy", [](const T& self) -> OwnedTokenSpan { return OwnedTokenSpan(self); })
+        .def("copy", [](const T& self) -> TokenList { return TokenList(self); })
         .def("source", [](const T& self) { return self.source(false); },
             "The original text from the buffer that represents all the tokens in this span. "
             "Primarily useful for accessing the original whitespace.");
@@ -67,11 +67,11 @@ auto bind_element(py::module_& m, const char* name)
         py::arg("token"),
         py::arg("annotation"));
 
-    if constexpr (std::is_same_v<T, OwnedTokenSpan>)
+    if constexpr (std::is_same_v<T, TokenList>)
     {
         cls.def(py::init([](ElementType element_type, const Token& token, py::sequence annotation) -> T
         {
-            OwnedTokenSpan anno_tokens;
+            TokenList anno_tokens;
             for (const auto& tok : annotation)
             {
                 if (py::isinstance<TokenType>(tok))
@@ -325,12 +325,12 @@ PYBIND11_MODULE(_pyjxc, m)
 
     token_cls.attr("__match_args__") = py::make_tuple("type", "value");
 
-    bind_tokenspan<TokenSpan>(m, "TokenSpan");
+    bind_tokenlist<TokenView>(m, "TokenView");
 
-    bind_tokenspan<OwnedTokenSpan>(m, "OwnedTokenSpan")
-        .def(py::init([](py::args args, py::str source) -> OwnedTokenSpan
+    bind_tokenlist<TokenList>(m, "TokenList")
+        .def(py::init([](py::args args, py::str source) -> TokenList
         {
-            OwnedTokenSpan result{};
+            TokenList result{};
             for (const auto& arg : args)
             {
                 result.tokens.push(py::cast<Token>(arg));
@@ -342,13 +342,47 @@ PYBIND11_MODULE(_pyjxc, m)
             return result;
         }),
             py::arg("source") = "")
-        .def("reset", &OwnedTokenSpan::reset)
-        .def("__setitem__", [](OwnedTokenSpan& self, int64_t idx, const Token& tok)
+
+        .def_static("parse", [](py::str source) -> TokenList
+        {
+            std::string err;
+            std::optional<TokenList> result = TokenList::parse(py::cast<std::string_view>(source), &err);
+            if (!result)
+            {
+                throw py::value_error(jxc::format("Parse error: {}", err));
+            }
+            return result.value();
+        })
+
+        .def_static("parse_annotation", [](py::str source) -> TokenList
+        {
+            std::string err;
+            std::optional<TokenList> result = TokenList::parse_annotation(py::cast<std::string_view>(source), &err);
+            if (!result)
+            {
+                throw py::value_error(jxc::format("Error parsing annotation: {}", err));
+            }
+            return result.value();
+        })
+
+        .def_static("parse_expression", [](py::str source) -> TokenList
+        {
+            std::string err;
+            std::optional<TokenList> result = TokenList::parse_expression(py::cast<std::string_view>(source), &err);
+            if (!result)
+            {
+                throw py::value_error(jxc::format("Error parsing expression: {}", err));
+            }
+            return result.value();
+        })
+
+        .def("reset", &TokenList::reset)
+        .def("__setitem__", [](TokenList& self, int64_t idx, const Token& tok)
         {
             self.tokens[detail::python_index(idx, self.tokens.size())] = tok;
         })
-        .def("append", [](OwnedTokenSpan& self, const Token& tok) { self.tokens.push(tok); })
-        .def("pop_back", [](OwnedTokenSpan& self) -> py::object
+        .def("append", [](TokenList& self, const Token& tok) { self.tokens.push(tok); })
+        .def("pop_back", [](TokenList& self) -> py::object
         {
             if (self.tokens.size() > 0)
             {

@@ -223,7 +223,7 @@ static Token make_token_from_pyobject(py::handle tok)
 
 void PyParser::set_annotation_constructor(py::object annotation, py::object construct)
 {
-    OwnedTokenSpan anno;
+    TokenList anno;
     if (py::isinstance<py::tuple>(annotation) || py::isinstance<py::list>(annotation))
     {
         for (py::handle item : annotation)
@@ -258,7 +258,7 @@ void PyParser::set_find_construct_from_annotation_callback(py::object callback)
             JXC_DEBUG_ASSERT(ele.annotation.size() > 0);
             JXC_DEBUG_ASSERT(!annotation_type_map.contains(ele.annotation));
             auto result = ValueConstructor::from_python(callback(ele));
-            annotation_type_map.insert({ OwnedTokenSpan(ele.annotation), result });
+            annotation_type_map.insert({ TokenList(ele.annotation), result });
             return result;
         };
     }

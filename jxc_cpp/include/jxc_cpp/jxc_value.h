@@ -13,9 +13,9 @@ enum class AnnotationDataType : uint8_t
 {
     Empty = 0,
     SourceInline,
-    TokenSpanView,
-    TokenSpanOwned,
-    LAST = TokenSpanOwned,
+    TokensView,
+    TokensOwned,
+    LAST = TokensOwned,
 };
 
 
@@ -24,18 +24,18 @@ enum class AnnotationDataType : uint8_t
 struct AnnotationData
 {
     static constexpr size_t max_inline_annotation_source_len = (sizeof(void*) * 2) - 1;
-    using token_span_allocator_t = JXC_ALLOCATOR<OwnedTokenSpan>;
+    using token_span_allocator_t = JXC_ALLOCATOR<TokenList>;
 
     union
     {
         // 7 bytes of inline string storage to avoid allocations for small strings
         struct { char buf[max_inline_annotation_source_len]; uint8_t len; } source_inline;
 
-        // TokenSpan storage
+        // TokenView storage
         struct { Token* ptr; size_t len; } tokens_view;
 
         // owned token storage
-        OwnedTokenSpan* tokens_owned;
+        TokenList* tokens_owned;
     };
 
     AnnotationData()
@@ -52,7 +52,7 @@ struct AnnotationData
     {
         if (type != AnnotationDataType::Empty)
         {
-            if (type == AnnotationDataType::TokenSpanOwned && tokens_owned != nullptr)
+            if (type == AnnotationDataType::TokensOwned && tokens_owned != nullptr)
             {
                 token_span_allocator_t allocator{};
                 std::allocator_traits<token_span_allocator_t>::destroy(allocator, tokens_owned);
@@ -67,8 +67,8 @@ struct AnnotationData
     {
         return type == AnnotationDataType::Empty
             || (type == AnnotationDataType::SourceInline && source_inline.len == 0)
-            || (type == AnnotationDataType::TokenSpanView && tokens_view.len == 0)
-            || (type == AnnotationDataType::TokenSpanOwned && (tokens_owned == nullptr || tokens_owned->size() == 0));
+            || (type == AnnotationDataType::TokensView && tokens_view.len == 0)
+            || (type == AnnotationDataType::TokensOwned && (tokens_owned == nullptr || tokens_owned->size() == 0));
     }
 
     inline std::string_view as_source_inline_view_unchecked() const
@@ -76,32 +76,32 @@ struct AnnotationData
         return (source_inline.len > 0) ? std::string_view{ &source_inline.buf[0], static_cast<size_t>(source_inline.len) } : std::string_view{};
     }
 
-    inline TokenSpan as_token_span_unchecked() const
+    inline TokenView as_token_span_unchecked() const
     {
-        return TokenSpan{ *tokens_view.ptr, tokens_view.len };
+        return TokenView{ *tokens_view.ptr, tokens_view.len };
     }
 
-    inline OwnedTokenSpan& as_owned_token_span_unchecked() { return *tokens_owned; }
-    inline const OwnedTokenSpan& as_owned_token_span_unchecked() const { return *tokens_owned; }
-    inline TokenSpan as_owned_token_span_view_unchecked() const { return (tokens_owned != nullptr) ? TokenSpan(*tokens_owned) : TokenSpan(); }
+    inline TokenList& as_owned_token_span_unchecked() { return *tokens_owned; }
+    inline const TokenList& as_owned_token_span_unchecked() const { return *tokens_owned; }
+    inline TokenView as_owned_token_span_view_unchecked() const { return (tokens_owned != nullptr) ? TokenView(*tokens_owned) : TokenView(); }
 
     inline bool have_unowned_data(AnnotationDataType type) const
     {
-        return type == AnnotationDataType::TokenSpanView && tokens_view.ptr != nullptr && tokens_view.len > 0;
+        return type == AnnotationDataType::TokensView && tokens_view.ptr != nullptr && tokens_view.len > 0;
     }
 
     inline bool have_owned_data(AnnotationDataType type) const
     {
-        return type == AnnotationDataType::TokenSpanOwned && tokens_owned != nullptr;
+        return type == AnnotationDataType::TokensOwned && tokens_owned != nullptr;
     }
 
     AnnotationDataType convert_view_to_owned(AnnotationDataType orig_type)
     {
-        if (orig_type != AnnotationDataType::TokenSpanView)
+        if (orig_type != AnnotationDataType::TokensView)
         {
             return orig_type;
         }
-        TokenSpan anno_view = as_token_span_unchecked();
+        TokenView anno_view = as_token_span_unchecked();
         return assign_tokens_owned_copy_from_view(orig_type, anno_view);
     }
 
@@ -113,9 +113,9 @@ struct AnnotationData
             return clear(prev_type);
         case AnnotationDataType::SourceInline:
             return assign_source_inline(prev_type, rhs.as_source_inline_view_unchecked());
-        case AnnotationDataType::TokenSpanView:
+        case AnnotationDataType::TokensView:
             return assign_tokens_view(prev_type, rhs.as_token_span_unchecked());
-        case AnnotationDataType::TokenSpanOwned:
+        case AnnotationDataType::TokensOwned:
             return (rhs.tokens_owned != nullptr) ? assign_tokens_owned_copy(prev_type, rhs.as_owned_token_span_unchecked()) : clear(prev_type);
         default:
             break;
@@ -132,9 +132,9 @@ struct AnnotationData
             return clear(prev_type);
         case AnnotationDataType::SourceInline:
             return assign_source_inline(prev_type, rhs.as_source_inline_view_unchecked());
-        case AnnotationDataType::TokenSpanView:
+        case AnnotationDataType::TokensView:
             return assign_tokens_view(prev_type, rhs.as_token_span_unchecked());
-        case AnnotationDataType::TokenSpanOwned:
+        case AnnotationDataType::TokensOwned:
             clear(prev_type);
             tokens_owned = rhs.tokens_owned;
             rhs.clear_internal();
@@ -155,50 +155,50 @@ struct AnnotationData
         return AnnotationDataType::SourceInline;
     }
 
-    AnnotationDataType assign_tokens_view(AnnotationDataType prev_type, TokenSpan token_span)
+    AnnotationDataType assign_tokens_view(AnnotationDataType prev_type, TokenView token_span)
     {
         clear(prev_type);
         tokens_view.ptr = token_span.start;
         tokens_view.len = token_span.num_tokens;
-        return AnnotationDataType::TokenSpanView;
+        return AnnotationDataType::TokensView;
     }
 
-    AnnotationDataType assign_tokens_owned_copy_from_view(AnnotationDataType prev_type, TokenSpan token_span)
+    AnnotationDataType assign_tokens_owned_copy_from_view(AnnotationDataType prev_type, TokenView token_span)
     {
         clear(prev_type);
         token_span_allocator_t allocator{};
         JXC_DEBUG_ASSERT(token_span.start != nullptr || token_span.num_tokens == 0);
         tokens_owned = allocator.allocate(1);
-        memset((void*)tokens_owned, 0, sizeof(OwnedTokenSpan)); // zero out memory first
+        memset((void*)tokens_owned, 0, sizeof(TokenList)); // zero out memory first
         std::allocator_traits<decltype(allocator)>::construct(allocator, tokens_owned, token_span);
-        return AnnotationDataType::TokenSpanOwned;
+        return AnnotationDataType::TokensOwned;
     }
 
-    AnnotationDataType assign_tokens_owned_copy(AnnotationDataType prev_type, const OwnedTokenSpan& token_span)
+    AnnotationDataType assign_tokens_owned_copy(AnnotationDataType prev_type, const TokenList& token_span)
     {
         clear(prev_type);
         token_span_allocator_t allocator{};
         JXC_DEBUG_ASSERT(token_span.size() > 0);
         tokens_owned = allocator.allocate(1);
-        memset((void*)tokens_owned, 0, sizeof(OwnedTokenSpan)); // zero out memory first
+        memset((void*)tokens_owned, 0, sizeof(TokenList)); // zero out memory first
         std::allocator_traits<decltype(allocator)>::construct(allocator, tokens_owned, token_span);
-        return AnnotationDataType::TokenSpanOwned;
+        return AnnotationDataType::TokensOwned;
     }
 
-    AnnotationDataType assign_tokens_owned_move(AnnotationDataType prev_type, OwnedTokenSpan&& token_span)
+    AnnotationDataType assign_tokens_owned_move(AnnotationDataType prev_type, TokenList&& token_span)
     {
         clear(prev_type);
         token_span_allocator_t allocator{};
         JXC_DEBUG_ASSERT(token_span.size() > 0);
         tokens_owned = allocator.allocate(1);
-        memset((void*)tokens_owned, 0, sizeof(OwnedTokenSpan)); // zero out memory first
+        memset((void*)tokens_owned, 0, sizeof(TokenList)); // zero out memory first
         std::allocator_traits<decltype(allocator)>::construct(allocator, tokens_owned, std::move(token_span));
-        return AnnotationDataType::TokenSpanOwned;
+        return AnnotationDataType::TokensOwned;
     }
 
     bool eq(AnnotationDataType lhs_type, AnnotationDataType rhs_type, const AnnotationData& rhs) const
     {
-        auto token_value_equals_token_span = [](std::string_view tok_value, TokenSpan span) -> bool
+        auto token_value_equals_token_span = [](std::string_view tok_value, TokenView span) -> bool
         {
             // assume tok_value is a single token
             const size_t num_tokens = span.size();
@@ -221,37 +221,37 @@ struct AnnotationData
                 return source_inline.len == 0;
             case AnnotationDataType::SourceInline:
                 return as_source_inline_view_unchecked() == rhs.as_source_inline_view_unchecked();
-            case AnnotationDataType::TokenSpanView:
+            case AnnotationDataType::TokensView:
                 return token_value_equals_token_span(as_source_inline_view_unchecked(), rhs.as_token_span_unchecked());
-            case AnnotationDataType::TokenSpanOwned:
+            case AnnotationDataType::TokensOwned:
                 return token_value_equals_token_span(as_source_inline_view_unchecked(), rhs.as_owned_token_span_view_unchecked());
             }
             break;
 
-        case AnnotationDataType::TokenSpanView:
+        case AnnotationDataType::TokensView:
             switch (rhs_type)
             {
             case AnnotationDataType::Empty:
                 return tokens_view.ptr == nullptr || tokens_view.len == 0;
             case AnnotationDataType::SourceInline:
                 return token_value_equals_token_span(rhs.as_source_inline_view_unchecked(), as_token_span_unchecked());
-            case AnnotationDataType::TokenSpanView:
+            case AnnotationDataType::TokensView:
                 return as_token_span_unchecked() == rhs.as_token_span_unchecked();
-            case AnnotationDataType::TokenSpanOwned:
+            case AnnotationDataType::TokensOwned:
                 return as_token_span_unchecked() == rhs.as_owned_token_span_view_unchecked();
             }
             break;
 
-        case AnnotationDataType::TokenSpanOwned:
+        case AnnotationDataType::TokensOwned:
             switch (rhs_type)
             {
             case AnnotationDataType::Empty:
                 return tokens_owned == nullptr || tokens_owned->size() == 0;
             case AnnotationDataType::SourceInline:
                 return token_value_equals_token_span(rhs.as_source_inline_view_unchecked(), as_owned_token_span_view_unchecked());
-            case AnnotationDataType::TokenSpanView:
+            case AnnotationDataType::TokensView:
                 return as_owned_token_span_view_unchecked() == rhs.as_token_span_unchecked();
-            case AnnotationDataType::TokenSpanOwned:
+            case AnnotationDataType::TokensOwned:
                 return as_owned_token_span_view_unchecked() == rhs.as_owned_token_span_view_unchecked();
             }
             break;
@@ -261,23 +261,23 @@ struct AnnotationData
         return false;
     }
 
-    TokenSpan as_token_span(AnnotationDataType type) const
+    TokenView as_token_span(AnnotationDataType type) const
     {
         switch (type)
         {
         case AnnotationDataType::Empty:
             // fallthrough
         case AnnotationDataType::SourceInline:
-            return TokenSpan{};
-        case AnnotationDataType::TokenSpanView:
+            return TokenView{};
+        case AnnotationDataType::TokensView:
             return as_token_span_unchecked();
-        case AnnotationDataType::TokenSpanOwned:
-            return (tokens_owned != nullptr) ? TokenSpan(*tokens_owned) : TokenSpan{};
+        case AnnotationDataType::TokensOwned:
+            return (tokens_owned != nullptr) ? TokenView(*tokens_owned) : TokenView{};
         default:
             break;
         }
         JXC_UNREACHABLE("Invalid AnnotationDataType {}", static_cast<size_t>(type));
-        return TokenSpan{};
+        return TokenView{};
     }
 
     FlexString as_source(AnnotationDataType type) const
@@ -290,9 +290,9 @@ struct AnnotationData
             break;
         case AnnotationDataType::SourceInline:
             return FlexString::make_inline(as_source_inline_view_unchecked());
-        case AnnotationDataType::TokenSpanView:
+        case AnnotationDataType::TokensView:
             return as_token_span_unchecked().source();
-        case AnnotationDataType::TokenSpanOwned:
+        case AnnotationDataType::TokensOwned:
             if (tokens_owned != nullptr)
             {
                 return tokens_owned->src;
@@ -1198,12 +1198,12 @@ public:
 
     inline void clear_annotation() { type.anno = annotation.clear(type.anno); }
     bool set_annotation(std::string_view new_anno, std::string* out_anno_parse_error = nullptr);
-    bool set_annotation(TokenSpan new_anno_tokens, bool as_view = false);
-    bool set_annotation(const OwnedTokenSpan& new_anno_tokens);
-    bool set_annotation(OwnedTokenSpan&& new_anno_tokens);
+    bool set_annotation(TokenView new_anno_tokens, bool as_view = false);
+    bool set_annotation(const TokenList& new_anno_tokens);
+    bool set_annotation(TokenList&& new_anno_tokens);
     inline FlexString get_annotation_source() const { return annotation.as_source(type.anno); }
 
-    OwnedTokenSpan get_annotation_tokens() const;
+    TokenList get_annotation_tokens() const;
 
     /// Checks if we fully own our annotation's data
     inline bool is_owned_annotation() const { return type.anno == AnnotationDataType::SourceInline || annotation.is_empty(type.anno) || annotation.have_owned_data(type.anno); }

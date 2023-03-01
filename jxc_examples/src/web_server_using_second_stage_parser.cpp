@@ -651,7 +651,7 @@ private:
 
     void require_no_annotation()
     {
-        jxc::TokenSpan anno = parser.value().annotation;
+        jxc::TokenView anno = parser.value().annotation;
         if (anno.size() != 0)
         {
             throw make_parse_error(jxc::format("Unexpected annotation {} (no annotation is valid for this value)", jxc::detail::debug_string_repr(anno.source())));
@@ -677,7 +677,7 @@ private:
             return ss.str();
         };
 
-        jxc::TokenSpan anno = parser.value().annotation;
+        jxc::TokenView anno = parser.value().annotation;
         if ((valid_annotations.size() == 0 || annotation_optional) && anno.size() == 0)
         {
             // annotation was optional, and no annotation was specified
@@ -1240,7 +1240,7 @@ private:
         }
 
         // custom annotation handling here, to support allowing a mimetype to be specified as the annotation's "generic" argument
-        jxc::TokenSpan anno = parser.value().annotation;
+        jxc::TokenView anno = parser.value().annotation;
         if (anno.size() == 0)
         {
             throw make_parse_error("Document requires annotation `path` or `inline`");

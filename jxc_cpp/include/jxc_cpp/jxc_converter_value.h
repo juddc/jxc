@@ -11,9 +11,9 @@ struct Converter<Value>
 {
     using value_type = Value;
 
-    static const OwnedTokenSpan& get_annotation()
+    static const TokenList& get_annotation()
     {
-        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("any");
+        static const TokenList anno = TokenList::from_identifier("any");
         return anno;
     }
 
@@ -22,7 +22,7 @@ struct Converter<Value>
         DocumentSerializer::serialize_value(doc, value);
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan anno)
+    static value_type parse(conv::Parser& parser, TokenView anno)
     {
         ErrorInfo err;
         value_type result = detail::ValueParser(parser, err).parse(parser.value());

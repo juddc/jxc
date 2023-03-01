@@ -29,12 +29,12 @@ public:
     static constexpr EnumConverterStyle serialize_style = Style;
 
 private:
-    OwnedTokenSpan annotation;
+    TokenList annotation;
     StringMap<value_type> name_map;
     ankerl::unordered_dense::map<value_type, std::string> value_map;
 
 public:
-    EnumConverterMetadata(const OwnedTokenSpan& annotation, std::initializer_list<std::pair<std::string, value_type>> values)
+    EnumConverterMetadata(const TokenList& annotation, std::initializer_list<std::pair<std::string, value_type>> values)
         : annotation(annotation)
     {
         for (const auto& pair : values)
@@ -104,11 +104,11 @@ public:
         }
     }
 
-    value_type parse(conv::Parser& parser, TokenSpan generic_anno) const
+    value_type parse(conv::Parser& parser, TokenView generic_anno) const
     {
         if (annotation)
         {
-            TokenSpan enum_anno = parser.get_value_annotation(generic_anno);
+            TokenView enum_anno = parser.get_value_annotation(generic_anno);
             if (enum_anno && enum_anno != annotation)
             {
                 throw parse_error(jxc::format("Invalid annotation {} for enum type {}", enum_anno.to_repr(), annotation), parser.value());
@@ -238,8 +238,8 @@ EnumConverterMetadata<T> def_enum(const char* name, TArgs&&... args)
     struct jxc::Converter<ENUM_TYPE> { \
         static_assert(std::is_enum_v<ENUM_TYPE>, "Expected type to be enum: " #ENUM_TYPE); \
         using value_type = ENUM_TYPE; \
-        static const ::jxc::OwnedTokenSpan& get_annotation() { \
-            static const ::jxc::OwnedTokenSpan anno = ::jxc::OwnedTokenSpan::parse_annotation_checked(ANNOTATION); \
+        static const ::jxc::TokenList& get_annotation() { \
+            static const ::jxc::TokenList anno = ::jxc::TokenList::parse_annotation_checked(ANNOTATION); \
             return anno; \
         } \
         static const ::jxc::EnumConverterMetadata<value_type, ENUM_CONVERTER_STYLE>& values() { \
@@ -249,7 +249,7 @@ EnumConverterMetadata<T> def_enum(const char* name, TArgs&&... args)
         static void serialize(::jxc::Serializer& doc, const value_type& value) { \
             values().serialize(doc, value); \
         } \
-        static value_type parse(::jxc::conv::Parser& parser, ::jxc::TokenSpan generic_anno) { \
+        static value_type parse(::jxc::conv::Parser& parser, ::jxc::TokenView generic_anno) { \
             return values().parse(parser, generic_anno); \
         } \
     }

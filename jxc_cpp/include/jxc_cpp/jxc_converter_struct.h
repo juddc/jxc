@@ -68,7 +68,7 @@ public:
     static_assert(std::is_default_constructible_v<struct_type>, "Type must be default-constructible");
 
 private:
-    OwnedTokenSpan annotation;
+    TokenList annotation;
     StructFlags flags = StructFlags::None;
     StringMap<FieldMetadata<struct_type>> fields;
     FieldMetadata<struct_type> extra_field;
@@ -117,14 +117,14 @@ public:
         setup_fields(field_meta);
     }
 
-    StructConverterMetadata(const OwnedTokenSpan& struct_annotation, std::initializer_list<FieldMetadata<struct_type>> field_meta, StructFlags flags = StructFlags::None)
+    StructConverterMetadata(const TokenList& struct_annotation, std::initializer_list<FieldMetadata<struct_type>> field_meta, StructFlags flags = StructFlags::None)
         : annotation(struct_annotation)
         , flags(flags)
     {
         setup_fields(field_meta);
     }
 
-    StructConverterMetadata(OwnedTokenSpan&& struct_annotation, std::initializer_list<FieldMetadata<struct_type>> field_meta, StructFlags flags = StructFlags::None)
+    StructConverterMetadata(TokenList&& struct_annotation, std::initializer_list<FieldMetadata<struct_type>> field_meta, StructFlags flags = StructFlags::None)
         : annotation(std::move(struct_annotation))
         , flags(flags)
     {
@@ -197,7 +197,7 @@ public:
         doc.object_end();
     }
 
-    struct_type parse(conv::Parser& parser, TokenSpan generic_anno) const
+    struct_type parse(conv::Parser& parser, TokenView generic_anno) const
     {
         struct_type result = {};
 
@@ -207,7 +207,7 @@ public:
         parser.require(ElementType::BeginObject);
 
         // check the specified annotation
-        if (TokenSpan this_anno = parser.get_value_annotation(generic_anno))
+        if (TokenView this_anno = parser.get_value_annotation(generic_anno))
         {
             if (this_anno != annotation)
             {
@@ -415,16 +415,16 @@ StructConverterMetadata<T> def_struct(const char* name, std::initializer_list<Fi
 
 
 template<typename T>
-StructConverterMetadata<T> def_struct(const OwnedTokenSpan& annotation, std::initializer_list<FieldMetadata<T>> fields, FieldFlags flags = FieldFlags::None)
+StructConverterMetadata<T> def_struct(const TokenList& annotation, std::initializer_list<FieldMetadata<T>> fields, FieldFlags flags = FieldFlags::None)
 {
     return StructConverterMetadata<T>{ annotation, fields, flags };
 }
 
 
 template<typename T>
-StructConverterMetadata<T> def_struct(OwnedTokenSpan&& annotation, std::initializer_list<FieldMetadata<T>> fields, FieldFlags flags = FieldFlags::None)
+StructConverterMetadata<T> def_struct(TokenList&& annotation, std::initializer_list<FieldMetadata<T>> fields, FieldFlags flags = FieldFlags::None)
 {
-    return StructConverterMetadata<T>{ std::forward<OwnedTokenSpan>(annotation), fields, flags };
+    return StructConverterMetadata<T>{ std::forward<TokenList>(annotation), fields, flags };
 }
 
 
@@ -432,8 +432,8 @@ StructConverterMetadata<T> def_struct(OwnedTokenSpan&& annotation, std::initiali
     template<> \
     struct jxc::Converter<CPP_TYPE> { \
         using value_type = CPP_TYPE; \
-        static const ::jxc::OwnedTokenSpan& get_annotation() { \
-            static const ::jxc::OwnedTokenSpan anno = ::jxc::OwnedTokenSpan::parse_annotation_checked(ANNOTATION); \
+        static const ::jxc::TokenList& get_annotation() { \
+            static const ::jxc::TokenList anno = ::jxc::TokenList::parse_annotation_checked(ANNOTATION); \
             return anno; \
         } \
         static const ::jxc::StructConverterMetadata<value_type>& fields() { \
@@ -443,7 +443,7 @@ StructConverterMetadata<T> def_struct(OwnedTokenSpan&& annotation, std::initiali
         static void serialize(::jxc::Serializer& doc, const value_type& value) { \
             fields().serialize(doc, value); \
         } \
-        static value_type parse(::jxc::conv::Parser& parser, ::jxc::TokenSpan generic_anno) { \
+        static value_type parse(::jxc::conv::Parser& parser, ::jxc::TokenView generic_anno) { \
             return fields().parse(parser, generic_anno); \
         } \
     }

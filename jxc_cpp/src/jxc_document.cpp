@@ -126,7 +126,7 @@ void DocumentSerializer::serialize_value(Serializer& doc, const Value& val)
 
 
 
-Value detail::ValueParser::parse_number(const Token& tok, TokenSpan annotation)
+Value detail::ValueParser::parse_number(const Token& tok, TokenView annotation)
 {
     JXC_DEBUG_ASSERT(tok.type == TokenType::Number);
     util::NumberTokenSplitResult number;
@@ -158,7 +158,7 @@ Value detail::ValueParser::parse_number(const Token& tok, TokenSpan annotation)
 }
 
 
-Value detail::ValueParser::parse_bool(const Token& tok, TokenSpan annotation)
+Value detail::ValueParser::parse_bool(const Token& tok, TokenView annotation)
 {
     switch (tok.type)
     {
@@ -174,14 +174,14 @@ Value detail::ValueParser::parse_bool(const Token& tok, TokenSpan annotation)
 }
 
 
-Value detail::ValueParser::parse_null(const Token& tok, TokenSpan annotation)
+Value detail::ValueParser::parse_null(const Token& tok, TokenView annotation)
 {
     JXC_DEBUG_ASSERT(tok.type == TokenType::Null);
     return make_value_internal(default_null, annotation);
 }
 
 
-Value detail::ValueParser::parse_string(const Token& tok, TokenSpan annotation)
+Value detail::ValueParser::parse_string(const Token& tok, TokenView annotation)
 {
     JXC_DEBUG_ASSERT(tok.type == TokenType::String);
     std::string_view string_value;
@@ -252,7 +252,7 @@ Value detail::ValueParser::parse_string(const Token& tok, TokenSpan annotation)
 }
 
 
-Value detail::ValueParser::parse_bytes(const Token& tok, TokenSpan annotation)
+Value detail::ValueParser::parse_bytes(const Token& tok, TokenView annotation)
 {
     JXC_DEBUG_ASSERT(tok.type == TokenType::ByteString);
     std::vector<uint8_t> result;
@@ -264,7 +264,7 @@ Value detail::ValueParser::parse_bytes(const Token& tok, TokenSpan annotation)
 }
 
 
-Value detail::ValueParser::parse_array(TokenSpan annotation)
+Value detail::ValueParser::parse_array(TokenView annotation)
 {
     JXC_DEBUG_ASSERT(parser.value().type == ElementType::BeginArray);
     Value result = make_value_internal(default_array, annotation);
@@ -284,7 +284,7 @@ Value detail::ValueParser::parse_array(TokenSpan annotation)
 }
 
 
-Value detail::ValueParser::parse_expression_as_string(TokenSpan annotation)
+Value detail::ValueParser::parse_expression_as_string(TokenView annotation)
 {
     JXC_DEBUG_ASSERT(parser.value().type == ElementType::BeginExpression);
     const size_t expr_start_idx = parser.value().token.start_idx;
@@ -327,7 +327,7 @@ Value detail::ValueParser::parse_expression_as_string(TokenSpan annotation)
 }
 
 
-Value detail::ValueParser::parse_expression_as_array(TokenSpan annotation)
+Value detail::ValueParser::parse_expression_as_array(TokenView annotation)
 {
     JXC_DEBUG_ASSERT(parser.value().type == ElementType::BeginExpression);
     Value result = make_value_internal(default_array, annotation);
@@ -350,13 +350,13 @@ Value detail::ValueParser::parse_expression_as_array(TokenSpan annotation)
             result.push_back((ele.token.type == TokenType::True) ? Value(true) : Value(false));
             break;
         case ElementType::Number:
-            result.push_back(parse_number(ele.token, TokenSpan{}));
+            result.push_back(parse_number(ele.token, TokenView{}));
             break;
         case ElementType::String:
-            result.push_back(parse_string(ele.token, TokenSpan{}));
+            result.push_back(parse_string(ele.token, TokenView{}));
             break;
         case ElementType::Bytes:
-            result.push_back(parse_bytes(ele.token, TokenSpan{}));
+            result.push_back(parse_bytes(ele.token, TokenView{}));
             break;
         case ElementType::ExpressionToken:
             result.push_back(ele.token.value.as_view());
@@ -410,7 +410,7 @@ Value detail::ValueParser::parse_key(const Token& tok)
     }
     case TokenType::String:
     {
-        Value result = parse_string(tok, TokenSpan{});
+        Value result = parse_string(tok, TokenView{});
         if (!result.is_valid())
         {
             return default_invalid;
@@ -435,7 +435,7 @@ Value detail::ValueParser::parse_key(const Token& tok)
 }
 
 
-Value detail::ValueParser::parse_object(TokenSpan annotation)
+Value detail::ValueParser::parse_object(TokenView annotation)
 {
     JXC_DEBUG_ASSERT(parser.value().type == ElementType::BeginObject);
     Value result = make_value_internal(default_object, annotation);
@@ -470,7 +470,7 @@ Value detail::ValueParser::parse_object(TokenSpan annotation)
 }
 
 
-Value detail::ValueParser::parse_value(ElementType element_type, const Token& tok, TokenSpan annotation, bool expr_as_string)
+Value detail::ValueParser::parse_value(ElementType element_type, const Token& tok, TokenView annotation, bool expr_as_string)
 {
     switch (element_type)
     {
@@ -504,14 +504,14 @@ Document::Document(std::string_view in_buffer)
 }
 
 
-TokenSpan Document::copy_annotation(TokenSpan anno)
+TokenView Document::copy_annotation(TokenView anno)
 {
     if (anno.size() == 0)
     {
-        return TokenSpan{};
+        return TokenView{};
     }
 
-    auto make_vector = [](TokenSpan span) -> std::vector<Token>
+    auto make_vector = [](TokenView span) -> std::vector<Token>
     {
         std::vector<Token> result;
         result.reserve(span.size());
@@ -530,17 +530,17 @@ TokenSpan Document::copy_annotation(TokenSpan anno)
         {
             std::vector<Token>& arr = iter->second;
             JXC_DEBUG_ASSERT(arr.size() > 0);
-            return TokenSpan{ arr[0], arr.size() };
+            return TokenView{ arr[0], arr.size() };
         }
         else
         {
             annotation_cache.insert(std::pair{ std::string(key.as_view()), make_vector(anno) });
             std::vector<Token>& arr = annotation_cache[key];
-            return TokenSpan{ arr[0], arr.size() };
+            return TokenView{ arr[0], arr.size() };
         }
     }
 
-    return TokenSpan{};
+    return TokenView{};
 }
 
 
@@ -566,7 +566,7 @@ Value Document::parse()
     }
 
     auto value_parser = detail::ValueParser(parser, err, true,
-        [this](detail::ValueParser& p, ElementType ele_type, const Token& tok, TokenSpan anno)
+        [this](detail::ValueParser& p, ElementType ele_type, const Token& tok, TokenView anno)
         {
             // For annotations, we copy them once into a buffer owned by the Document,
             // then store a view into that owned copy in the value itself.
@@ -585,7 +585,7 @@ Value Document::parse_to_owned()
     }
 
     auto value_parser = detail::ValueParser(parser, err, false,
-        [this](detail::ValueParser& p, ElementType ele_type, const Token& tok, TokenSpan anno)
+        [this](detail::ValueParser& p, ElementType ele_type, const Token& tok, TokenView anno)
         {
             return p.parse_value(ele_type, tok, anno);
         });
@@ -604,7 +604,7 @@ Value parse(std::string_view jxc_string, ErrorInfo& out_error, bool try_return_v
     }
 
     auto value_parser = detail::ValueParser(parser, out_error, try_return_view,
-        [](detail::ValueParser& p, ElementType ele_type, const Token& tok, TokenSpan anno) -> Value
+        [](detail::ValueParser& p, ElementType ele_type, const Token& tok, TokenView anno) -> Value
         {
             return p.parse_value(ele_type, tok, anno);
         });

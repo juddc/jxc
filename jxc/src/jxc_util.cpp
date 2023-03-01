@@ -1036,22 +1036,22 @@ std::string Token::to_string() const
 }
 
 
-TokenSpan::TokenSpan(const OwnedTokenSpan& rhs)
+TokenView::TokenView(const TokenList& rhs)
     : start(const_cast<Token*>(rhs.tokens.data()))
     , num_tokens(rhs.size())
 {
 }
 
 
-bool TokenSpan::operator==(const OwnedTokenSpan& rhs) const
+bool TokenView::operator==(const TokenList& rhs) const
 {
     return *this == rhs.to_token_span();
 }
 
 
-bool TokenSpan::operator==(std::string_view rhs) const
+bool TokenView::operator==(std::string_view rhs) const
 {
-    // this function must behave exactly the same as comparing against a TokenSpan with exactly zero or one token.
+    // this function must behave exactly the same as comparing against a TokenView with exactly zero or one token.
     const size_t sz = size();
     if (rhs.size() == 0)
     {
@@ -1068,9 +1068,9 @@ bool TokenSpan::operator==(std::string_view rhs) const
 }
 
 
-TokenSpan TokenSpan::slice(size_t start_idx, size_t length) const
+TokenView TokenView::slice(size_t start_idx, size_t length) const
 {
-    TokenSpan result = {};
+    TokenView result = {};
     if (start_idx < num_tokens)
     {
         result.start = &start[start_idx];
@@ -1081,7 +1081,7 @@ TokenSpan TokenSpan::slice(size_t start_idx, size_t length) const
 }
 
 
-bool TokenSpan::equals_annotation_string_lexed(std::string_view str) const
+bool TokenView::equals_annotation_string_lexed(std::string_view str) const
 {
     if (num_tokens == 0 || str.size() == 0)
     {
@@ -1103,10 +1103,10 @@ bool TokenSpan::equals_annotation_string_lexed(std::string_view str) const
 }
 
 
-std::string TokenSpan::to_repr() const
+std::string TokenView::to_repr() const
 {
     std::ostringstream ss;
-    ss << "TokenSpan(";
+    ss << "TokenView(";
     bool first = true;
     for (size_t i = 0; i < num_tokens; i++)
     {
@@ -1122,7 +1122,7 @@ std::string TokenSpan::to_repr() const
 }
 
 
-std::string TokenSpan::to_string() const
+std::string TokenView::to_string() const
 {
     std::ostringstream ss;
     for (size_t i = 0; i < num_tokens; i++)
@@ -1133,7 +1133,7 @@ std::string TokenSpan::to_string() const
 }
 
 
-uint64_t TokenSpan::hash() const
+uint64_t TokenView::hash() const
 {
     uint64_t result = 0;
     const size_t sz = (start != nullptr) ? num_tokens : 0;
@@ -1152,9 +1152,9 @@ uint64_t TokenSpan::hash() const
 
 
 //static
-uint64_t TokenSpan::hash_string_as_single_token(std::string_view str, TokenType tok_type)
+uint64_t TokenView::hash_string_as_single_token(std::string_view str, TokenType tok_type)
 {
-    // this function must behave exactly the same as the above TokenSpan::hash() method, assuming that token span has exactly zero or one token.
+    // this function must behave exactly the same as the above TokenView::hash() method, assuming that token span has exactly zero or one token.
     uint64_t result = 0;
     const size_t token_count = (str.size() > 0) ? 1 : 0;
     detail::hash_combine<uint64_t>(result, token_count);
@@ -1175,7 +1175,7 @@ uint64_t TokenSpan::hash_string_as_single_token(std::string_view str, TokenType 
 }
 
 
-FlexString TokenSpan::source(bool force_owned) const
+FlexString TokenView::source(bool force_owned) const
 {
     if (start == nullptr || num_tokens == 0)
     {
@@ -1586,7 +1586,7 @@ namespace base64
 
 
 template<typename LexerType>
-static inline bool parse_internal(std::string_view source, OwnedTokenSpan& out_tokens, std::string* out_error)
+static inline bool parse_internal(std::string_view source, TokenList& out_tokens, std::string* out_error)
 {
     if (source.size() == 0)
     {
@@ -1618,9 +1618,9 @@ static inline bool parse_internal(std::string_view source, OwnedTokenSpan& out_t
 
 
 //static
-std::optional<OwnedTokenSpan> OwnedTokenSpan::parse(std::string_view source, std::string* out_error)
+std::optional<TokenList> TokenList::parse(std::string_view source, std::string* out_error)
 {
-    OwnedTokenSpan result;
+    TokenList result;
     if (parse_internal<TokenLexer>(source, result, out_error))
     {
         return result;
@@ -1630,9 +1630,9 @@ std::optional<OwnedTokenSpan> OwnedTokenSpan::parse(std::string_view source, std
 
 
 //static
-std::optional<OwnedTokenSpan> OwnedTokenSpan::parse_annotation(std::string_view annotation, std::string* out_error)
+std::optional<TokenList> TokenList::parse_annotation(std::string_view annotation, std::string* out_error)
 {
-    OwnedTokenSpan result;
+    TokenList result;
     if (parse_internal<AnnotationLexer>(annotation, result, out_error))
     {
         return result;
@@ -1642,9 +1642,9 @@ std::optional<OwnedTokenSpan> OwnedTokenSpan::parse_annotation(std::string_view 
 
 
 //static
-std::optional<OwnedTokenSpan> OwnedTokenSpan::parse_expression(std::string_view expression, std::string* out_error)
+std::optional<TokenList> TokenList::parse_expression(std::string_view expression, std::string* out_error)
 {
-    OwnedTokenSpan result;
+    TokenList result;
     if (parse_internal<ExpressionLexer>(expression, result, out_error))
     {
         return result;
@@ -1653,7 +1653,7 @@ std::optional<OwnedTokenSpan> OwnedTokenSpan::parse_expression(std::string_view 
 }
 
 
-void OwnedTokenSpan::serialize(Serializer& doc) const
+void TokenList::serialize(Serializer& doc) const
 {
     if (tokens.size() > 0)
     {
@@ -1663,7 +1663,7 @@ void OwnedTokenSpan::serialize(Serializer& doc) const
 }
 
 
-FlexString OwnedTokenSpan::source(bool force_owned) const
+FlexString TokenList::source(bool force_owned) const
 {
     if (src.size() > 0)
     {

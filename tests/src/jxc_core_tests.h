@@ -67,7 +67,7 @@ inline jxc::Token make_token(std::string_view symbol)
 
 inline jxc::OwnedElement make_element(jxc::ElementType ele_type, const jxc::Token& token, std::initializer_list<jxc::Token> annotation_tokens = {})
 {
-    jxc::OwnedTokenSpan anno;
+    jxc::TokenList anno;
     for (const jxc::Token& tok: annotation_tokens)
     {
         anno.tokens.push(tok);

@@ -558,15 +558,15 @@ struct jxc::Converter<TimeDelta>
 {
     using value_type = TimeDelta;
 
-    static const jxc::OwnedTokenSpan& get_annotation()
+    static const jxc::TokenList& get_annotation()
     {
-        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("timedelta");
+        static const jxc::TokenList anno = jxc::TokenList::from_identifier("timedelta");
         return anno;
     }
 
-    static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
-        if (TokenSpan anno = parser.get_value_annotation(generic_anno))
+        if (TokenView anno = parser.get_value_annotation(generic_anno))
         {
             throw jxc::parse_error("Unexpected annotation", anno.get_index_span());
         }
@@ -592,13 +592,13 @@ struct jxc::Converter<HeaderList>
 {
     using value_type = HeaderList;
 
-    static const jxc::OwnedTokenSpan& get_annotation()
+    static const jxc::TokenList& get_annotation()
     {
-        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("HeaderList");
+        static const jxc::TokenList anno = jxc::TokenList::from_identifier("HeaderList");
         return anno;
     }
 
-    static HeaderList parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
+    static HeaderList parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
         HeaderList result;
         parser.require(jxc::ElementType::BeginObject);
@@ -624,17 +624,17 @@ struct jxc::Converter<MimeTypeMap>
 {
     using value_type = MimeTypeMap;
 
-    static const jxc::OwnedTokenSpan& get_annotation()
+    static const jxc::TokenList& get_annotation()
     {
-        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("mimetypes");
+        static const jxc::TokenList anno = jxc::TokenList::from_identifier("mimetypes");
         return anno;
     }
 
-    static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
         MimeTypeMap result;
 
-        if (TokenSpan anno = parser.get_value_annotation(generic_anno))
+        if (TokenView anno = parser.get_value_annotation(generic_anno))
         {
             throw jxc::parse_error("Unexpected annotation", anno.get_index_span());
         }
@@ -689,13 +689,13 @@ struct jxc::Converter<TextDocument>
 {
     using value_type = TextDocument;
 
-    static const jxc::OwnedTokenSpan& get_annotation()
+    static const jxc::TokenList& get_annotation()
     {
-        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("document");
+        static const jxc::TokenList anno = jxc::TokenList::from_identifier("document");
         return anno;
     }
 
-    static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
         value_type doc;
 
@@ -705,7 +705,7 @@ struct jxc::Converter<TextDocument>
         bool is_inline = false;
 
         // custom annotation handling here, to support allowing a mimetype to be specified as the annotation's "generic" argument
-        jxc::TokenSpan anno = parser.get_value_annotation(generic_anno);
+        jxc::TokenView anno = parser.get_value_annotation(generic_anno);
         if (!anno)
         {
             throw jxc::parse_error("TextDocument requires annotation `path` or `inline`");
@@ -730,7 +730,7 @@ struct jxc::Converter<TextDocument>
             if (anno_parser.advance())
             {
                 anno_parser.require(jxc::TokenType::AngleBracketOpen);
-                TokenSpan doc_generic = anno_parser.skip_over_generic_value();
+                TokenView doc_generic = anno_parser.skip_over_generic_value();
                 anno_parser.require_then_advance(jxc::TokenType::AngleBracketClose);
                 anno_parser.done_required();
 
@@ -785,7 +785,7 @@ struct jxc::Converter<std::shared_ptr<BaseLocation>>
 {
     using value_type = std::shared_ptr<BaseLocation>;
 
-    static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
         std::shared_ptr<BaseLocation> location;
 
@@ -907,17 +907,17 @@ template<>
 struct jxc::Converter<LogTarget>
 {
     using value_type = LogTarget;
-    static const jxc::OwnedTokenSpan& get_annotation()
+    static const jxc::TokenList& get_annotation()
     {
-        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("LogTarget");
+        static const jxc::TokenList anno = jxc::TokenList::from_identifier("LogTarget");
         return anno;
     }
 
-    static LogTarget parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
+    static LogTarget parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
         LogTarget result;
 
-        TokenSpan anno = parser.get_value_annotation(generic_anno);
+        TokenView anno = parser.get_value_annotation(generic_anno);
         if (!anno || !anno.equals_annotation_string_lexed("logger"))
         {
             throw jxc::parse_error("Annotation 'logger' required", parser.value());
@@ -939,7 +939,7 @@ struct jxc::Converter<LogTarget>
 
             if (key == "dest")
             {
-                TokenSpan dest_anno = parser.value().annotation;
+                TokenView dest_anno = parser.value().annotation;
                 const std::string dest_anno_str = std::string(parser.require_identifier_annotation(dest_anno, { "file", "stream" }, true));
 
                 const jxc::ElementType dest_element_type = parser.value().type;
@@ -1008,7 +1008,7 @@ struct jxc::Converter<LogFormatFunc>
 {
     using value_type = LogFormatFunc;
 
-    static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
         if (parser.value().type != jxc::ElementType::BeginExpression)
         {
@@ -1336,7 +1336,7 @@ JXC_DEFINE_AUTO_STRUCT_CONVERTER(
     JXC_PROPERTY(location, jxc::FieldFlags::Optional | jxc::FieldFlags::AllowMultiple,
         [](jxc::conv::Parser& parser, const std::string& field_key, WebServerConfig& out_value)
         {
-            out_value.locations.push_back(jxc::Converter<std::shared_ptr<BaseLocation>>::parse(parser, TokenSpan()));
+            out_value.locations.push_back(jxc::Converter<std::shared_ptr<BaseLocation>>::parse(parser, TokenView()));
         }
     ),
 );

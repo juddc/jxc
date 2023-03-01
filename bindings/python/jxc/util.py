@@ -6,7 +6,7 @@ import contextlib
 import _pyjxc
 
 
-TokenSpanType = typing.Union[_pyjxc.TokenSpan, _pyjxc.OwnedTokenSpan]
+TokenListType = typing.Union[_pyjxc.TokenView, _pyjxc.TokenList]
 
 
 def get_main_module_name() -> str:

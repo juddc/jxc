@@ -20,9 +20,9 @@ class Parser;
 JXC_END_NAMESPACE(conv)
 
 template<>
-struct detail_format::Formatter<OwnedTokenSpan>
+struct detail_format::Formatter<TokenList>
 {
-    void format(auto& output, std::string_view arg, const OwnedTokenSpan& value) const
+    void format(auto& output, std::string_view arg, const TokenList& value) const
     {
         if (arg.size() == 0)
         {
@@ -49,9 +49,9 @@ struct Converter
 
     using value_type = T;
 
-    static const OwnedTokenSpan& get_annotation()
+    static const TokenList& get_annotation()
     {
-        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier(typeid(value_type).name());
+        static const TokenList anno = TokenList::from_identifier(typeid(value_type).name());
         return anno;
     }
 
@@ -59,7 +59,7 @@ struct Converter
     {
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         return value_type();
     }
@@ -70,7 +70,7 @@ template<typename T>
 concept ConverterWithSerialize = requires { typename Converter<T>::value_type; }
     && requires
     {
-        { Converter<T>::get_annotation() } -> std::convertible_to<OwnedTokenSpan>;
+        { Converter<T>::get_annotation() } -> std::convertible_to<TokenList>;
     }
     && requires(Serializer& doc, typename Converter<T>::value_type& value)
     {
@@ -82,9 +82,9 @@ template<typename T>
 concept ConverterWithParse = requires { typename Converter<T>::value_type; }
     && requires
     {
-        { Converter<T>::get_annotation() } -> std::convertible_to<OwnedTokenSpan>;
+        { Converter<T>::get_annotation() } -> std::convertible_to<TokenList>;
     }
-    && requires(conv::Parser& p, TokenSpan anno)
+    && requires(conv::Parser& p, TokenView anno)
     {
         { Converter<T>::parse(p, anno) } -> std::same_as<typename Converter<T>::value_type>;
     };
@@ -114,13 +114,13 @@ std::string init_list_to_string(std::initializer_list<T> values, Lambda&& to_str
 }
 
 // Converts a C++ type signature to a JXC annotation. Intended for use in macros.
-OwnedTokenSpan cpp_type_to_annotation(std::string_view cpp_type_src);
+TokenList cpp_type_to_annotation(std::string_view cpp_type_src);
 
 template<typename T>
-OwnedTokenSpan base_type_annotation()
+TokenList base_type_annotation()
 {
-#define JXC_TYPE_TO_STR(TYPE) constexpr (std::same_as<T, TYPE>) { return OwnedTokenSpan::from_identifier(#TYPE); }
-    if constexpr (std::is_same_v<T, std::nullptr_t>) { return OwnedTokenSpan::from_identifier("nullptr_t"); }
+#define JXC_TYPE_TO_STR(TYPE) constexpr (std::same_as<T, TYPE>) { return TokenList::from_identifier(#TYPE); }
+    if constexpr (std::is_same_v<T, std::nullptr_t>) { return TokenList::from_identifier("nullptr_t"); }
     else if JXC_TYPE_TO_STR(bool)
     else if JXC_TYPE_TO_STR(char)
     else if JXC_TYPE_TO_STR(wchar_t)
@@ -140,23 +140,23 @@ OwnedTokenSpan base_type_annotation()
     else if constexpr (std::same_as<T, const char*> || std::same_as<T, std::string> || std::same_as<T, std::string_view>
         || std::same_as<T, FlexString>)
     {
-        return OwnedTokenSpan::from_identifier("string");
+        return TokenList::from_identifier("string");
     }
     else if constexpr (std::same_as<T, const wchar_t*> || std::same_as<T, std::wstring> || std::same_as<T, std::wstring_view>)
     {
-        return OwnedTokenSpan::from_identifier("wstring");
+        return TokenList::from_identifier("wstring");
     }
     else if constexpr (std::same_as<T, const char8_t*> || std::same_as<T, std::u8string> || std::same_as<T, std::u8string_view>)
     {
-        return OwnedTokenSpan::from_identifier("u8string");
+        return TokenList::from_identifier("u8string");
     }
     else if constexpr (std::same_as<T, const char16_t*> || std::same_as<T, std::u16string> || std::same_as<T, std::u16string_view>)
     {
-        return OwnedTokenSpan::from_identifier("u16string");
+        return TokenList::from_identifier("u16string");
     }
     else if constexpr (std::same_as<T, const char32_t*> || std::same_as<T, std::u32string> || std::same_as<T, std::u32string_view>)
     {
-        return OwnedTokenSpan::from_identifier("u32string");
+        return TokenList::from_identifier("u32string");
     }
     else
     {
@@ -188,7 +188,7 @@ public:
     }
 
     template<typename T>
-    inline T parse_value(TokenSpan generic_annotation = TokenSpan())
+    inline T parse_value(TokenView generic_annotation = TokenView())
     {
         return Converter<T>::parse(*this, generic_annotation);
     }
@@ -271,7 +271,7 @@ public:
     // throws parse_error if the specified annotation is not one of the expected values.
     // If annotation_optional is false, then parse_error will be thrown if no annotation was specified.
     // NB. This function is intended for simple cases, and will only match single-identifier annotations
-    std::string_view require_identifier_annotation(TokenSpan anno, std::initializer_list<std::string_view> expected_identifiers, bool annotation_optional = false) const;
+    std::string_view require_identifier_annotation(TokenView anno, std::initializer_list<std::string_view> expected_identifiers, bool annotation_optional = false) const;
 
     // throws parse_error if the annotation for the current value is not one of the expected values.
     // If annotation_optional is false, then parse_error will be thrown if no annotation was specified.
@@ -284,7 +284,7 @@ public:
     // Throws parse_error if the current value has any annotation at all
     inline void require_no_annotation() const
     {
-        TokenSpan anno = value().annotation;
+        TokenView anno = value().annotation;
         if (anno.size() > 0)
         {
             throw parse_error(jxc::format("Unexpected annotation {} (no annotation is valid for this value)", jxc::detail::debug_string_repr(anno.source())), value());
@@ -292,7 +292,7 @@ public:
     }
 
     // returns an AnnotationParser for the specified annotation
-    inline AnnotationParser parse_annotation(TokenSpan anno) const
+    inline AnnotationParser parse_annotation(TokenView anno) const
     {
         return AnnotationParser(anno, [](const ErrorInfo& err)
         {
@@ -308,7 +308,7 @@ public:
 
     // If the current value has its own annotation, returns that.
     // Otherwise returns the supplied generic annotation from the value's parent.
-    inline TokenSpan get_value_annotation(TokenSpan generic_anno) const
+    inline TokenView get_value_annotation(TokenView generic_anno) const
     {
         if (value().annotation)
         {
@@ -502,7 +502,7 @@ struct Converter<std::nullptr_t>
 {
     using value_type = std::nullptr_t;
 
-    static OwnedTokenSpan get_annotation()
+    static TokenList get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -512,7 +512,7 @@ struct Converter<std::nullptr_t>
         doc.value_null();
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         parser.require(TokenType::Null);
         return nullptr;
@@ -525,7 +525,7 @@ struct Converter<bool>
 {
     using value_type = bool;
 
-    static OwnedTokenSpan get_annotation()
+    static TokenList get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -535,7 +535,7 @@ struct Converter<bool>
         doc.value_bool(value);
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         //NB. conv::require returns the index of the matched token, so we can trivially cast from that index to bool.
         // This requires that the order of the tokens in the initializer_list is { False, True }.
@@ -549,7 +549,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static OwnedTokenSpan get_annotation()
+    static TokenList get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -575,7 +575,7 @@ struct Converter<T>
         }
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         const Token& tok = parser.value().token;
         ErrorInfo err;
@@ -698,7 +698,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static OwnedTokenSpan get_annotation()
+    static TokenList get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -708,7 +708,7 @@ struct Converter<T>
         doc.value_uint(static_cast<uint64_t>(value));
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         parser.require(TokenType::Number);
         value_type result = 0;
@@ -728,7 +728,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static OwnedTokenSpan get_annotation()
+    static TokenList get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -738,7 +738,7 @@ struct Converter<T>
         doc.value_int(static_cast<int64_t>(value));
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         parser.require(TokenType::Number);
         value_type result = 0;
@@ -757,7 +757,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static OwnedTokenSpan get_annotation()
+    static TokenList get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -767,7 +767,7 @@ struct Converter<T>
         doc.value_float(static_cast<double>(value));
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         parser.require(TokenType::Number);
         value_type result = 0;
@@ -786,9 +786,9 @@ struct Converter<std::string>
 {
     using value_type = std::string;
 
-    static const OwnedTokenSpan& get_annotation()
+    static const TokenList& get_annotation()
     {
-        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("string");
+        static const TokenList anno = TokenList::from_identifier("string");
         return anno;
     }
 
@@ -797,7 +797,7 @@ struct Converter<std::string>
         doc.value_string(value);
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         return parser.parse_token_as_string(parser.value().token);
     }
@@ -814,9 +814,9 @@ struct Converter<std::vector<char>>
 {
     using value_type = std::vector<char>;
 
-    static const OwnedTokenSpan& get_annotation()
+    static const TokenList& get_annotation()
     {
-        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("string");
+        static const TokenList anno = TokenList::from_identifier("string");
         return anno;
     }
 
@@ -825,7 +825,7 @@ struct Converter<std::vector<char>>
         doc.value_string(std::string_view{ value.data(), value.size() });
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         value_type result;
         parser.require({ TokenType::ByteString, TokenType::String, TokenType::Identifier });
@@ -873,9 +873,9 @@ struct Converter<std::vector<uint8_t>>
 {
     using value_type = std::vector<uint8_t>;
 
-    static const OwnedTokenSpan& get_annotation()
+    static const TokenList& get_annotation()
     {
-        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("bytes");
+        static const TokenList anno = TokenList::from_identifier("bytes");
         return anno;
     }
 
@@ -884,7 +884,7 @@ struct Converter<std::vector<uint8_t>>
         doc.value_bytes(value.data(), value.size());
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         value_type result;
         parser.require(TokenType::ByteString);
@@ -903,9 +903,9 @@ struct Converter<Date>
 {
     using value_type = Date;
 
-    static const OwnedTokenSpan& get_annotation()
+    static const TokenList& get_annotation()
     {
-        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("date");
+        static const TokenList anno = TokenList::from_identifier("date");
         return anno;
     }
 
@@ -914,7 +914,7 @@ struct Converter<Date>
         doc.value_date(value);
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         value_type result;
         ErrorInfo err;
@@ -933,9 +933,9 @@ struct Converter<DateTime>
 {
     using value_type = DateTime;
 
-    static const OwnedTokenSpan& get_annotation()
+    static const TokenList& get_annotation()
     {
-        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("datetime");
+        static const TokenList anno = TokenList::from_identifier("datetime");
         return anno;
     }
 
@@ -944,7 +944,7 @@ struct Converter<DateTime>
         doc.value_datetime(value);
     }
 
-    static value_type parse(conv::Parser& parser, TokenSpan generic_anno)
+    static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
         value_type result;
         parser.require(TokenType::DateTime);

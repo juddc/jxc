@@ -289,7 +289,7 @@ class SimpleValueTests(unittest.TestCase):
         #     jxc.dumps({'a': TestEnum.A}, encode_enum=False)
 
     def test_token_span_segfault_bug(self):
-        list(_pyjxc.OwnedTokenSpan())
+        list(_pyjxc.TokenList())
 
 
 

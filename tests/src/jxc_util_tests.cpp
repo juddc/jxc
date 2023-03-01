@@ -187,7 +187,7 @@ TEST(jxc_util, StringViewHelpers)
 }
 
 
-TEST(jxc_core, TokenSpans)
+TEST(jxc_core, TokenLists)
 {
     using namespace jxc;
 
@@ -216,8 +216,8 @@ TEST(jxc_core, TokenSpans)
         make_token_view(TokenType::AngleBracketClose, 17, 1)
     };
 
-    // make a TokenSpan view based on the owned vector
-    TokenSpan span = TokenSpan(tok_data[0], tok_data.size());
+    // make a TokenView view based on the owned vector
+    TokenView span = TokenView(tok_data[0], tok_data.size());
 
     // make sure our manual string index numbers are correct
     EXPECT_EQ(tok_data[0].value, "array");
@@ -228,7 +228,7 @@ TEST(jxc_core, TokenSpans)
     EXPECT_EQ(tok_data[5].value, ">");
     EXPECT_EQ(tok_data[6].value, ">");
 
-    // make sure the TokenSpan tokens match the ones in the owned tok_data vector
+    // make sure the TokenView tokens match the ones in the owned tok_data vector
     EXPECT_EQ(span.size(), tok_data.size());
     EXPECT_EQ(span[0], tok_data[0]);
     EXPECT_EQ(span[1], tok_data[1]);
@@ -246,7 +246,7 @@ TEST(jxc_core, TokenSpans)
     EXPECT_EQ(span.source(), std::string(anno_source));
 
     // make sure we can use slice to get the inner generic parts
-    TokenSpan inner = span.slice(2, 4);
+    TokenView inner = span.slice(2, 4);
     EXPECT_EQ(inner.size(), 4);
     EXPECT_EQ(inner.source(), "set<string>");
     EXPECT_TRUE(inner.equals_annotation_string_lexed(" set < string > "));
@@ -269,10 +269,10 @@ TEST(jxc_util, AnnotationParserTest)
     using namespace jxc;
 
     std::string err;
-    std::optional<OwnedTokenSpan> anno_opt = OwnedTokenSpan::parse_annotation("std.pair<int32_t(x.x | y, z), std.vector<double>>", &err);
+    std::optional<TokenList> anno_opt = TokenList::parse_annotation("std.pair<int32_t(x.x | y, z), std.vector<double>>", &err);
     ASSERT_TRUE(anno_opt.has_value()) << err;
 
-    AnnotationParser parser{ TokenSpan(*anno_opt) };
+    AnnotationParser parser{ TokenView(*anno_opt) };
     
     EXPECT_EQ(parser.current().value, "std");
     EXPECT_TRUE(parser.advance());
@@ -322,7 +322,7 @@ TEST(jxc_util, AnnotationParserTest)
 
         // read the inner generic value
         {
-            TokenSpan generic_anno3 = generic_parser.skip_over_generic_value();
+            TokenView generic_anno3 = generic_parser.skip_over_generic_value();
             EXPECT_EQ(generic_anno3.size(), 1);
             EXPECT_EQ(generic_anno3[0].value, "double");
         }

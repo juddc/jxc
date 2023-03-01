@@ -32,28 +32,28 @@ struct StringEq
 template<typename T>
 using StringMap = ankerl::unordered_dense::map<std::string, T, StringHash, StringEq>;
 
-struct TokenSpanHash
+struct TokenListHash
 {
     using is_transparent = void; // enable heterogeneous overloads
     using is_avalanching = void; // mark class as high quality avalanching hash
 
-    auto operator()(const OwnedTokenSpan& anno) const noexcept -> uint64_t
+    auto operator()(const TokenList& anno) const noexcept -> uint64_t
     {
         return anno.hash();
     }
 
-    auto operator()(TokenSpan anno) const noexcept -> uint64_t
+    auto operator()(TokenView anno) const noexcept -> uint64_t
     {
         return anno.hash();
     }
 
     auto operator()(std::string_view str) const noexcept -> uint64_t
     {
-        return TokenSpan::hash_string_as_single_token(str);
+        return TokenView::hash_string_as_single_token(str);
     }
 };
 
-struct TokenSpanEq
+struct TokenListEq
 {
     using is_transparent = void; // enable heterogeneous overloads
 
@@ -74,6 +74,6 @@ struct TokenSpanEq
 };
 
 template<typename T>
-using AnnotationMap = ankerl::unordered_dense::map<OwnedTokenSpan, T, TokenSpanHash, TokenSpanEq>;
+using AnnotationMap = ankerl::unordered_dense::map<TokenList, T, TokenListHash, TokenListEq>;
 
 } // namespace jxc::python_util

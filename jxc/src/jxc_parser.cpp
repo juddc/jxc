@@ -755,7 +755,7 @@ jp_jump_block_reached_end_without_yield:
 }
 
 
-AnnotationParser::AnnotationParser(TokenSpan anno, const std::function<void(const ErrorInfo&)>& on_error_callback)
+AnnotationParser::AnnotationParser(TokenView anno, const std::function<void(const ErrorInfo&)>& on_error_callback)
     : anno(anno)
     , on_error_callback(on_error_callback)
 {
@@ -887,7 +887,7 @@ bool AnnotationParser::require_then_advance(TokenType tok_type, std::string_view
 }
 
 
-TokenSpan AnnotationParser::skip_over_generic_value()
+TokenView AnnotationParser::skip_over_generic_value()
 {
     // current token must be an open angle bracket or comma
     JXC_ASSERT(angle_bracket_depth > 0 && (anno[idx].type == TokenType::AngleBracketOpen || anno[idx].type == TokenType::Comma));
@@ -925,7 +925,7 @@ TokenSpan AnnotationParser::skip_over_generic_value()
         ++num_tokens_inside_generic;
     }
 
-    return TokenSpan();
+    return TokenView();
 }
 
 

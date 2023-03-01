@@ -5,7 +5,7 @@ JXC_BEGIN_NAMESPACE(jxc)
 
 JXC_BEGIN_NAMESPACE(detail)
 
-OwnedTokenSpan cpp_type_to_annotation(std::string_view cpp_type)
+TokenList cpp_type_to_annotation(std::string_view cpp_type)
 {
     std::ostringstream ss;
 
@@ -87,12 +87,12 @@ OwnedTokenSpan cpp_type_to_annotation(std::string_view cpp_type)
 
     const std::string result_str = ss.str();
     std::string err;
-    auto result = OwnedTokenSpan::parse_annotation(result_str, &err);
+    auto result = TokenList::parse_annotation(result_str, &err);
     JXC_ASSERTF(result.has_value(), "Failed parsing annotation {} (from the C++ type {}): {}",
         jxc::detail::debug_string_repr(result_str),
         jxc::detail::debug_string_repr(cpp_type),
         err);
-    return OwnedTokenSpan(std::move(*result));
+    return TokenList(std::move(*result));
 }
 
 JXC_END_NAMESPACE(detail)
@@ -126,7 +126,7 @@ std::string Parser::parse_token_as_string(const Token& token)
 }
 
 
-std::string_view Parser::require_identifier_annotation(TokenSpan anno, std::initializer_list<std::string_view> expected_identifiers, bool annotation_optional) const
+std::string_view Parser::require_identifier_annotation(TokenView anno, std::initializer_list<std::string_view> expected_identifiers, bool annotation_optional) const
 {
     // helper for error message formatting
     auto make_valid_anno_list = [&]() -> std::string

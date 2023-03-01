@@ -504,7 +504,7 @@ bool Value::set_annotation(std::string_view new_anno, std::string* out_anno_pars
         type.anno = annotation.assign_source_inline(type.anno, new_anno);
         return true;
     }
-    else if (auto toks = OwnedTokenSpan::parse_annotation(new_anno, out_anno_parse_error))
+    else if (auto toks = TokenList::parse_annotation(new_anno, out_anno_parse_error))
     {
         type.anno = annotation.assign_tokens_owned_move(type.anno, std::move(toks.value()));
         return true;
@@ -513,7 +513,7 @@ bool Value::set_annotation(std::string_view new_anno, std::string* out_anno_pars
 }
 
 
-bool Value::set_annotation(TokenSpan new_anno_tokens, bool as_view)
+bool Value::set_annotation(TokenView new_anno_tokens, bool as_view)
 {
     if (as_view)
     {
@@ -531,7 +531,7 @@ bool Value::set_annotation(TokenSpan new_anno_tokens, bool as_view)
 }
 
 
-bool Value::set_annotation(const OwnedTokenSpan& new_anno_tokens)
+bool Value::set_annotation(const TokenList& new_anno_tokens)
 {
     if (new_anno_tokens.size() == 1 && new_anno_tokens[0].value.size() <= detail::AnnotationData::max_inline_annotation_source_len
         && new_anno_tokens.src == new_anno_tokens[0].value)
@@ -540,13 +540,13 @@ bool Value::set_annotation(const OwnedTokenSpan& new_anno_tokens)
     }
     else
     {
-        type.anno = annotation.assign_tokens_owned_copy_from_view(type.anno, TokenSpan(const_cast<Token&>(new_anno_tokens[0]), new_anno_tokens.size()));
+        type.anno = annotation.assign_tokens_owned_copy_from_view(type.anno, TokenView(const_cast<Token&>(new_anno_tokens[0]), new_anno_tokens.size()));
     }
     return true;
 }
 
 
-bool Value::set_annotation(OwnedTokenSpan&& new_anno_tokens)
+bool Value::set_annotation(TokenList&& new_anno_tokens)
 {
     if (new_anno_tokens.size() == 1 && new_anno_tokens[0].value.size() <= detail::AnnotationData::max_inline_annotation_source_len
         && new_anno_tokens.src == new_anno_tokens[0].value)
@@ -561,25 +561,25 @@ bool Value::set_annotation(OwnedTokenSpan&& new_anno_tokens)
 }
 
 
-OwnedTokenSpan Value::get_annotation_tokens() const
+TokenList Value::get_annotation_tokens() const
 {
-    if (type.anno == AnnotationDataType::TokenSpanOwned || type.anno == AnnotationDataType::TokenSpanView)
+    if (type.anno == AnnotationDataType::TokensOwned || type.anno == AnnotationDataType::TokensView)
     {
-        auto result = OwnedTokenSpan(annotation.as_token_span(type.anno));
+        auto result = TokenList(annotation.as_token_span(type.anno));
         result.src = FlexString::make_owned(annotation.as_source(type.anno));
         return result;
     }
     else if (type.anno == AnnotationDataType::SourceInline)
     {
         auto tok_view = annotation.as_source_inline_view_unchecked();
-        OwnedTokenSpan span;
+        TokenList span;
         JXC_DEBUG_ASSERT(tok_view.size() <= FlexString::max_inline_len);
         span.src = FlexString(tok_view, FlexString::ConstructInline{});
         span.tokens.push(Token(TokenType::Identifier, invalid_idx, invalid_idx,
             FlexString(tok_view, FlexString::ConstructInline{})));
         return span;
     }
-    return OwnedTokenSpan();
+    return TokenList();
 }
 
 
@@ -631,7 +631,7 @@ bool Value::is_owned(bool recursive) const
 Value& Value::convert_to_owned(bool recursive)
 {
     // if annotation data is a view, convert it to owned
-    if (type.anno == AnnotationDataType::TokenSpanView)
+    if (type.anno == AnnotationDataType::TokensView)
     {
         type.anno = annotation.convert_view_to_owned(type.anno);
     }
@@ -682,7 +682,7 @@ Value& Value::convert_to_owned(bool recursive)
 
 Value& Value::convert_to_owned_annotation()
 {
-    if (type.anno == AnnotationDataType::TokenSpanView)
+    if (type.anno == AnnotationDataType::TokensView)
     {
         type.anno = annotation.convert_view_to_owned(type.anno);
     }
@@ -1257,7 +1257,7 @@ std::string Value::to_repr(int float_precision, bool fixed_precision) const
                 return jxc::format(", anno={}", detail::debug_string_repr(anno_src));
             }
         }
-        else if (type.anno == AnnotationDataType::TokenSpanOwned || type.anno == AnnotationDataType::TokenSpanView)
+        else if (type.anno == AnnotationDataType::TokensOwned || type.anno == AnnotationDataType::TokensView)
         {
             auto anno_span = annotation.as_token_span(type.anno);
             if (anno_span.size() > 0)

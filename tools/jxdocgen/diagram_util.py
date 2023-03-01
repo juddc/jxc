@@ -137,7 +137,7 @@ class CharRange:
 
 
 class TokenParser:
-    def __init__(self, tokens: _pyjxc.TokenSpan):
+    def __init__(self, tokens: _pyjxc.TokenList):
         self.tokens = tokens
         self.num_tokens = len(self.tokens)
         self.idx = 0
