@@ -1,5 +1,6 @@
 #include "jxc/jxc_util.h"
 #include "jxc/jxc_lexer.h"
+#include "jxc/jxc_serializer.h"
 #include <sstream>
 #include <fstream>
 #include <filesystem>
@@ -1073,7 +1074,7 @@ TokenSpan TokenSpan::slice(size_t start_idx, size_t length) const
     if (start_idx < num_tokens)
     {
         result.start = &start[start_idx];
-        const size_t tokens_remaining = num_tokens - start_idx - 1;
+        const size_t tokens_remaining = num_tokens - start_idx;
         result.num_tokens = (length > tokens_remaining) ? tokens_remaining : length;
     }
     return result;
@@ -1585,23 +1586,22 @@ namespace base64
 
 
 template<typename LexerType>
-static inline std::optional<OwnedTokenSpan> parse_internal(std::string_view source, std::string* out_error)
+static inline bool parse_internal(std::string_view source, OwnedTokenSpan& out_tokens, std::string* out_error)
 {
-    OwnedTokenSpan result;
-
     if (source.size() == 0)
     {
-        return result;
+        return true;
     }
 
-    result.src = FlexString(source);
+    out_tokens.src = FlexString(source);
+    out_tokens.tokens.clear();
 
-    LexerType lex(source);
+    LexerType lex(out_tokens.src.as_view());
 
     Token tok;
     while (lex.next(tok))
     {
-        result.tokens.push(tok);
+        out_tokens.tokens.push(tok);
     }
 
     if (lex.has_error())
@@ -1610,31 +1610,56 @@ static inline std::optional<OwnedTokenSpan> parse_internal(std::string_view sour
         {
             *out_error = lex.get_error_message();
         }
-        return std::nullopt;
+        return false;
     }
 
-    return result;
+    return true;
 }
 
 
 //static
 std::optional<OwnedTokenSpan> OwnedTokenSpan::parse(std::string_view source, std::string* out_error)
 {
-    return parse_internal<TokenLexer>(source, out_error);
+    OwnedTokenSpan result;
+    if (parse_internal<TokenLexer>(source, result, out_error))
+    {
+        return result;
+    }
+    return std::nullopt;
 }
 
 
 //static
 std::optional<OwnedTokenSpan> OwnedTokenSpan::parse_annotation(std::string_view annotation, std::string* out_error)
 {
-    return parse_internal<AnnotationLexer>(annotation, out_error);
+    OwnedTokenSpan result;
+    if (parse_internal<AnnotationLexer>(annotation, result, out_error))
+    {
+        return result;
+    }
+    return std::nullopt;
 }
 
 
 //static
 std::optional<OwnedTokenSpan> OwnedTokenSpan::parse_expression(std::string_view expression, std::string* out_error)
 {
-    return parse_internal<ExpressionLexer>(expression, out_error);
+    OwnedTokenSpan result;
+    if (parse_internal<ExpressionLexer>(expression, result, out_error))
+    {
+        return result;
+    }
+    return std::nullopt;
+}
+
+
+void OwnedTokenSpan::serialize(Serializer& doc) const
+{
+    if (tokens.size() > 0)
+    {
+        JXC_DEBUG_ASSERT(source().size() > 0);
+        doc.annotation(source().as_view());
+    }
 }
 
 

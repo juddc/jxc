@@ -15,9 +15,14 @@ using FieldParseFunc = std::function<void(conv::Parser&, const std::string&, T&)
 enum class FieldFlags : uint8_t
 {
     None = 0,
+
+    // When parsing, don't throw a parse error if the field is missing
     Optional = 1 << 0,
+
+    // When parsing, allow the field to occur multiple times
     AllowMultiple = 1 << 1,
 };
+
 JXC_BITMASK_ENUM(FieldFlags);
 
 
@@ -44,6 +49,17 @@ struct FieldMetadata
 };
 
 
+enum class StructFlags : uint8_t
+{
+    None = 0,
+
+    // When parsing, throw a parse_error if there is no annotation
+    AnnotationRequired = 1 << 1,
+};
+
+JXC_BITMASK_ENUM(StructFlags);
+
+
 template<typename T>
 class StructConverterMetadata
 {
@@ -52,16 +68,15 @@ public:
     static_assert(std::is_default_constructible_v<struct_type>, "Type must be default-constructible");
 
 private:
-    std::string name;
+    OwnedTokenSpan annotation;
+    StructFlags flags = StructFlags::None;
     StringMap<FieldMetadata<struct_type>> fields;
     FieldMetadata<struct_type> extra_field;
     std::vector<std::string> field_order;
     size_t num_required_fields = 0;
     size_t num_optional_fields = 0;
 
-public:
-    StructConverterMetadata(const std::string& name, std::initializer_list<FieldMetadata<struct_type>> field_meta)
-        : name(name)
+    void setup_fields(std::initializer_list<FieldMetadata<struct_type>> field_meta)
     {
         for (const FieldMetadata<struct_type>& field : field_meta)
         {
@@ -94,6 +109,28 @@ public:
         JXC_DEBUG_ASSERT(num_required_fields + num_optional_fields == fields.size());
     }
 
+public:
+    StructConverterMetadata(std::string_view struct_annotation, std::initializer_list<FieldMetadata<struct_type>> field_meta, StructFlags flags = StructFlags::None)
+        : annotation(struct_annotation)
+        , flags(flags)
+    {
+        setup_fields(field_meta);
+    }
+
+    StructConverterMetadata(const OwnedTokenSpan& struct_annotation, std::initializer_list<FieldMetadata<struct_type>> field_meta, StructFlags flags = StructFlags::None)
+        : annotation(struct_annotation)
+        , flags(flags)
+    {
+        setup_fields(field_meta);
+    }
+
+    StructConverterMetadata(OwnedTokenSpan&& struct_annotation, std::initializer_list<FieldMetadata<struct_type>> field_meta, StructFlags flags = StructFlags::None)
+        : annotation(std::move(struct_annotation))
+        , flags(flags)
+    {
+        setup_fields(field_meta);
+    }
+
     inline size_t field_count() const
     {
         return field_order.size();
@@ -119,9 +156,9 @@ public:
         return fields;
     }
 
-    inline const FieldMetadata<struct_type>* find(std::string_view name) const
+    inline const FieldMetadata<struct_type>* find(std::string_view field_name) const
     {
-        auto iter = fields.find(name);
+        auto iter = fields.find(field_name);
         if (iter != fields.end())
         {
             return &iter->second;
@@ -131,9 +168,9 @@ public:
 
     void serialize(Serializer& doc, const T& value) const
     {
-        if (name.size() > 0)
+        if (annotation)
         {
-            doc.annotation(name);
+            annotation.serialize(doc);
         }
 
         doc.object_begin();
@@ -169,16 +206,20 @@ public:
 
         parser.require(ElementType::BeginObject);
 
-        if (name.size() > 0)
+        // check the specified annotation
+        if (TokenSpan this_anno = parser.get_value_annotation(generic_anno))
         {
-            if (TokenSpan struct_anno = parser.get_value_annotation(generic_anno))
+            if (this_anno != annotation)
             {
-                auto anno_parser = parser.parse_annotation(struct_anno);
-                anno_parser.require_then_advance(TokenType::Identifier, name);
-                anno_parser.done_required();
+                throw parse_error(jxc::format("Expected annotation {}, got {}", annotation, detail::debug_string_repr(this_anno.source().as_view())));
             }
         }
+        else if (is_set(flags, StructFlags::AnnotationRequired))
+        {
+            throw parse_error(jxc::format("Missing required annotation {}", annotation), parser.value());
+        }
 
+        // parse the struct fields
         while (parser.next())
         {
             if (parser.value().type == jxc::ElementType::EndObject)
@@ -198,16 +239,16 @@ public:
                 }
                 else
                 {
-                    throw parse_error(jxc::format("Type {} has no such field {}", name, key), parser.value());
+                    throw parse_error(jxc::format("Type {} has no such field {}", annotation, key), parser.value());
                 }
             }
             else if (!field->parse_field)
             {
-                throw parse_error(jxc::format("Field {}::{} (type: {}) has no parse function", name, key, field->field_type_name), parser.value());
+                throw parse_error(jxc::format("Field {}::{} (type: {}) has no parse function", annotation, key, field->field_type_name), parser.value());
             }
             else if (!is_set(field->flags, FieldFlags::AllowMultiple) && assigned_fields[field->index])
             {
-                throw parse_error(jxc::format("Duplicate field {}::{}", name, key), parser.value());
+                throw parse_error(jxc::format("Duplicate field {}::{}", annotation, key), parser.value());
             }
 
             // advance to field value
@@ -225,7 +266,7 @@ public:
             }
         }
 
-        // make sure we're not missing any fields that are not optional
+        // make sure we're not missing any non-optional fields
         if (field_count_optional() < field_count())
         {
             for (const auto& pair : get_fields())
@@ -233,7 +274,7 @@ public:
                 const FieldMetadata<T>& field = pair.second;
                 if (!jxc::is_set(field.flags, FieldFlags::Optional) && !assigned_fields[field.index])
                 {
-                    throw parse_error(jxc::format("Type {} is missing field {}", name, field.name), parser.value());
+                    throw parse_error(jxc::format("Type {} is missing field {}", annotation, field.name), parser.value());
                 }
             }
         }
@@ -352,7 +393,7 @@ FieldMetadata<T> def_property(const char* name, TArgs&&... args)
 
 
 template<typename T, typename... TArgs>
-FieldMetadata<T> def_extra(TArgs&... args)
+FieldMetadata<T> def_extra(TArgs&&... args)
 {
     FieldMetadata<T> result("");
 
@@ -366,16 +407,37 @@ FieldMetadata<T> def_extra(TArgs&... args)
 }
 
 
+template<typename T>
+StructConverterMetadata<T> def_struct(const char* name, std::initializer_list<FieldMetadata<T>> fields, FieldFlags flags = FieldFlags::None)
+{
+    return StructConverterMetadata<T>{ std::string_view(name), fields, flags };
+}
+
+
+template<typename T>
+StructConverterMetadata<T> def_struct(const OwnedTokenSpan& annotation, std::initializer_list<FieldMetadata<T>> fields, FieldFlags flags = FieldFlags::None)
+{
+    return StructConverterMetadata<T>{ annotation, fields, flags };
+}
+
+
+template<typename T>
+StructConverterMetadata<T> def_struct(OwnedTokenSpan&& annotation, std::initializer_list<FieldMetadata<T>> fields, FieldFlags flags = FieldFlags::None)
+{
+    return StructConverterMetadata<T>{ std::forward<OwnedTokenSpan>(annotation), fields, flags };
+}
+
+
 #define JXC_DEFINE_AUTO_STRUCT_CONVERTER(CPP_TYPE, ANNOTATION, ...) \
     template<> \
     struct jxc::Converter<CPP_TYPE> { \
         using value_type = CPP_TYPE; \
-        static const std::string& get_annotation() { \
-            static const std::string anno = ANNOTATION; \
+        static const ::jxc::OwnedTokenSpan& get_annotation() { \
+            static const ::jxc::OwnedTokenSpan anno = ::jxc::OwnedTokenSpan::parse_annotation_checked(ANNOTATION); \
             return anno; \
         } \
         static const ::jxc::StructConverterMetadata<value_type>& fields() { \
-            static const ::jxc::StructConverterMetadata<value_type> data = { get_annotation(), { __VA_ARGS__ } }; \
+            static const ::jxc::StructConverterMetadata<value_type> data = StructConverterMetadata<value_type>(get_annotation(), { __VA_ARGS__ }); \
             return data; \
         } \
         static void serialize(::jxc::Serializer& doc, const value_type& value) { \
@@ -387,11 +449,11 @@ FieldMetadata<T> def_extra(TArgs&... args)
     }
 
 
-#define JXC_FIELD(FIELD_NAME, ...) ::jxc::def_field(#FIELD_NAME, &value_type::FIELD_NAME, ##__VA_ARGS__)
+#define JXC_FIELD(FIELD_NAME, ...) ::jxc::def_field<value_type>(#FIELD_NAME, &value_type::FIELD_NAME, ##__VA_ARGS__)
 
 #define JXC_PROPERTY(FIELD_NAME, ...) ::jxc::def_property<value_type>(#FIELD_NAME, ##__VA_ARGS__)
 
-#define JXC_EXTRA(...) ::jxc::def_extra(__VA_ARGS__)
+#define JXC_EXTRA(...) ::jxc::def_extra<value_type>(__VA_ARGS__)
 
 
 JXC_END_NAMESPACE(jxc)

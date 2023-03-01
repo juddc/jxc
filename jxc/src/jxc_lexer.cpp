@@ -659,11 +659,7 @@ bool AnnotationLexer::next(Token& out_token)
         }
         break;
     case TokenType::AngleBracketClose:
-        if (lex.angle_bracket_depth < 0)
-        {
-            return set_parse_error(out_token, "Unexpected close angle bracket");
-        }
-        else if (lex.angle_bracket_depth == 0)
+        if (lex.angle_bracket_depth == 0)
         {
             got_complete_angle_bracket_set = true;
         }
@@ -672,12 +668,6 @@ bool AnnotationLexer::next(Token& out_token)
         if (lex.angle_bracket_depth <= 0)
         {
             return set_parse_error(out_token, "Parentheses only allowed inside angle brackets");
-        }
-        break;
-    case TokenType::ParenClose:
-        if (lex.expr_paren_depth <= 0)
-        {
-            return set_parse_error(out_token, "Unexpected close parentheses");
         }
         break;
 
@@ -694,6 +684,7 @@ bool AnnotationLexer::next(Token& out_token)
     case TokenType::String:
     case TokenType::ByteString:
     case TokenType::DateTime:
+    case TokenType::ParenClose:
         if (lex.angle_bracket_depth <= 0)
         {
             return set_parse_error(out_token, jxc::format("Token {} only allowed inside angle brackets", token_type_to_string(out_token.type)));

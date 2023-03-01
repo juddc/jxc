@@ -558,9 +558,10 @@ struct jxc::Converter<TimeDelta>
 {
     using value_type = TimeDelta;
 
-    static std::string get_annotation()
+    static const jxc::OwnedTokenSpan& get_annotation()
     {
-        return "timedelta";
+        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("timedelta");
+        return anno;
     }
 
     static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
@@ -591,9 +592,10 @@ struct jxc::Converter<HeaderList>
 {
     using value_type = HeaderList;
 
-    static std::string get_annotation()
+    static const jxc::OwnedTokenSpan& get_annotation()
     {
-        return "HeaderList";
+        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("HeaderList");
+        return anno;
     }
 
     static HeaderList parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
@@ -622,9 +624,10 @@ struct jxc::Converter<MimeTypeMap>
 {
     using value_type = MimeTypeMap;
 
-    static std::string get_annotation()
+    static const jxc::OwnedTokenSpan& get_annotation()
     {
-        return "mimetypes";
+        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("mimetypes");
+        return anno;
     }
 
     static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
@@ -686,9 +689,10 @@ struct jxc::Converter<TextDocument>
 {
     using value_type = TextDocument;
 
-    static std::string get_annotation()
+    static const jxc::OwnedTokenSpan& get_annotation()
     {
-        return "document";
+        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("document");
+        return anno;
     }
 
     static value_type parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
@@ -725,7 +729,7 @@ struct jxc::Converter<TextDocument>
             // allow specifying mimetype in annotation (eg. inline<'text/plain'>)
             if (anno_parser.advance())
             {
-                anno_parser.require_then_advance(jxc::TokenType::AngleBracketOpen);
+                anno_parser.require(jxc::TokenType::AngleBracketOpen);
                 TokenSpan doc_generic = anno_parser.skip_over_generic_value();
                 anno_parser.require_then_advance(jxc::TokenType::AngleBracketClose);
                 anno_parser.done_required();
@@ -903,7 +907,11 @@ template<>
 struct jxc::Converter<LogTarget>
 {
     using value_type = LogTarget;
-    static std::string get_annotation() { return "LogTarget"; }
+    static const jxc::OwnedTokenSpan& get_annotation()
+    {
+        static const jxc::OwnedTokenSpan anno = jxc::OwnedTokenSpan::from_identifier("LogTarget");
+        return anno;
+    }
 
     static LogTarget parse(jxc::conv::Parser& parser, TokenSpan generic_anno)
     {

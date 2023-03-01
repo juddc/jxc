@@ -11,9 +11,10 @@ struct Converter<Value>
 {
     using value_type = Value;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return "any";
+        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("any");
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)

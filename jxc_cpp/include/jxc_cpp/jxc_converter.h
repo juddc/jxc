@@ -14,8 +14,30 @@ JXC_BEGIN_NAMESPACE(jxc)
 
 
 JXC_BEGIN_NAMESPACE(conv)
+
 class Parser;
+
 JXC_END_NAMESPACE(conv)
+
+template<>
+struct detail_format::Formatter<OwnedTokenSpan>
+{
+    void format(auto& output, std::string_view arg, const OwnedTokenSpan& value) const
+    {
+        if (arg.size() == 0)
+        {
+            output << value.source().as_view();
+        }
+        else if (arg == "r")
+        {
+            output << detail::debug_string_repr(value.source().as_view());
+        }
+        else
+        {
+            JXC_FORMATTING_ERROR("Invalid format string '", arg, "' for annotation");
+        }
+    }
+};
 
 
 // Base struct for auto converters
@@ -27,9 +49,10 @@ struct Converter
 
     using value_type = T;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return typeid(value_type).name();
+        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier(typeid(value_type).name());
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -47,7 +70,7 @@ template<typename T>
 concept ConverterWithSerialize = requires { typename Converter<T>::value_type; }
     && requires
     {
-        { Converter<T>::get_annotation() } -> std::convertible_to<std::string>;
+        { Converter<T>::get_annotation() } -> std::convertible_to<OwnedTokenSpan>;
     }
     && requires(Serializer& doc, typename Converter<T>::value_type& value)
     {
@@ -59,7 +82,7 @@ template<typename T>
 concept ConverterWithParse = requires { typename Converter<T>::value_type; }
     && requires
     {
-        { Converter<T>::get_annotation() } -> std::convertible_to<std::string>;
+        { Converter<T>::get_annotation() } -> std::convertible_to<OwnedTokenSpan>;
     }
     && requires(conv::Parser& p, TokenSpan anno)
     {
@@ -91,13 +114,13 @@ std::string init_list_to_string(std::initializer_list<T> values, Lambda&& to_str
 }
 
 // Converts a C++ type signature to a JXC annotation. Intended for use in macros.
-std::string cpp_type_to_annotation(std::string_view cpp_type_src);
+OwnedTokenSpan cpp_type_to_annotation(std::string_view cpp_type_src);
 
 template<typename T>
-std::string base_type_annotation()
+OwnedTokenSpan base_type_annotation()
 {
-#define JXC_TYPE_TO_STR(TYPE) constexpr (std::same_as<T, TYPE>) { return #TYPE; }
-    if constexpr (std::is_same_v<T, std::nullptr_t>) { return "nullptr_t"; }
+#define JXC_TYPE_TO_STR(TYPE) constexpr (std::same_as<T, TYPE>) { return OwnedTokenSpan::from_identifier(#TYPE); }
+    if constexpr (std::is_same_v<T, std::nullptr_t>) { return OwnedTokenSpan::from_identifier("nullptr_t"); }
     else if JXC_TYPE_TO_STR(bool)
     else if JXC_TYPE_TO_STR(char)
     else if JXC_TYPE_TO_STR(wchar_t)
@@ -117,23 +140,23 @@ std::string base_type_annotation()
     else if constexpr (std::same_as<T, const char*> || std::same_as<T, std::string> || std::same_as<T, std::string_view>
         || std::same_as<T, FlexString>)
     {
-        return "string";
+        return OwnedTokenSpan::from_identifier("string");
     }
     else if constexpr (std::same_as<T, const wchar_t*> || std::same_as<T, std::wstring> || std::same_as<T, std::wstring_view>)
     {
-        return "wstring";
+        return OwnedTokenSpan::from_identifier("wstring");
     }
     else if constexpr (std::same_as<T, const char8_t*> || std::same_as<T, std::u8string> || std::same_as<T, std::u8string_view>)
     {
-        return "u8string";
+        return OwnedTokenSpan::from_identifier("u8string");
     }
     else if constexpr (std::same_as<T, const char16_t*> || std::same_as<T, std::u16string> || std::same_as<T, std::u16string_view>)
     {
-        return "u16string";
+        return OwnedTokenSpan::from_identifier("u16string");
     }
     else if constexpr (std::same_as<T, const char32_t*> || std::same_as<T, std::u32string> || std::same_as<T, std::u32string_view>)
     {
-        return "u32string";
+        return OwnedTokenSpan::from_identifier("u32string");
     }
     else
     {
@@ -479,7 +502,7 @@ struct Converter<std::nullptr_t>
 {
     using value_type = std::nullptr_t;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -502,7 +525,7 @@ struct Converter<bool>
 {
     using value_type = bool;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -526,7 +549,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -675,7 +698,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -705,7 +728,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -734,7 +757,7 @@ struct Converter<T>
 {
     using value_type = T;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return detail::base_type_annotation<value_type>();
     }
@@ -763,9 +786,10 @@ struct Converter<std::string>
 {
     using value_type = std::string;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return "string";
+        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("string");
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -790,9 +814,10 @@ struct Converter<std::vector<char>>
 {
     using value_type = std::vector<char>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return "string";
+        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("string");
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -848,9 +873,10 @@ struct Converter<std::vector<uint8_t>>
 {
     using value_type = std::vector<uint8_t>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return "bytes";
+        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("bytes");
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -877,9 +903,10 @@ struct Converter<Date>
 {
     using value_type = Date;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return "date";
+        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("date");
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -906,9 +933,10 @@ struct Converter<DateTime>
 {
     using value_type = DateTime;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return "datetime";
+        static const OwnedTokenSpan anno = OwnedTokenSpan::from_identifier("datetime");
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)

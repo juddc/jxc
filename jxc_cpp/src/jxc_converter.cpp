@@ -5,7 +5,7 @@ JXC_BEGIN_NAMESPACE(jxc)
 
 JXC_BEGIN_NAMESPACE(detail)
 
-std::string cpp_type_to_annotation(std::string_view cpp_type)
+OwnedTokenSpan cpp_type_to_annotation(std::string_view cpp_type)
 {
     std::ostringstream ss;
 
@@ -84,7 +84,15 @@ std::string cpp_type_to_annotation(std::string_view cpp_type)
             last_tok_type = tok.type;
         }
     }
-    return ss.str();
+
+    const std::string result_str = ss.str();
+    std::string err;
+    auto result = OwnedTokenSpan::parse_annotation(result_str, &err);
+    JXC_ASSERTF(result.has_value(), "Failed parsing annotation {} (from the C++ type {}): {}",
+        jxc::detail::debug_string_repr(result_str),
+        jxc::detail::debug_string_repr(cpp_type),
+        err);
+    return OwnedTokenSpan(std::move(*result));
 }
 
 JXC_END_NAMESPACE(detail)

@@ -29,13 +29,13 @@ public:
     static constexpr EnumConverterStyle serialize_style = Style;
 
 private:
-    std::string name;
+    OwnedTokenSpan annotation;
     StringMap<value_type> name_map;
     ankerl::unordered_dense::map<value_type, std::string> value_map;
 
 public:
-    EnumConverterMetadata(const std::string& name, std::initializer_list<std::pair<std::string, value_type>> values)
-        : name(name)
+    EnumConverterMetadata(const OwnedTokenSpan& annotation, std::initializer_list<std::pair<std::string, value_type>> values)
+        : annotation(annotation)
     {
         for (const auto& pair : values)
         {
@@ -47,10 +47,7 @@ public:
 
     void serialize(Serializer& doc, const value_type& value) const
     {
-        if (name.size() > 0)
-        {
-            doc.annotation(name);
-        }
+        annotation.serialize(doc);
 
         if constexpr (serialize_style == EnumConverterStyle::ValueAsInteger)
         {
@@ -109,14 +106,12 @@ public:
 
     value_type parse(conv::Parser& parser, TokenSpan generic_anno) const
     {
-        if (name.size() > 0)
+        if (annotation)
         {
             TokenSpan enum_anno = parser.get_value_annotation(generic_anno);
-            if (enum_anno && !enum_anno.equals_annotation_string_lexed(name))
+            if (enum_anno && enum_anno != annotation)
             {
-                throw parse_error(jxc::format("Invalid annotation {} for enum type {}",
-                    enum_anno.to_repr(), name),
-                    parser.value());
+                throw parse_error(jxc::format("Invalid annotation {} for enum type {}", enum_anno.to_repr(), annotation), parser.value());
             }
         }
 
@@ -127,7 +122,7 @@ public:
             auto iter = name_map.find(val_str);
             if (iter == name_map.end())
             {
-                throw parse_error(jxc::format("Enum {} has no value {}", name, detail::debug_string_repr(val_str)), tok);
+                throw parse_error(jxc::format("Enum {} has no value {}", annotation, detail::debug_string_repr(val_str)), tok);
             }
             return iter->second;
         };
@@ -145,7 +140,7 @@ public:
             auto iter = name_map.find(val_str);
             if (iter == name_map.end())
             {
-                throw parse_error(jxc::format("Enum {} has no value {}", name, detail::debug_string_repr(val_str)), tok);
+                throw parse_error(jxc::format("Enum {} has no value {}", annotation, detail::debug_string_repr(val_str)), tok);
             }
             return iter->second;
         };
@@ -169,7 +164,7 @@ public:
             const value_type result = static_cast<value_type>(parsed_value);
             if (!value_map.contains(result))
             {
-                throw parse_error(jxc::format("Enum {} has no value {}", name, parsed_value), tok);
+                throw parse_error(jxc::format("Enum {} has no value {}", annotation, parsed_value), tok);
             }
             return result;
         };
@@ -231,13 +226,20 @@ inline std::pair<std::string, T> def_enum_value(const char* name, T value)
 }
 
 
+template<typename T, typename... TArgs>
+EnumConverterMetadata<T> def_enum(const char* name, TArgs&&... args)
+{
+    return EnumConverterMetadata<T>{ name, { std::forward<TArgs>(args)... } };
+}
+
+
 #define JXC_DEFINE_AUTO_ENUM_CONVERTER(ENUM_TYPE, ANNOTATION, ENUM_CONVERTER_STYLE, ...) \
     template<> \
     struct jxc::Converter<ENUM_TYPE> { \
         static_assert(std::is_enum_v<ENUM_TYPE>, "Expected type to be enum: " #ENUM_TYPE); \
         using value_type = ENUM_TYPE; \
-        static const std::string& get_annotation() { \
-            static const std::string anno = ANNOTATION; \
+        static const ::jxc::OwnedTokenSpan& get_annotation() { \
+            static const ::jxc::OwnedTokenSpan anno = ::jxc::OwnedTokenSpan::parse_annotation_checked(ANNOTATION); \
             return anno; \
         } \
         static const ::jxc::EnumConverterMetadata<value_type, ENUM_CONVERTER_STYLE>& values() { \
@@ -253,7 +255,7 @@ inline std::pair<std::string, T> def_enum_value(const char* name, T value)
     }
 
 
-#define JXC_ENUM_VALUE(NAME, ...) ::jxc::def_enum_value(#NAME, value_type::NAME)
+#define JXC_ENUM_VALUE(NAME, ...) ::jxc::def_enum_value<value_type>(#NAME, value_type::NAME)
 
 
 JXC_END_NAMESPACE(jxc)

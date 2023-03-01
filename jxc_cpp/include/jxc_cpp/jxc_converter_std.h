@@ -19,10 +19,10 @@ JXC_BEGIN_NAMESPACE(jxc)
 JXC_BEGIN_NAMESPACE(conv)
 
 template<typename T>
-void serialize_array(Serializer& doc, const T& value, const std::string& annotation)
+void serialize_array(Serializer& doc, const T& value, const OwnedTokenSpan& annotation)
 {
     using VT = typename T::value_type;
-    doc.annotation(annotation);
+    annotation.serialize(doc);
     doc.array_begin();
     for (const auto& item : value)
     {
@@ -49,9 +49,9 @@ T parse_array(conv::Parser& parser, TokenSpan value_anno, AddFunc&& add_func)
 }
 
 template<typename T, typename KT, typename VT>
-void serialize_map(Serializer& doc, const T& value, const std::string& annotation)
+void serialize_map(Serializer& doc, const T& value, const OwnedTokenSpan& annotation)
 {
-    doc.annotation(annotation);
+    annotation.serialize(doc);
     doc.object_begin();
     for (const auto& pair : value)
     {
@@ -106,9 +106,10 @@ struct Converter<std::array<T, N>>
 {
     using value_type = std::array<T, N>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return jxc::format("std.array<{}, {}>", Converter<T>::get_annotation(), N);
+        static const OwnedTokenSpan anno = OwnedTokenSpan::parse_annotation_checked(jxc::format("std.array<{}, {}>", Converter<T>::get_annotation(), N));
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -133,7 +134,7 @@ struct Converter<std::array<T, N>>
                 anno_parser.require_then_advance(TokenType::Period);
             }
             anno_parser.require_then_advance(TokenType::Identifier, "array");
-            anno_parser.require_then_advance(TokenType::AngleBracketOpen);
+            anno_parser.require(TokenType::AngleBracketOpen);
 
             inner_generic_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
             if (inner_generic_anno.size() == 0)
@@ -203,9 +204,10 @@ struct Converter<std::vector<T>>
 {
     using value_type = std::vector<T>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return jxc::format("std.vector<{}>", Converter<T>::get_annotation());
+        static const OwnedTokenSpan anno = OwnedTokenSpan::parse_annotation_checked(jxc::format("std.vector<{}>", Converter<T>::get_annotation()));
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -225,7 +227,7 @@ struct Converter<std::vector<T>>
                 anno_parser.require_then_advance(TokenType::Period);
             }
             anno_parser.require_then_advance(TokenType::Identifier, "vector");
-            anno_parser.require_then_advance(TokenType::AngleBracketOpen);
+            anno_parser.require(TokenType::AngleBracketOpen);
             value_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
             anno_parser.require_then_advance(TokenType::AngleBracketClose);
             anno_parser.done_required();
@@ -244,9 +246,10 @@ struct Converter<std::map<KT, VT>>
 {
     using value_type = std::map<KT, VT>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return jxc::format("std.map<{}, {}>", Converter<KT>::get_annotation(), Converter<VT>::get_annotation());
+        static const OwnedTokenSpan& anno = OwnedTokenSpan::parse_annotation_checked(jxc::format("std.map<{}, {}>", Converter<KT>::get_annotation(), Converter<VT>::get_annotation()));
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -267,9 +270,9 @@ struct Converter<std::map<KT, VT>>
                 anno_parser.require_then_advance(TokenType::Period);
             }
             anno_parser.require_then_advance(TokenType::Identifier, "map");
-            anno_parser.require_then_advance(TokenType::AngleBracketOpen);
+            anno_parser.require(TokenType::AngleBracketOpen);
             key_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
-            anno_parser.require_then_advance(TokenType::Comma);
+            anno_parser.require(TokenType::Comma);
             value_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
             anno_parser.require_then_advance(TokenType::AngleBracketClose);
             anno_parser.done_required();
@@ -285,9 +288,10 @@ struct Converter<std::unordered_map<KT, VT>>
 {
     using value_type = std::unordered_map<KT, VT>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return jxc::format("std.unordered_map<{}, {}>", Converter<KT>::get_annotation(), Converter<VT>::get_annotation());
+        static const OwnedTokenSpan anno = OwnedTokenSpan::parse_annotation_checked(jxc::format("std.unordered_map<{}, {}>", Converter<KT>::get_annotation(), Converter<VT>::get_annotation()));
+        return anno;
     }
 
     static void serialize(Serializer& doc, const value_type& value)
@@ -308,9 +312,9 @@ struct Converter<std::unordered_map<KT, VT>>
                 anno_parser.require_then_advance(TokenType::Period);
             }
             anno_parser.require_then_advance(TokenType::Identifier, "unordered_map");
-            anno_parser.require_then_advance(TokenType::AngleBracketOpen);
+            anno_parser.require(TokenType::AngleBracketOpen);
             key_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
-            anno_parser.require_then_advance(TokenType::Comma);
+            anno_parser.require(TokenType::Comma);
             value_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
             anno_parser.require_then_advance(TokenType::AngleBracketClose);
             anno_parser.done_required();
@@ -326,7 +330,7 @@ struct Converter<std::optional<T>>
 {
     using value_type = std::optional<T>;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return Converter<T>::get_annotation();
     }
@@ -347,11 +351,9 @@ struct Converter<std::optional<T>>
     {
         if (TokenSpan anno = parser.get_value_annotation(generic_anno))
         {
-            if (!anno.equals_annotation_string_lexed(get_annotation()))
+            if (anno != get_annotation())
             {
-                throw parse_error(jxc::format("Unexpected annotation {} for type {}",
-                    detail::debug_string_repr(get_annotation()),
-                    detail::debug_string_repr(anno.source())),
+                throw parse_error(jxc::format("Unexpected annotation {} for type {}", get_annotation(), detail::debug_string_repr(anno.source())),
                     parser.value());
             }
         }
@@ -370,7 +372,7 @@ struct Converter<std::unique_ptr<T>>
 {
     using value_type = std::unique_ptr<T>;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return Converter<T>::get_annotation();
     }
@@ -391,10 +393,10 @@ struct Converter<std::unique_ptr<T>>
     {
         if (TokenSpan anno = parser.get_value_annotation(generic_anno))
         {
-            if (!anno.equals_annotation_string_lexed(get_annotation()))
+            if (anno != get_annotation())
             {
                 throw parse_error(jxc::format("Unexpected annotation {} for type {}",
-                    detail::debug_string_repr(get_annotation()),
+                    get_annotation(),
                     detail::debug_string_repr(anno.source())),
                     parser.value());
             }
@@ -415,7 +417,7 @@ struct Converter<std::shared_ptr<T>>
 {
     using value_type = std::shared_ptr<T>;
 
-    static std::string get_annotation()
+    static OwnedTokenSpan get_annotation()
     {
         return Converter<T>::get_annotation();
     }
@@ -436,10 +438,10 @@ struct Converter<std::shared_ptr<T>>
     {
         if (TokenSpan anno = parser.get_value_annotation(generic_anno))
         {
-            if (!anno.equals_annotation_string_lexed(get_annotation()))
+            if (anno != get_annotation())
             {
                 throw parse_error(jxc::format("Unexpected annotation {} for type {}",
-                    detail::debug_string_repr(get_annotation()),
+                    get_annotation(),
                     detail::debug_string_repr(anno.source())),
                     parser.value());
             }
@@ -460,9 +462,10 @@ struct Converter<std::set<T>>
 {
     using value_type = std::set<T>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return jxc::format("std.set<{}>", Converter<T>::get_annotation());
+        static const OwnedTokenSpan anno = OwnedTokenSpan::parse_annotation_checked(jxc::format("std.set<{}>", Converter<T>::get_annotation()));
+        return anno;
     }
 
     static void serialize(jxc::Serializer& doc, const value_type& value)
@@ -482,7 +485,7 @@ struct Converter<std::set<T>>
                 anno_parser.require_then_advance(TokenType::Period);
             }
             anno_parser.require_then_advance(TokenType::Identifier, "set");
-            anno_parser.require_then_advance(TokenType::AngleBracketOpen);
+            anno_parser.require(TokenType::AngleBracketOpen);
             value_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
             anno_parser.require_then_advance(TokenType::AngleBracketClose);
             anno_parser.done_required();
@@ -501,9 +504,10 @@ struct Converter<std::unordered_set<T>>
 {
     using value_type = std::unordered_set<T>;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return jxc::format("std.unordered_set<{}>", Converter<T>::get_annotation());
+        static const OwnedTokenSpan anno = OwnedTokenSpan::parse_annotation_checked(jxc::format("std.unordered_set<{}>", Converter<T>::get_annotation()));
+        return anno;
     }
 
     static void serialize(jxc::Serializer& doc, const value_type& value)
@@ -523,7 +527,7 @@ struct Converter<std::unordered_set<T>>
                 anno_parser.require_then_advance(TokenType::Period);
             }
             anno_parser.require_then_advance(TokenType::Identifier, "unordered_set");
-            anno_parser.require_then_advance(TokenType::AngleBracketOpen);
+            anno_parser.require(TokenType::AngleBracketOpen);
             value_anno = OwnedTokenSpan(anno_parser.skip_over_generic_value());
             anno_parser.require_then_advance(TokenType::AngleBracketClose);
             anno_parser.done_required();
@@ -572,22 +576,26 @@ struct Converter<std::tuple<TArgs...>>
     using value_type = std::tuple<TArgs...>;
     static constexpr size_t num_items = sizeof...(TArgs);
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        std::ostringstream ss;
-        ss << "std.tuple<";
-        value_type tup;
-        conv::iter_tuple(tup, [&](size_t i, auto& out_arg)
+        static const OwnedTokenSpan anno = ([]() -> OwnedTokenSpan
         {
-            using arg_t = conv::tuple_item_t<decltype(out_arg)>;
-            if (i > 0)
+            std::ostringstream ss;
+            ss << "std.tuple<";
+            value_type tup;
+            conv::iter_tuple(tup, [&](size_t i, auto& out_arg)
             {
-                ss << ", ";
-            }
-            ss << Converter<arg_t>::get_annotation();
-        });
-        ss << ">";
-        return ss.str();
+                using arg_t = conv::tuple_item_t<decltype(out_arg)>;
+                if (i > 0)
+                {
+                    ss << ", ";
+                }
+                ss << Converter<arg_t>::get_annotation();
+            });
+            ss << ">";
+            return OwnedTokenSpan::parse_annotation_checked(ss.str());
+        })();
+        return anno;
     }
 
     static void serialize(jxc::Serializer& doc, const value_type& value)
@@ -618,13 +626,13 @@ struct Converter<std::tuple<TArgs...>>
                 anno_parser.require_then_advance(TokenType::Period);
             }
             anno_parser.require_then_advance(TokenType::Identifier, "tuple");
-            anno_parser.require_then_advance(TokenType::AngleBracketOpen);
+            anno_parser.require(TokenType::AngleBracketOpen);
 
             for (size_t i = 0; i < num_items; i++)
             {
                 if (i > 0)
                 {
-                    anno_parser.require_then_advance(TokenType::Comma);
+                    anno_parser.require(TokenType::Comma);
                 }
                 value_annotations.push(OwnedTokenSpan(anno_parser.skip_over_generic_value()));
             }
@@ -663,9 +671,10 @@ struct Converter<std::filesystem::path>
 {
     using value_type = std::filesystem::path;
 
-    static std::string get_annotation()
+    static const OwnedTokenSpan& get_annotation()
     {
-        return "std.filesystem.path";
+        static const OwnedTokenSpan anno = OwnedTokenSpan::parse_annotation_checked("std.filesystem.path");
+        return anno;
     }
 
     static void serialize(jxc::Serializer& doc, const value_type& value)

@@ -16,6 +16,8 @@
 
 JXC_BEGIN_NAMESPACE(jxc)
 
+class Serializer;
+
 JXC_BEGIN_NAMESPACE(detail)
 
 // Gets the base filename (with no path info) of a path. Returns a string_view into the string passed into the function.
@@ -621,9 +623,31 @@ struct OwnedTokenSpan
     OwnedTokenSpan(const OwnedTokenSpan& rhs) { copy_from_internal(rhs); }
     explicit OwnedTokenSpan(TokenSpan span) { copy_from_internal(span); }
 
+    OwnedTokenSpan(OwnedTokenSpan&& rhs) = default;
+    OwnedTokenSpan& operator=(OwnedTokenSpan&& rhs) = default;
+
     static std::optional<OwnedTokenSpan> parse(std::string_view source, std::string* out_error = nullptr);
     static std::optional<OwnedTokenSpan> parse_annotation(std::string_view annotation, std::string* out_error = nullptr);
     static std::optional<OwnedTokenSpan> parse_expression(std::string_view expression, std::string* out_error = nullptr);
+
+    static inline OwnedTokenSpan parse_annotation_checked(std::string_view annotation)
+    {
+        std::string err;
+        auto result = parse_annotation(annotation, &err);
+        JXC_ASSERTF(result.has_value(), "Failed parsing annotation: {}", err);
+        return *result;
+    }
+
+    // Assumes that the input string is a valid identifier and returns it as an annotation
+    static inline OwnedTokenSpan from_identifier(std::string_view identifier)
+    {
+        OwnedTokenSpan result;
+        JXC_ASSERT(is_valid_identifier(identifier));
+        result.tokens.push(Token(TokenType::Identifier, 0, identifier.size() - 1, FlexString::make_owned(identifier)));
+        return result;
+    }
+
+    void serialize(Serializer& doc) const;
 
     template<typename T>
     inline void copy_from_internal(const T& rhs)

@@ -8,21 +8,32 @@ TEST(jxc_cpp_converter, ConverterCppTypeToAnnotation)
 {
     using jxc::detail::cpp_type_to_annotation;
 
+    EXPECT_EQ(
+        cpp_type_to_annotation(
+            "std::vector<int32_t>"),
+        jxc::OwnedTokenSpan::parse_annotation(
+            "std.vector<int32_t>"));
+
+    EXPECT_EQ(
+        cpp_type_to_annotation(
+            "std::array<std::string,16>"),
+        jxc::OwnedTokenSpan::parse_annotation(
+            "std.array<std.string, 16>"));
+
     EXPECT_EQ(cpp_type_to_annotation(
-        "std::vector<int32_t>"),
-        "std.vector<int32_t>");
+            "std::conditional_t<value_type_is_trivial, ValueType, const ValueType&>"),
+        jxc::OwnedTokenSpan::parse_annotation(
+            "std.conditional_t<value_type_is_trivial, ValueType, const ValueType&>"));
+
     EXPECT_EQ(cpp_type_to_annotation(
-        "std::array<std::string,16>"),
-        "std.array<std.string, 16>");
+            "::jxc::detail::FixedArray<::jxc::detail::FixedArray<int32_t>>"),
+        jxc::OwnedTokenSpan::parse_annotation(
+            "jxc.detail.FixedArray<jxc.detail.FixedArray<int32_t>>"));
+
     EXPECT_EQ(cpp_type_to_annotation(
-        "std::conditional_t<value_type_is_trivial, ValueType, const ValueType&>"),
-        "std.conditional_t<value_type_is_trivial, ValueType, const ValueType&>");
-    EXPECT_EQ(cpp_type_to_annotation(
-        "::jxc::detail::FixedArray<::jxc::detail::FixedArray<int32_t>>"),
-        "jxc.detail.FixedArray<jxc.detail.FixedArray<int32_t>>");
-    EXPECT_EQ(cpp_type_to_annotation(
-        "std::vector<std::optional<std::vector<int32_t>>>"),
-        "std.vector<std.optional<std.vector<int32_t>>>");
+            "std::vector<std::optional<std::vector<int32_t>>>"),
+        jxc::OwnedTokenSpan::parse_annotation(
+            "std.vector<std.optional<std.vector<int32_t>>>"));
 }
 
 

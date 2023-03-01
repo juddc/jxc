@@ -804,11 +804,12 @@ bool AnnotationParser::advance()
             }
             break;
         case TokenType::ParenOpen:
-            if (angle_bracket_depth <= 0)
-            {
-                set_error("Parens can only appear in annotations inside angle brackets", anno[idx].start_idx, anno[idx].end_idx);
-                return false;
-            }
+            // Not sure this check is practical, as it prevents AnnotationParser from being useful for parsing inner generic values
+            // if (angle_bracket_depth <= 0)
+            // {
+            //     set_error("Parens can only appear in annotations inside angle brackets", anno[idx].start_idx, anno[idx].end_idx);
+            //     return false;
+            // }
             ++paren_depth;
             break;
         case TokenType::ParenClose:
@@ -888,13 +889,10 @@ bool AnnotationParser::require_then_advance(TokenType tok_type, std::string_view
 
 TokenSpan AnnotationParser::skip_over_generic_value()
 {
-    // prev token must be an open angle bracket
-    JXC_ASSERT(idx > 0 && anno[idx - 1].type == TokenType::AngleBracketOpen);
+    // current token must be an open angle bracket or comma
+    JXC_ASSERT(angle_bracket_depth > 0 && (anno[idx].type == TokenType::AngleBracketOpen || anno[idx].type == TokenType::Comma));
 
-    // this must be true if the previous assert was true
-    JXC_DEBUG_ASSERT(angle_bracket_depth > 0);
-
-    const size_t start_idx = idx;
+    const size_t start_idx = idx + 1;
     size_t num_tokens_inside_generic = 0;
 
     const int64_t orig_angle = angle_bracket_depth;
@@ -908,7 +906,7 @@ TokenSpan AnnotationParser::skip_over_generic_value()
             if (angle_bracket_depth == orig_angle - 1)
             {
                 // we started inside angle brackets, those angle brackets just closed
-                return anno.slice(start_idx, num_tokens_inside_generic - 1);
+                return anno.slice(start_idx, num_tokens_inside_generic);
             }
             break;
 
@@ -916,7 +914,7 @@ TokenSpan AnnotationParser::skip_over_generic_value()
             if (orig_angle == angle_bracket_depth && orig_paren == paren_depth)
             {
                 // angle and paren depth is the same as when we started and we hit a comma, so we're done
-                return anno.slice(start_idx, num_tokens_inside_generic - 1);
+                return anno.slice(start_idx, num_tokens_inside_generic);
             }
             break;
 

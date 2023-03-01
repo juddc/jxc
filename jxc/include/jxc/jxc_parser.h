@@ -441,7 +441,7 @@ public:
         return !done() && anno[idx].type == tok_type && (tok_value.size() == 0 || anno[idx].value == tok_value);
     }
 
-    // Call this only when the previous token type was AngleBracketOpen.
+    // Call this only when the current token type is AngleBracketOpen or Comma.
     // Skips over an inner generic value, stopping at either a matching AngleBracketClose, or a Comma at the same depth.
     // Returns a TokenSpan for the tokens skipped.
     TokenSpan skip_over_generic_value();

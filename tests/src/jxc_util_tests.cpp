@@ -264,6 +264,78 @@ TEST(jxc_core, TokenSpans)
 }
 
 
+TEST(jxc_util, AnnotationParserTest)
+{
+    using namespace jxc;
+
+    std::string err;
+    std::optional<OwnedTokenSpan> anno_opt = OwnedTokenSpan::parse_annotation("std.pair<int32_t(x.x | y, z), std.vector<double>>", &err);
+    ASSERT_TRUE(anno_opt.has_value()) << err;
+
+    AnnotationParser parser{ TokenSpan(*anno_opt) };
+    
+    EXPECT_EQ(parser.current().value, "std");
+    EXPECT_TRUE(parser.advance());
+    EXPECT_EQ(parser.current().type, TokenType::Period);
+    EXPECT_TRUE(parser.advance());
+    EXPECT_EQ(parser.current().value, "pair");
+    EXPECT_TRUE(parser.advance());
+    EXPECT_EQ(parser.current().type, TokenType::AngleBracketOpen);
+
+    // read the first generic value
+    {
+        AnnotationParser generic_parser{ parser.skip_over_generic_value() };
+        EXPECT_EQ(generic_parser.current().value, "int32_t");
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().type, TokenType::ParenOpen);
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().value, "x");
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().type, TokenType::Period);
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().value, "x");
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().type, TokenType::Pipe);
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().value, "y");
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().type, TokenType::Comma);
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().value, "z");
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().type, TokenType::ParenClose);
+        EXPECT_FALSE(generic_parser.advance());
+    }
+
+    EXPECT_EQ(parser.current().type, TokenType::Comma);
+
+    // read the second generic value after the comma
+    {
+        AnnotationParser generic_parser{ parser.skip_over_generic_value() };
+        EXPECT_EQ(generic_parser.current().value, "std");
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().type, TokenType::Period);
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().value, "vector");
+        EXPECT_TRUE(generic_parser.advance());
+        EXPECT_EQ(generic_parser.current().type, TokenType::AngleBracketOpen);
+
+        // read the inner generic value
+        {
+            TokenSpan generic_anno3 = generic_parser.skip_over_generic_value();
+            EXPECT_EQ(generic_anno3.size(), 1);
+            EXPECT_EQ(generic_anno3[0].value, "double");
+        }
+
+        EXPECT_EQ(generic_parser.current().type, TokenType::AngleBracketClose);
+        EXPECT_FALSE(generic_parser.advance());
+    }
+
+    EXPECT_EQ(parser.current().type, TokenType::AngleBracketClose);
+    EXPECT_FALSE(parser.advance());
+}
+
+
 TEST(jxc_util, TokenTypeMetadata)
 {
     using namespace jxc;
