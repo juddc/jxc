@@ -376,15 +376,16 @@ private:
 public:
     Token* start = nullptr;
     size_t num_tokens = 0;
+    std::string_view source_view;
 
     TokenView() = default;
     TokenView(std::nullptr_t) : start(nullptr), num_tokens(0) {}
-    TokenView(Token& start, size_t num_tokens) : start(&start), num_tokens(num_tokens) {}
+    TokenView(Token& start, size_t num_tokens, std::string_view source_view = {}) : start(&start), num_tokens(num_tokens), source_view(source_view) {}
 
     TokenView(const TokenView& rhs) = default;
     TokenView& operator=(const TokenView& rhs) = default;
 
-    explicit TokenView(const TokenList& rhs);
+    TokenView(const TokenList& rhs);
 
     inline size_t size() const { return (start != nullptr) ? num_tokens : 0; }
 
@@ -619,8 +620,22 @@ struct TokenList
     detail::ArrayBuffer<Token, 16> tokens;
     FlexString src;
 
+private:
+    template<typename T>
+    inline void copy_from_internal(const T& rhs)
+    {
+        tokens.clear();
+        for (size_t i = 0; i < rhs.size(); i++)
+        {
+            tokens.push(rhs[i].copy());
+        }
+        src = rhs.source(true);
+    }
+
+public:
     TokenList() = default;
     TokenList(const TokenList& rhs) { copy_from_internal(rhs); }
+    TokenList& operator=(const TokenList& rhs) { copy_from_internal(rhs); return *this; }
     explicit TokenList(TokenView span) { copy_from_internal(span); }
 
     TokenList(TokenList&& rhs) = default;
@@ -649,35 +664,18 @@ struct TokenList
 
     void serialize(Serializer& doc) const;
 
-    template<typename T>
-    inline void copy_from_internal(const T& rhs)
-    {
-        tokens.clear();
-        for (size_t i = 0; i < rhs.size(); i++)
-        {
-            tokens.push(rhs[i].copy());
-        }
-        src = rhs.source(true);
-    }
-
-private:
-    // This is not a safe conversion in all cases.
-    // Notably, TokenView::source() assumes that all token values are contiguous string views.
-    TokenView to_token_span() const { const size_t sz = tokens.size(); return (sz > 0) ? TokenView{ const_cast<Token&>(tokens.front()), sz } : TokenView{}; }
-
-public:
     inline explicit operator bool() const { return tokens.size() > 0; }
     inline Token& operator[](size_t idx) { return tokens[idx]; }
     inline const Token& operator[](size_t idx) const { return tokens[idx]; }
 
-    inline bool operator==(const TokenView& rhs) const { return to_token_span() == rhs; }
-    inline bool operator!=(const TokenView& rhs) const { return to_token_span() != rhs; }
+    inline bool operator==(const TokenView& rhs) const { return TokenView(*this) == rhs; }
+    inline bool operator!=(const TokenView& rhs) const { return TokenView(*this) != rhs; }
 
-    inline bool operator==(const TokenList& rhs) const { return to_token_span() == rhs.to_token_span(); }
-    inline bool operator!=(const TokenList& rhs) const { return to_token_span() != rhs.to_token_span(); }
+    inline bool operator==(const TokenList& rhs) const { return TokenView(*this) == TokenView(rhs); }
+    inline bool operator!=(const TokenList& rhs) const { return TokenView(*this) != TokenView(rhs); }
 
-    inline bool operator==(std::string_view rhs) const { return to_token_span() == rhs; }
-    inline bool operator!=(std::string_view rhs) const { return to_token_span() != rhs; }
+    inline bool operator==(std::string_view rhs) const { return TokenView(*this) == rhs; }
+    inline bool operator!=(std::string_view rhs) const { return TokenView(*this) != rhs; }
 
     friend bool operator==(std::string_view lhs, const TokenList& rhs) { return rhs.operator==(lhs); }
     friend bool operator!=(std::string_view lhs, const TokenList& rhs) { return rhs.operator!=(lhs); }
@@ -688,10 +686,10 @@ public:
 
     FlexString source(bool force_owned = false) const;
 
-    inline uint64_t hash() const { return to_token_span().hash(); }
+    inline uint64_t hash() const { return TokenView(*this).hash(); }
 
-    inline std::string to_repr() const { return to_token_span().to_repr(); }
-    inline std::string to_string() const { return to_token_span().to_string(); }
+    inline std::string to_repr() const { return TokenView(*this).to_repr(); }
+    inline std::string to_string() const { return TokenView(*this).to_string(); }
 };
 
 

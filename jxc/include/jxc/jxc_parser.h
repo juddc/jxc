@@ -220,7 +220,7 @@ struct TElement
         }
         else
         {
-            return { type, token.view(), annotation.to_token_span() };
+            return { type, token.view(), TokenView(annotation) };
         }
     }
 
@@ -315,6 +315,18 @@ private:
     detail::ArrayBuffer<JumpStackVars, 96> jump_stack;
 
     JumpStackVars* jump_vars = nullptr;
+
+    inline std::string_view get_annotation_buffer_source_view() const
+    {
+        if (annotation_buffer.size() > 0)
+        {
+            const size_t start_idx = annotation_buffer[0].start_idx;
+            const size_t end_idx = annotation_buffer[annotation_buffer.size() - 1].end_idx;
+            JXC_DEBUG_ASSERT(end_idx >= start_idx);
+            return buffer.substr(start_idx, end_idx - start_idx);
+        }
+        return std::string_view{};
+    }
 
     inline void jump_stack_push(JumpState new_state, ContainerState new_container_state = CS_None)
     {

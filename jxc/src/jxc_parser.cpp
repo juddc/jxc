@@ -226,6 +226,7 @@ bool JumpParser::next()
         current_value.token = tok; \
         current_value.annotation.num_tokens = annotation_buffer.size(); \
         current_value.annotation.start = (current_value.annotation.num_tokens > 0) ? &annotation_buffer.front() : nullptr; \
+        current_value.annotation.source_view = get_annotation_buffer_source_view(); \
         return (ELEMENT_TYPE) != ElementType::Invalid; \
     } while(0)
 

@@ -566,11 +566,7 @@ struct jxc::Converter<TimeDelta>
 
     static value_type parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
-        if (TokenView anno = parser.get_value_annotation(generic_anno))
-        {
-            throw jxc::parse_error("Unexpected annotation", anno.get_index_span());
-        }
-
+        parser.require_no_annotation();
         std::string suffix;
         const double value = parser.parse_token_as_number<double>(parser.value().token, { "s", "ms" }, suffix);
         if (suffix == "s")
@@ -581,7 +577,6 @@ struct jxc::Converter<TimeDelta>
         {
             return TimeDelta(value);
         }
-
         JXC_UNREACHABLE("Invalid suffix {}", suffix);
     }
 };
@@ -601,19 +596,13 @@ struct jxc::Converter<HeaderList>
     static HeaderList parse(jxc::conv::Parser& parser, TokenView generic_anno)
     {
         HeaderList result;
-        parser.require(jxc::ElementType::BeginObject);
         parser.require_no_annotation();
-        while (parser.next())
-        {
-            if (parser.value().type == jxc::ElementType::EndObject)
+        parser.require(jxc::ElementType::BeginObject);
+        jxc::conv::parse_map<std::string, std::string>(parser, "HeaderList", jxc::TokenView(), jxc::TokenView(),
+            [&result](std::string&& key, std::string&& value)
             {
-                break;
-            }
-
-            std::string key = parser.parse_token_as_string(parser.value().token);
-            parser.require_next();
-            result.push_back(std::make_pair(std::move(key), parser.parse_token_as_string(parser.value().token)));
-        }
+                result.push_back(std::make_pair(std::move(key), std::move(value)));
+            });
         return result;
     }
 };
@@ -712,7 +701,7 @@ struct jxc::Converter<TextDocument>
         }
         else
         {
-            jxc::AnnotationParser anno_parser = parser.parse_annotation(anno);
+            jxc::AnnotationParser anno_parser = parser.make_annotation_parser(anno);
             if (anno_parser.equals(jxc::TokenType::Identifier, "path"))
             {
                 is_path = true;
@@ -1293,52 +1282,37 @@ struct WebServerConfig
 };
 
 
-JXC_DEFINE_AUTO_STRUCT_CONVERTER(
+JXC_DEFINE_STRUCT_CONVERTER(
     WebServerConfig,
-    "WebServerConfig",
-    JXC_FIELD(listen_host),
-    JXC_FIELD(listen_port, jxc::FieldFlags::Optional),
-    JXC_FIELD(worker_threads, jxc::FieldFlags::Optional),
-    JXC_FIELD(read_timeout),
-    JXC_FIELD(write_timeout),
-    JXC_FIELD(idle_interval),
-    JXC_FIELD(payload_max_length, jxc::FieldFlags::Optional,
-        [](jxc::conv::Parser& parser, const std::string& field_key, WebServerConfig& out_value)
-        {
-            parser.require(jxc::ElementType::Number);
-            const jxc::Token& tok = parser.value().token;
-            JXC_ASSERT(tok.type == jxc::TokenType::Number);
-
-            jxc::ErrorInfo err;
-            std::string suffix;
-            uint64_t value = 0;
-            if (!jxc::util::parse_number_simple(tok, value, err, &suffix))
+    jxc::def_struct<WebServerConfig>("WebServerConfig")
+        .def_field("listen_host", &WebServerConfig::listen_host)
+        .def_field("listen_port", &WebServerConfig::listen_port, jxc::FieldFlags::Optional)
+        .def_field("worker_threads", &WebServerConfig::worker_threads, jxc::FieldFlags::Optional)
+        .def_field("read_timeout", &WebServerConfig::read_timeout)
+        .def_field("write_timeout", &WebServerConfig::write_timeout)
+        .def_field("idle_interval", &WebServerConfig::idle_interval)
+        .def_field("payload_max_length", &WebServerConfig::payload_max_length, jxc::FieldFlags::Optional,
+            [](jxc::conv::Parser& parser, const std::string& field_key, WebServerConfig& out_value)
             {
-                throw jxc::parse_error(jxc::format("Failed to parse {}", field_key), err);
-            }
-
-            std::optional<DataSizeBytes> value_bytes = make_data_size_from_suffix(value, suffix);
-            if (!value_bytes)
-            {
-                throw jxc::parse_error(jxc::format("Invalid unit {} for {}", jxc::detail::debug_string_repr(suffix), field_key), tok);
-            }
-
-            out_value.payload_max_length = value_bytes.value();
-        }),
-    JXC_FIELD(access_log, jxc::FieldFlags::Optional),
-    JXC_FIELD(error_log, jxc::FieldFlags::Optional),
-    JXC_FIELD(default_not_found_page, jxc::FieldFlags::Optional),
-    JXC_FIELD(default_server_error_page, jxc::FieldFlags::Optional),
-    JXC_FIELD(mime_types),
+                parser.require(jxc::ElementType::Number);
+                std::string suffix;
+                const uint64_t value = parser.parse_token_as_number<uint64_t>(parser.value().token, { "b", "kb", "mb", "gb", "tb" }, suffix);
+                out_value.payload_max_length = make_data_size_from_suffix(value, suffix).value();
+            })
+        .def_field("access_log", &WebServerConfig::access_log, jxc::FieldFlags::Optional)
+        .def_field("error_log", &WebServerConfig::error_log, jxc::FieldFlags::Optional)
+        .def_field("default_not_found_page", &WebServerConfig::default_not_found_page, jxc::FieldFlags::Optional)
+        .def_field("default_server_error_page", &WebServerConfig::default_server_error_page, jxc::FieldFlags::Optional)
+        .def_field("mime_types", &WebServerConfig::mime_types)
     
-    // "Property" indicates that this isn't an actual field on the struct.
-    // We want to allow multiple "location" keys, and each time that one is parsed, add it to the locations vector.
-    JXC_PROPERTY(location, jxc::FieldFlags::Optional | jxc::FieldFlags::AllowMultiple,
-        [](jxc::conv::Parser& parser, const std::string& field_key, WebServerConfig& out_value)
-        {
-            out_value.locations.push_back(jxc::Converter<std::shared_ptr<BaseLocation>>::parse(parser, TokenView()));
-        }
-    ),
+        // "Property" indicates that this isn't an actual field on the struct.
+        // We want to allow multiple "location" keys, and each time we encounter one, add it to the locations array.
+        .def_property("location", jxc::FieldFlags::Optional | jxc::FieldFlags::AllowMultiple,
+            [](jxc::conv::Parser& parser, const std::string& field_key, WebServerConfig& out_value)
+            {
+                out_value.locations.push_back(jxc::Converter<std::shared_ptr<BaseLocation>>::parse(parser, TokenView()));
+            }
+        )
 );
 
 

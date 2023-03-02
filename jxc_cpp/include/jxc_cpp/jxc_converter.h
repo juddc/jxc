@@ -268,12 +268,17 @@ public:
         return 0;
     }
 
-    // throws parse_error if the specified annotation is not one of the expected values.
+    // Throws parse_error if the specified annotation does not exactly match the expected annotation.
+    // If annotation_optional is false, then parse_error will be thrown if no annotation was specified.
+    // NB. This function is intended for simple cases.
+    void require_annotation(TokenView anno, TokenView expected_anno, bool annotation_optional = false) const;
+
+    // Throws parse_error if the specified annotation is not one of the expected values.
     // If annotation_optional is false, then parse_error will be thrown if no annotation was specified.
     // NB. This function is intended for simple cases, and will only match single-identifier annotations
     std::string_view require_identifier_annotation(TokenView anno, std::initializer_list<std::string_view> expected_identifiers, bool annotation_optional = false) const;
 
-    // throws parse_error if the annotation for the current value is not one of the expected values.
+    // Throws parse_error if the annotation for the current value is not one of the expected values.
     // If annotation_optional is false, then parse_error will be thrown if no annotation was specified.
     // NB. This function is intended for simple cases, and will only match single-identifier annotations
     inline std::string_view require_identifier_annotation(std::initializer_list<std::string_view> expected_identifiers, bool annotation_optional = false) const
@@ -292,7 +297,7 @@ public:
     }
 
     // returns an AnnotationParser for the specified annotation
-    inline AnnotationParser parse_annotation(TokenView anno) const
+    inline AnnotationParser make_annotation_parser(TokenView anno) const
     {
         return AnnotationParser(anno, [](const ErrorInfo& err)
         {
@@ -301,9 +306,9 @@ public:
     }
 
     // returns an AnnotationParser for the current element
-    inline AnnotationParser parse_annotation() const
+    inline AnnotationParser make_annotation_parser() const
     {
-        return parse_annotation(value().annotation);
+        return make_annotation_parser(value().annotation);
     }
 
     // If the current value has its own annotation, returns that.

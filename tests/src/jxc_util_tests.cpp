@@ -217,7 +217,7 @@ TEST(jxc_core, TokenLists)
     };
 
     // make a TokenView view based on the owned vector
-    TokenView span = TokenView(tok_data[0], tok_data.size());
+    TokenView span{ tok_data[0], tok_data.size(), anno_source };
 
     // make sure our manual string index numbers are correct
     EXPECT_EQ(tok_data[0].value, "array");

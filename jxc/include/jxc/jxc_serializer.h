@@ -287,6 +287,10 @@ public:
 
     inline const SerializerSettings& get_settings() const { return settings; }
 
+    // Checks if an object key is expected to be written next.
+    // Useful for checking if an identifier should be used in place of a string.
+    bool is_pending_object_key() const;
+
     inline void clear() { output.clear(); }
 
     inline void flush() { output.flush(); }

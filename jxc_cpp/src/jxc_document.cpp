@@ -42,7 +42,15 @@ void DocumentSerializer::serialize_float(Serializer& doc, const Value& val)
 // static
 void DocumentSerializer::serialize_string(Serializer& doc, const Value& val)
 {
-    doc.annotation(val.get_annotation_source()).value_string(val.as_string());
+    // skip string quotes when we're writing an object key and the value is a valid identifier
+    if (doc.is_pending_object_key())
+    {
+        doc.identifier_or_string(val.as_string());
+    }
+    else
+    {
+        doc.annotation(val.get_annotation_source()).value_string(val.as_string());
+    }
 }
 
 

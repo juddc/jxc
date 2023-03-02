@@ -1039,13 +1039,14 @@ std::string Token::to_string() const
 TokenView::TokenView(const TokenList& rhs)
     : start(const_cast<Token*>(rhs.tokens.data()))
     , num_tokens(rhs.size())
+    , source_view(rhs.source().as_view())
 {
 }
 
 
 bool TokenView::operator==(const TokenList& rhs) const
 {
-    return *this == rhs.to_token_span();
+    return *this == TokenView(rhs);
 }
 
 
@@ -1077,6 +1078,24 @@ TokenView TokenView::slice(size_t start_idx, size_t length) const
         const size_t tokens_remaining = num_tokens - start_idx;
         result.num_tokens = (length > tokens_remaining) ? tokens_remaining : length;
     }
+
+    // determine the slice of source_view that this token slice represents
+    if (result.num_tokens > 0 && source_view.size() > 0)
+    {
+        const size_t base_idx = start->start_idx;
+        size_t start_idx = result[0].start_idx;
+        size_t end_idx = result[result.size() - 1].end_idx;
+        if (start_idx >= base_idx && end_idx >= base_idx && end_idx >= start_idx)
+        {
+            start_idx -= base_idx;
+            end_idx -= base_idx;
+            if (start_idx < source_view.size() && end_idx < source_view.size())
+            {
+                result.source_view = source_view.substr(start_idx, end_idx - start_idx);
+            }
+        }
+    }
+
     return result;
 }
 
@@ -1181,33 +1200,19 @@ FlexString TokenView::source(bool force_owned) const
     {
         return FlexString();
     }
-    
+
+    // if we have an explicit source string view, we can return that
+    if (source_view.size() > 0)
+    {
+        return force_owned ? FlexString(source_view) : FlexString::make_view(source_view);
+    }
+
     // we can fake a view when we have exactly one token and it's a non-value type (token_type_to_symbol returns a static string)
     if (start != nullptr && num_tokens == 1 && !token_type_has_value(start->type)
         && (start->type != TokenType::Invalid && start->type != TokenType::EndOfStream))
     {
         // safe to ignore force_owned here
         return FlexString::make_view(token_type_to_symbol(start->type));
-    }
-
-    // we can only make a string_view representing the original source if all tokens are views
-    bool can_make_view = true;
-    for (size_t i = 0; i < num_tokens; i++)
-    {
-        if (!start[i].value.is_view())
-        {
-            can_make_view = false;
-            break;
-        }
-    }
-
-    if (can_make_view)
-    {
-        // TODO: This assumes that all of the token value string views are contiguous. Determine if this is a problem.
-        std::string_view end_view = start[num_tokens - 1].value.as_view();
-        const char* ptr_start = start->value.data();
-        std::string_view result{ ptr_start, static_cast<size_t>((end_view.data() + end_view.size()) - ptr_start) };
-        return force_owned ? FlexString::make_owned(result) : FlexString::make_view(result);
     }
 
     // not a great fallback because we don't have the original whitespace data, but it's better than nothing

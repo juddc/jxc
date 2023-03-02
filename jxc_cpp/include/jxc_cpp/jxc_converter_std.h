@@ -31,21 +31,19 @@ void serialize_array(Serializer& doc, const T& value, const TokenList& annotatio
     doc.array_end();
 }
 
-template<typename T, typename AddFunc>
-T parse_array(conv::Parser& parser, TokenView value_anno, AddFunc&& add_func)
+template<typename VT, typename Lambda>
+void parse_array(conv::Parser& parser, const char* array_type, TokenView value_anno, Lambda&& value_callback)
 {
-    using VT = typename T::value_type;
-    T result;
     parser.require(ElementType::BeginArray);
     while (parser.next())
     {
         if (parser.value().type == jxc::ElementType::EndArray)
         {
-            return result;
+            return;
         }
-        add_func(result, parser.parse_value<VT>(value_anno));
+        value_callback(std::forward<VT>(parser.parse_value<VT>(value_anno)));
     }
-    throw parse_error("Unexpected end of stream while parsing array");
+    throw parse_error(jxc::format("Unexpected end of stream while parsing {}", array_type));
 }
 
 template<typename T, typename KT, typename VT>
@@ -55,7 +53,8 @@ void serialize_map(Serializer& doc, const T& value, const TokenList& annotation)
     doc.object_begin();
     for (const auto& pair : value)
     {
-        if constexpr (std::is_same_v<KT, std::string>)
+        // key
+        if constexpr (std::is_convertible_v<KT, std::string_view>)
         {
             doc.identifier_or_string(pair.first);
         }
@@ -64,13 +63,40 @@ void serialize_map(Serializer& doc, const T& value, const TokenList& annotation)
             Converter<KT>::serialize(doc, pair.first);
         }
         doc.object_sep();
+
+        // value
         Converter<VT>::serialize(doc, pair.second);
     }
     doc.object_end();
 }
 
+template<typename KT, typename VT, typename Lambda>
+void parse_map(conv::Parser& parser, const char* map_type, TokenView key_anno, TokenView value_anno, Lambda&& pair_callback)
+{
+    parser.require(ElementType::BeginObject);
+    while (parser.next())
+    {
+        if (parser.value().type == ElementType::EndObject)
+        {
+            return;
+        }
+
+        parser.require(ElementType::ObjectKey);
+
+        KT key = parser.parse_value<KT>(key_anno);
+        if (!parser.next())
+        {
+            throw parse_error(jxc::format("Unexpected end of stream while parsing {}", map_type));
+        }
+
+        pair_callback(std::forward<KT>(key), std::forward<VT>(parser.parse_value<VT>(value_anno)));
+    }
+
+    throw parse_error(jxc::format("Unexpected end of stream while parsing {}", map_type));
+}
+
 template<typename T, typename KT, typename VT>
-T parse_map(conv::Parser& parser, const std::string& map_type, TokenView key_anno, TokenView value_anno)
+T parse_map(conv::Parser& parser, const char* map_type, TokenView key_anno, TokenView value_anno)
 {
     T result;
 
@@ -127,7 +153,7 @@ struct Converter<std::array<T, N>>
         parser.require(ElementType::BeginArray);
         if (TokenView array_anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(array_anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(array_anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();
@@ -217,10 +243,12 @@ struct Converter<std::vector<T>>
 
     static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
+        value_type result;
+
         TokenList value_anno;
         if (TokenView vector_anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(vector_anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(vector_anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();
@@ -233,10 +261,13 @@ struct Converter<std::vector<T>>
             anno_parser.done_required();
         }
 
-        return conv::parse_array<value_type>(parser, TokenView(value_anno), [](value_type& container, T&& item)
-        {
-            container.push_back(std::forward<T>(item));
-        });
+        conv::parse_array<T>(parser, "std::vector", TokenView(value_anno),
+            [&result](T&& item)
+            {
+                result.push_back(std::forward<T>(item));
+            });
+
+        return result;
     }
 };
 
@@ -263,7 +294,7 @@ struct Converter<std::map<KT, VT>>
         TokenList value_anno;
         if (TokenView map_anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(map_anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(map_anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();
@@ -305,7 +336,7 @@ struct Converter<std::unordered_map<KT, VT>>
         TokenList value_anno;
         if (TokenView map_anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(map_anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(map_anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();
@@ -393,13 +424,7 @@ struct Converter<std::unique_ptr<T>>
     {
         if (TokenView anno = parser.get_value_annotation(generic_anno))
         {
-            if (anno != get_annotation())
-            {
-                throw parse_error(jxc::format("Unexpected annotation {} for type {}",
-                    get_annotation(),
-                    detail::debug_string_repr(anno.source())),
-                    parser.value());
-            }
+            parser.require_annotation(anno, get_annotation());
         }
 
         if (parser.value().token.type == TokenType::Null)
@@ -438,13 +463,7 @@ struct Converter<std::shared_ptr<T>>
     {
         if (TokenView anno = parser.get_value_annotation(generic_anno))
         {
-            if (anno != get_annotation())
-            {
-                throw parse_error(jxc::format("Unexpected annotation {} for type {}",
-                    get_annotation(),
-                    detail::debug_string_repr(anno.source())),
-                    parser.value());
-            }
+            parser.require_annotation(anno, get_annotation());
         }
 
         if (parser.value().token.type == TokenType::Null)
@@ -475,10 +494,12 @@ struct Converter<std::set<T>>
 
     static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
+        value_type result;
+
         TokenList value_anno;
         if (TokenView set_anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(set_anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(set_anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();
@@ -491,10 +512,13 @@ struct Converter<std::set<T>>
             anno_parser.done_required();
         }
 
-        return conv::parse_array<value_type>(parser, TokenView(value_anno), [](value_type& container, T&& item)
-        {
-            container.insert(std::forward<T>(item));
-        });
+        conv::parse_array<T>(parser, "std::set", TokenView(value_anno),
+            [&result](T&& item)
+            {
+                result.insert(std::forward<T>(item));
+            });
+        
+        return result;
     }
 };
 
@@ -517,10 +541,12 @@ struct Converter<std::unordered_set<T>>
 
     static value_type parse(conv::Parser& parser, TokenView generic_anno)
     {
+        value_type result;
+
         TokenList value_anno;
         if (TokenView set_anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(set_anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(set_anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();
@@ -533,10 +559,13 @@ struct Converter<std::unordered_set<T>>
             anno_parser.done_required();
         }
 
-        return conv::parse_array<value_type>(parser, TokenView(value_anno), [](value_type& container, T&& item)
-        {
-            container.insert(std::forward<T>(item));
-        });
+        conv::parse_array<T>(parser, "std::unordered_set", TokenView(value_anno),
+            [&result](T&& item)
+            {
+                result.insert(std::forward<T>(item));
+            });
+        
+        return result;
     }
 };
 
@@ -590,7 +619,7 @@ struct Converter<std::tuple<TArgs...>>
                 {
                     ss << ", ";
                 }
-                ss << Converter<arg_t>::get_annotation();
+                ss << Converter<arg_t>::get_annotation().source();
             });
             ss << ">";
             return TokenList::parse_annotation_checked(ss.str());
@@ -619,7 +648,7 @@ struct Converter<std::tuple<TArgs...>>
 
         if (TokenView tuple_anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(tuple_anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(tuple_anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();
@@ -688,7 +717,7 @@ struct Converter<std::filesystem::path>
 
         if (TokenView anno = parser.get_value_annotation(generic_anno))
         {
-            AnnotationParser anno_parser = parser.parse_annotation(anno);
+            AnnotationParser anno_parser = parser.make_annotation_parser(anno);
             if (anno_parser.equals(TokenType::Identifier, "std"))
             {
                 anno_parser.advance_required();

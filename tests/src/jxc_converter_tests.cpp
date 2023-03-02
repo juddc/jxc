@@ -809,16 +809,17 @@ struct TestSimpleAutoStruct
 };
 
 
-JXC_DEFINE_AUTO_STRUCT_CONVERTER(
+JXC_DEFINE_STRUCT_CONVERTER(
     TestSimpleAutoStruct,
-    "TestSimpleAutoStruct",
-    JXC_FIELD(id),
-    JXC_FIELD(name),
-    JXC_FIELD(url),
-    JXC_FIELD(alpha, jxc::FieldFlags::Optional,
-        [](jxc::Serializer& doc, const TestSimpleAutoStruct& value) {
-            doc.value_float(value.alpha, "", 4, true);
-        }),
+    jxc::def_struct<TestSimpleAutoStruct>("TestSimpleAutoStruct")
+        .def_field("id", &TestSimpleAutoStruct::id)
+        .def_field("name", &TestSimpleAutoStruct::name)
+        .def_field("url", &TestSimpleAutoStruct::url)
+        .def_field("alpha", &TestSimpleAutoStruct::alpha, jxc::FieldFlags::Optional,
+            [](jxc::Serializer& doc, const TestSimpleAutoStruct& value)
+            {
+                doc.value_float(value.alpha, "", 4, true);
+            })
 );
 
 
@@ -849,40 +850,40 @@ struct TestCustomizedAutoStruct
 };
 
 
-JXC_DEFINE_AUTO_STRUCT_CONVERTER(
+JXC_DEFINE_STRUCT_CONVERTER(
     TestCustomizedAutoStruct,
-    "TestCustomizedAutoStruct",
-    jxc::def_field("name", &TestCustomizedAutoStruct::name,
-        [](jxc::Serializer& doc, const TestCustomizedAutoStruct& value)
-        {
-            doc.value_string_raw(value.name);
-        },
-        [](jxc::conv::Parser& parser, TestCustomizedAutoStruct& out_value)
-        {
-            out_value.name = parser.parse_value<decltype(out_value.name)>();
-        }),
-    jxc::def_field("value", &TestCustomizedAutoStruct::value,
-        [](jxc::Serializer& doc, const TestCustomizedAutoStruct& value)
-        {
-            doc.value_int_hex(value.value);
-        },
-        [](jxc::conv::Parser& parser, const std::string& field_key, TestCustomizedAutoStruct& out_value)
-        {
-            out_value.value = parser.parse_value<decltype(out_value.value)>();
-            if (out_value.value < -100 || out_value.value > 100)
+    jxc::def_struct<TestCustomizedAutoStruct>("TestCustomizedAutoStruct")
+        .def_field("name", &TestCustomizedAutoStruct::name,
+            [](jxc::Serializer& doc, const TestCustomizedAutoStruct& value)
             {
-                throw jxc::parse_error(jxc::format("{} {} out of bounds (valid range is -100 to 100)", field_key, out_value.value), parser.value());
-            }
-        }),
-    jxc::def_field("weight", &TestCustomizedAutoStruct::weight,
-        [](jxc::Serializer& doc, const TestCustomizedAutoStruct& value)
-        {
-            doc.value_float(value.weight, std::string_view(), 8, true);
-        },
-        [](jxc::conv::Parser& parser, TestCustomizedAutoStruct& out_value)
-        {
-            out_value.weight = parser.parse_value<decltype(out_value.weight)>();
-        })
+                doc.value_string_raw(value.name);
+            },
+            [](jxc::conv::Parser& parser, TestCustomizedAutoStruct& out_value)
+            {
+                out_value.name = parser.parse_value<decltype(out_value.name)>();
+            })
+        .def_field("value", &TestCustomizedAutoStruct::value,
+            [](jxc::Serializer& doc, const TestCustomizedAutoStruct& value)
+            {
+                doc.value_int_hex(value.value);
+            },
+            [](jxc::conv::Parser& parser, const std::string& field_key, TestCustomizedAutoStruct& out_value)
+            {
+                out_value.value = parser.parse_value<decltype(out_value.value)>();
+                if (out_value.value < -100 || out_value.value > 100)
+                {
+                    throw jxc::parse_error(jxc::format("{} {} out of bounds (valid range is -100 to 100)", field_key, out_value.value), parser.value());
+                }
+            })
+        .def_field("weight", &TestCustomizedAutoStruct::weight,
+            [](jxc::Serializer& doc, const TestCustomizedAutoStruct& value)
+            {
+                doc.value_float(value.weight, std::string_view(), 8, true);
+            },
+            [](jxc::conv::Parser& parser, TestCustomizedAutoStruct& out_value)
+            {
+                out_value.weight = parser.parse_value<decltype(out_value.weight)>();
+            })
 );
 
 
@@ -956,7 +957,7 @@ struct jxc::Converter<TestFullyCustomStruct>
 
         if (TokenView struct_anno = parser.get_value_annotation(generic_anno))
         {
-            auto anno_parser = parser.parse_annotation(struct_anno);
+            auto anno_parser = parser.make_annotation_parser(struct_anno);
             anno_parser.require_then_advance(jxc::TokenType::Identifier, get_annotation());
             anno_parser.done_required();
         }
@@ -1027,6 +1028,6 @@ TEST(jxc_cpp_converter, TestFullyCustomStructTests)
 }
 
 
-//TODO: Add tests for structs with extra_field defined (JXC_EXTRA)
+//TODO: Add tests for structs with extra_field defined (jxc::def_extra)
 
 

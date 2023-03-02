@@ -126,6 +126,24 @@ std::string Parser::parse_token_as_string(const Token& token)
 }
 
 
+void Parser::require_annotation(TokenView anno, TokenView expected_anno, bool annotation_optional) const
+{
+    if (anno.size() == 0 && !annotation_optional)
+    {
+        throw parse_error(jxc::format("Missing annotation {}",
+            detail::debug_string_repr(expected_anno.source().as_view())),
+            value());
+    }
+    else if (anno != expected_anno)
+    {
+        throw parse_error(jxc::format("Expected annotation {}, got {}",
+            detail::debug_string_repr(expected_anno.source().as_view()),
+            detail::debug_string_repr(anno.source().as_view())),
+            value());
+    }
+}
+
+
 std::string_view Parser::require_identifier_annotation(TokenView anno, std::initializer_list<std::string_view> expected_identifiers, bool annotation_optional) const
 {
     // helper for error message formatting

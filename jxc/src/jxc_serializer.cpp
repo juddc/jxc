@@ -208,6 +208,13 @@ void Serializer::post_write_token()
 }
 
 
+bool Serializer::is_pending_object_key() const
+{
+    auto& vars = container_stack_top();
+    return vars.type == ST_Obj && !vars.pending_value;
+}
+
+
 Serializer& Serializer::annotation(std::string_view anno)
 {
     if (anno.size() > 0)
@@ -581,9 +588,8 @@ Serializer& Serializer::identifier(std::string_view value)
 
 Serializer& Serializer::identifier_or_string(std::string_view value, StringQuoteMode quote, bool decode_unicode)
 {
-    auto& vars = container_stack_top();
     // if we're waiting for an object key specifically, allow any valid object key, not just a plain identifier
-    if (vars.type == ST_Obj && !vars.pending_value)
+    if (is_pending_object_key())
     {
         return is_valid_object_key(value) ? identifier(value) : value_string(value, quote, decode_unicode);
     }

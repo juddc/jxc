@@ -812,6 +812,8 @@ If require_time_data is false and the token does not include time data, out_date
     py::class_<PySerializer>(m, "Serializer")
         .def(py::init<const jxc::SerializerSettings&>(), py::arg("settings") = jxc::SerializerSettings{})
         .def("get_settings", &PySerializer::get_settings)
+        .def("is_pending_object_key", &PySerializer::is_pending_object_key,
+            py::doc("Checks if an object key is expected to be written next. Useful for checking if an identifier should be used in place of a string."))
         .def("clear", &PySerializer::clear)
         .def("done", &PySerializer::done)
         .def("flush", &PySerializer::flush)

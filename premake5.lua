@@ -257,6 +257,12 @@ project "example_basic_serialization"
 project "example_basic_jxc_cpp_value"
     setup_example_project("basic_jxc_cpp_value.cpp", { "jxc_cpp", "jxc" })
 
+project "example_basic_jxc_cpp_convert"
+    setup_example_project("basic_jxc_cpp_convert.cpp", { "jxc_cpp", "jxc" })
+
+project "example_basic_jxc_cpp_custom_converter"
+    setup_example_project("basic_jxc_cpp_custom_converter.cpp", { "jxc_cpp", "jxc" })
+
 project "example_custom_parser"
     setup_example_project("custom_parser.cpp", { "jxc" })
 
