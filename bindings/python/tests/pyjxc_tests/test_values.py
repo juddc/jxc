@@ -6,6 +6,7 @@ import math
 import enum
 import base64
 import datetime
+import zoneinfo
 
 
 def parse_annotations_to_source_tuple(val: str):
@@ -184,12 +185,17 @@ class SimpleValueTests(unittest.TestCase):
             jxc.loads("dt' 2000-01-01 T 12:04:52 +12:30 '")
 
     def test_serialize_datetime(self):
-        self.assertEqual(jxc.dumps(datetime.datetime(1, 1, 1, 1, 1, 1)), 'dt"0001-01-01T01:01:01Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(1, 1, 1, 1, 1, 1)), 'dt"0001-01-01T01:01:01"')
         self.assertEqual(jxc.dumps(datetime.datetime(1, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)), 'dt"0001-01-01T01:01:01Z"')
-        self.assertEqual(jxc.dumps(datetime.datetime(9999, 12, 31)), 'dt"9999-12-31T00:00:00Z"')
-        self.assertEqual(jxc.dumps(datetime.datetime(1969, 12, 31)), 'dt"1969-12-31T00:00:00Z"')
-        self.assertEqual(jxc.dumps(datetime.datetime(1970, 1, 1)), 'dt"1970-01-01T00:00:00Z"')
-        self.assertEqual(jxc.dumps(datetime.datetime(2001, 2, 3)), 'dt"2001-02-03T00:00:00Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(9999, 12, 31, tzinfo=datetime.timezone.utc)), 'dt"9999-12-31T00:00:00Z"')
+        self.assertEqual(jxc.dumps(datetime.datetime(1969, 12, 31)), 'dt"1969-12-31T00:00:00"')
+        self.assertEqual(jxc.dumps(datetime.datetime(1970, 1, 1)), 'dt"1970-01-01T00:00:00"')
+        self.assertEqual(jxc.dumps(datetime.datetime(2001, 2, 3)), 'dt"2001-02-03T00:00:00"')
+        self.assertEqual(jxc.dumps(datetime.datetime(2023, 3, 2, 12, 45, 10, tzinfo=tzinfo_from_offset(hours=-8))), 'dt"2023-03-02T12:45:10-08:00"')
+        self.assertEqual(jxc.dumps(datetime.datetime(2023, 3, 2, 22, 10, 0, tzinfo=tzinfo_from_offset(hours=12, minutes=30))), 'dt"2023-03-02T22:10:00+12:30"')
+        # same time zone, different offsets depending on the time of year
+        self.assertEqual(jxc.dumps(datetime.datetime(2023, 2, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-02-16T00:00:00-08:00"')
+        self.assertEqual(jxc.dumps(datetime.datetime(2023, 7, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-07-16T00:00:00-07:00"')
 
     def test_parse_arrays(self):
         self.assertEqual(jxc.loads("[]"), [])
