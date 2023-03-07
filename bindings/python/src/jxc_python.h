@@ -48,104 +48,8 @@ inline size_t python_index(int64_t idx, size_t container_size)
 bool is_python_date(py::handle value);
 bool is_python_datetime(py::handle value);
 
-inline py::object create_tzinfo_from_offset(int8_t tz_hour, uint8_t tz_minute)
-{
-    PyObject* offset_ptr = PyDelta_FromDSU(0, (tz_hour * 60 * 60) + (tz_minute * 60), 0);
-    if (!offset_ptr)
-    {
-        throw py::cast_error("Failed to create time zone offset delta object");
-    }
-    py::object offset = py::reinterpret_steal<py::object>(offset_ptr);
-
-    PyObject* tzinfo_ptr = PyTimeZone_FromOffset(offset.ptr());
-    if (!tzinfo_ptr)
-    {
-        throw py::cast_error("Failed to create tzinfo");
-    }
-    return py::reinterpret_steal<py::object>(tzinfo_ptr);
-}
-
-
-inline void get_tzinfo_offset(py::handle datetime, const py::object& tzinfo, int8_t& out_tz_hour, uint8_t& out_tz_minute)
-{
-    out_tz_hour = 0;
-    out_tz_minute = 0;
-
-    auto make_error_prefix = [&datetime, &tzinfo]() -> std::string
-    {
-        return jxc::format("Failed getting time zone offset from datetime {} and tzinfo {}",
-            (datetime.ptr() != nullptr) ? py::cast<std::string>(py::repr(datetime)) : std::string("null"),
-            (tzinfo.ptr() != nullptr) ? py::cast<std::string>(py::repr(tzinfo)) : std::string("null"));
-    };
-
-    if (PyTZInfo_Check(tzinfo.ptr()) == 0)
-    {
-        throw py::cast_error(jxc::format("{}: tzinfo is not a valid timezone", make_error_prefix()));
-    }
-
-    py::object offset_delta;
-
-    try
-    {
-        offset_delta = tzinfo.attr("utcoffset")(datetime);
-    }
-    catch (const py::error_already_set& e)
-    {
-        throw py::cast_error(jxc::format("{}: {}", make_error_prefix(), e.what()));
-    }
-    
-    if (PyDelta_Check(offset_delta.ptr()) == 0)
-    {
-        throw py::cast_error(jxc::format("{}: tzinfo.utcoffset() did not return a valid timedelta object", make_error_prefix()));
-    }
-
-    // Note that negative timedeltas are stored by using negative values for the days value only.
-    // eg. timedelta(seconds=-5) is stored as datetime.timedelta(days=-1, seconds=86395)
-    const int64_t delta_days = static_cast<int64_t>(PyDateTime_DELTA_GET_DAYS(offset_delta.ptr()));
-    const int64_t delta_seconds = static_cast<int64_t>(PyDateTime_DELTA_GET_SECONDS(offset_delta.ptr()));
-
-    // zero offset means UTC time
-    if (delta_days == 0 && delta_seconds == 0)
-    {
-        return;
-    }
-
-    // valid range taken from python3.10/datetime.h
-    JXC_DEBUG_ASSERT(delta_seconds >= 0 && delta_seconds < 24*3600);
-
-    static constexpr int64_t seconds_per_hour = 60 * 60;
-    int64_t offset_seconds = (delta_days * 24 * seconds_per_hour) + delta_seconds;
-
-    bool is_negative = false;
-    if (offset_seconds < 0)
-    {
-        is_negative = true;
-        offset_seconds = -offset_seconds;
-    }
-
-    while (offset_seconds >= seconds_per_hour)
-    {
-        offset_seconds -= seconds_per_hour;
-        out_tz_hour += 1;
-    }
-
-    while (offset_seconds >= 60)
-    {
-        offset_seconds -= 60;
-        out_tz_minute += 1;
-    }
-
-    if (is_negative)
-    {
-        out_tz_hour = -out_tz_hour;
-    }
-
-    if (out_tz_hour <= -24 || out_tz_hour >= 24 || out_tz_minute >= 60)
-    {
-        throw py::cast_error(jxc::format("{}: timedelta {} out of range", make_error_prefix(),
-            py::cast<std::string>(py::repr(offset_delta))));
-    }
-}
+py::object create_tzinfo_from_offset(int8_t tz_hour, uint8_t tz_minute);
+void get_tzinfo_offset(py::handle datetime, const py::object& tzinfo, int8_t& out_tz_hour, uint8_t& out_tz_minute);
 
 JXC_END_NAMESPACE(jxc::detail)
 
@@ -201,8 +105,8 @@ public:
 
         if (src && PyDate_Check(src.ptr()))
         {
-            value.year = PyDateTime_GET_YEAR(src.ptr()); // - 1900;
-            value.month = PyDateTime_GET_MONTH(src.ptr()); // - 1;
+            value.year = PyDateTime_GET_YEAR(src.ptr());
+            value.month = PyDateTime_GET_MONTH(src.ptr());
             value.day = PyDateTime_GET_DAY(src.ptr());
             return true;
         }
@@ -219,10 +123,7 @@ public:
             PyDateTime_IMPORT;
         }
 
-        return PyDate_FromDate(
-            src.year, // + 1900,
-            src.month, // + 1,
-            src.day);
+        return PyDate_FromDate(src.year, src.month, src.day);
     }
 };
 
@@ -253,13 +154,15 @@ public:
 
         if (src && PyDateTime_Check(src.ptr()))
         {
-            value.year = PyDateTime_GET_YEAR(src.ptr()); // - 1900;
-            value.month = PyDateTime_GET_MONTH(src.ptr()); // - 1;
+            value.year = PyDateTime_GET_YEAR(src.ptr());
+            value.month = PyDateTime_GET_MONTH(src.ptr());
             value.day = PyDateTime_GET_DAY(src.ptr());
             value.hour = PyDateTime_DATE_GET_HOUR(src.ptr());
             value.minute = PyDateTime_DATE_GET_MINUTE(src.ptr());
             value.second = PyDateTime_DATE_GET_SECOND(src.ptr());
             value.nanosecond = PyDateTime_DATE_GET_MICROSECOND(src.ptr()) * 1000;  // convert microsecond -> nanosecond
+
+            // read timezone info
             py::object tzinfo = py::reinterpret_borrow<py::object>(PyDateTime_DATE_GET_TZINFO(src.ptr()));
             if (tzinfo.is_none())
             {
@@ -293,8 +196,8 @@ public:
         if (src.is_timezone_local())
         {
             return PyDateTime_FromDateAndTime(
-                src.year, // + 1900,
-                src.month, // + 1,
+                src.year,
+                src.month,
                 src.day,
                 src.hour,
                 src.minute,
@@ -304,8 +207,8 @@ public:
         else if (src.is_timezone_utc())
         {
             return JXC_PyDateTime_FromDateAndTimeAndTimezone(
-                src.year, // + 1900,
-                src.month, // + 1,
+                src.year,
+                src.month,
                 src.day,
                 src.hour,
                 src.minute,
@@ -317,8 +220,8 @@ public:
         {
             py::object tzinfo = jxc::detail::create_tzinfo_from_offset(src.tz_hour, src.tz_minute);
             return JXC_PyDateTime_FromDateAndTimeAndTimezone(
-                src.year, // + 1900,
-                src.month, // + 1,
+                src.year,
+                src.month,
                 src.day,
                 src.hour,
                 src.minute,
