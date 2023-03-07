@@ -197,6 +197,13 @@ class SimpleValueTests(unittest.TestCase):
         self.assertEqual(jxc.dumps(datetime.datetime(2023, 2, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-02-16T00:00:00-08:00"')
         self.assertEqual(jxc.dumps(datetime.datetime(2023, 7, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-07-16T00:00:00-07:00"')
 
+        # test encoding directly with the serializer Serializer.value_datetime
+        class A:
+            def _jxc_encode(self, doc: jxc.Serializer, enc: jxc.Encoder):
+                doc.value_datetime(datetime.datetime(2023, 7, 16, tzinfo=tzinfo_from_offset(hours=-8)))
+
+        self.assertEqual(jxc.dumps(A(), encode_inline=True), 'dt"2023-07-16T00:00:00-08:00"')
+
     def test_parse_arrays(self):
         self.assertEqual(jxc.loads("[]"), [])
         self.assertEqual(jxc.loads("[] # comment"), [])
