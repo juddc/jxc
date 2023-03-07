@@ -199,7 +199,7 @@ class SimpleValueTests(unittest.TestCase):
 
         # test encoding directly with the serializer Serializer.value_datetime
         class A:
-            def _jxc_encode(self, doc: jxc.Serializer, enc: jxc.Encoder):
+            def _jxc_encode(self, doc: jxc.Serializer):
                 doc.value_datetime(datetime.datetime(2023, 7, 16, tzinfo=tzinfo_from_offset(hours=-8)))
 
         self.assertEqual(jxc.dumps(A(), encode_inline=True), 'dt"2023-07-16T00:00:00-08:00"')

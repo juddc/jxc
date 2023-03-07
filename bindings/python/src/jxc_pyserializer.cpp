@@ -4,25 +4,15 @@
 namespace jxc
 {
 
-PyEncoder::PyEncoder(const SerializerSettings& settings, bool encode_inline, bool sort_keys, bool skip_keys, bool decode_unicode)
-    : doc(settings)
-    , encode_inline(encode_inline)
-    , sort_keys(sort_keys)
-    , skip_keys(skip_keys)
-    , decode_unicode(decode_unicode)
-{
-}
-
-
-void PyEncoder::set_find_encoder_callback(py::object callback)
+void PySerializer::set_override_encoder_callback(py::object callback)
 {
     if (callback.is_none())
     {
-        find_encoder_callback = nullptr;
+        override_encoder_callback = nullptr;
     }
     else
     {
-        find_encoder_callback = [callback](py::object value) -> py::object
+        override_encoder_callback = [callback](py::object value) -> py::object
         {
             return callback(value);
         };
@@ -30,15 +20,15 @@ void PyEncoder::set_find_encoder_callback(py::object callback)
 }
 
 
-void PyEncoder::set_find_fallback_encoder_callback(py::object callback)
+void PySerializer::set_default_primary_encoder_callback(py::object callback)
 {
     if (callback.is_none())
     {
-        find_fallback_encoder_callback = nullptr;
+        default_primary_encoder_callback = nullptr;
     }
     else
     {
-        find_fallback_encoder_callback = [callback](py::object value) -> py::object
+        default_primary_encoder_callback = [callback](py::object value) -> py::object
         {
             return callback(value);
         };
@@ -46,43 +36,60 @@ void PyEncoder::set_find_fallback_encoder_callback(py::object callback)
 }
 
 
-void PyEncoder::encode_sequence(py::sequence val)
+void PySerializer::set_default_secondary_encoder_callback(py::object callback)
 {
-    doc.array_begin();
-    for (const auto& item : val)
+    if (callback.is_none())
     {
-        encode_value(item);
+        default_secondary_encoder_callback = nullptr;
     }
-    doc.array_end();
+    else
+    {
+        default_secondary_encoder_callback = [callback](py::object value) -> py::object
+        {
+            return callback(value);
+        };
+    }
 }
 
 
-bool PyEncoder::encode_dict_key(py::object key)
+PySerializer& PySerializer::object_key(py::object key)
 {
     if (key.is_none())
     {
-        doc.value_null();
-        return true;
+        value_null();
     }
     else if (py::isinstance<py::int_>(key))
     {
-        doc.value_int(py::cast<int64_t>(key));
-        return true;
+        value_int(py::cast<int64_t>(key));
     }
     else if (py::isinstance<py::str>(key))
     {
         std::string_view key_str = py::cast<std::string_view>(key);
-        doc.identifier_or_string(key_str);
-        return true;
+        identifier_or_string(key_str);
     }
-
-    return false;
+    else
+    {
+        throw py::type_error(jxc::format("Invalid type {} for dict key", py::cast<std::string>(py::repr(py::type(key)))));
+    }
+    return *this;
 }
 
 
-void PyEncoder::encode_dict(py::dict val)
+PySerializer& PySerializer::value_sequence(py::sequence val)
 {
-    doc.object_begin();
+    array_begin();
+    for (const auto& item : val)
+    {
+        value_auto(item);
+    }
+    array_end();
+    return *this;
+}
+
+
+PySerializer& PySerializer::value_dict(py::dict val)
+{
+    object_begin();
     if (sort_keys)
     {
         py::list keys;
@@ -95,21 +102,10 @@ void PyEncoder::encode_dict(py::dict val)
         for (const auto& key_handle : keys)
         {
             py::object key = py::reinterpret_borrow<py::object>(key_handle);
-            if (!encode_dict_key(key))
-            {
-                if (skip_keys)
-                {
-                    continue;
-                }
-                else
-                {
-                    throw py::type_error(jxc::format("Failed encoding dict key {}", py::cast<std::string>(py::repr(key))));
-                }
-            }
-
-            doc.object_sep();
+            object_key(key);
+            object_sep();
             py::object item = py::reinterpret_borrow<py::object>(val[key]);
-            encode_value(item);
+            value_auto(item);
         }
     }
     else
@@ -117,66 +113,53 @@ void PyEncoder::encode_dict(py::dict val)
         for (const auto& pair : val)
         {
             py::object key = py::reinterpret_borrow<py::object>(pair.first);
-            if (!encode_dict_key(key))
-            {
-                if (skip_keys)
-                {
-                    continue;
-                }
-                else
-                {
-                    throw py::type_error(jxc::format("Failed encoding dict key {}", py::cast<std::string>(py::repr(key))));
-                }
-            }
-
-            doc.object_sep();
+            object_key(key);
+            object_sep();
             py::object item = py::reinterpret_borrow<py::object>(pair.second);
-            encode_value(item);
+            value_auto(item);
         }
     }
-    doc.object_end();
+    object_end();
+
+    return *this;
 }
 
 
-void PyEncoder::encode_value(py::object val)
+PySerializer& PySerializer::value_auto(py::object val)
 {
     auto try_use_encoder = [this](const FindEncoderFunc& callback, py::object py_value) -> bool
     {
-        if (callback != nullptr)
+        py::object encoder_func = callback(py_value);
+        if (!encoder_func.is_none())
         {
-            py::object encoder_func = callback(py_value);
-            if (!encoder_func.is_none())
-            {
-                py::object self = py::cast(*this, py::return_value_policy::reference);
-                encoder_func(self.attr("doc"), self, py_value);
-                return true;
-            }
+            py::object self = py::cast(*this, py::return_value_policy::reference);
+            encoder_func(self, py_value);
+            return true;
         }
-
         return false;
     };
 
-    // do we have an encoder function for this value?
-    if (try_use_encoder(find_encoder_callback, val))
+    // check if we have an override encoder first - this lookup function is called before trying any of the standard types.
+    if (override_encoder_callback && try_use_encoder(override_encoder_callback, val))
     {
-        return;
+        return *this;
     }
 
     // try python builtin types
     if (val.is_none())
     {
-        doc.value_null();
-        return;
+        value_null();
+        return *this;
     }
     else if (py::isinstance<py::bool_>(val))
     {
-        doc.value_bool(py::cast<bool>(val));
-        return;
+        value_bool(py::cast<bool>(val));
+        return *this;
     }
     else if (py::isinstance<py::int_>(val))
     {
-        doc.value_int(py::cast<int64_t>(val));
-        return;
+        value_int(py::cast<int64_t>(val));
+        return *this;
     }
     else if (py::isinstance<py::float_>(val))
     {
@@ -185,51 +168,51 @@ void PyEncoder::encode_value(py::object val)
         switch (get_float_literal_type(float_val))
         {
         case FloatLiteralType::NotANumber:
-            doc.value_nan();
-            return;
+            value_nan();
+            return *this;
         case FloatLiteralType::PosInfinity:
-            doc.value_inf();
-            return;
+            value_inf();
+            return *this;
         case FloatLiteralType::NegInfinity:
-            doc.value_inf(true);
-            return;
+            value_inf(true);
+            return *this;
         default:
             break;
         }
 
-        doc.value_float(float_val);
-        return;
+        value_float(float_val);
+        return *this;
     }
     else if (py::isinstance<py::str>(val))
     {
-        doc.value_string(py::cast<std::string_view>(val), StringQuoteMode::Auto, decode_unicode);
-        return;
+        value_string(py::cast<std::string_view>(val), StringQuoteMode::Auto, decode_unicode);
+        return *this;
     }
     else if (py::isinstance<py::bytes>(val) || py::isinstance<py::bytearray>(val))
     {
         std::string_view bytes_data = py::cast<std::string_view>(val);
-        doc.value_bytes(reinterpret_cast<const uint8_t*>(bytes_data.data()), bytes_data.size());
-        return;
+        value_bytes(reinterpret_cast<const uint8_t*>(bytes_data.data()), bytes_data.size());
+        return *this;
     }
     else if (detail::is_python_datetime(val))
     {
-        doc.value_datetime(py::cast<jxc::DateTime>(val));
-        return;
+        value_datetime(py::cast<jxc::DateTime>(val));
+        return *this;
     }
     else if (detail::is_python_date(val))
     {
-        doc.value_date(py::cast<jxc::Date>(val));
-        return;
+        value_date(py::cast<jxc::Date>(val));
+        return *this;
     }
     else if (py::isinstance<py::list>(val) || py::isinstance<py::tuple>(val))
     {
-        encode_sequence(val);
-        return;
+        value_sequence(val);
+        return *this;
     }
     else if (py::isinstance<py::dict>(val))
     {
-        encode_dict(val);
-        return;
+        value_dict(val);
+        return *this;
     }
 
     // see if the type has an inline encoder (_jxc_encode method)
@@ -237,14 +220,20 @@ void PyEncoder::encode_value(py::object val)
     {
         // value has a _jxc_encode method
         py::object self = py::cast(*this, py::return_value_policy::reference);
-        val.attr("_jxc_encode")(self.attr("doc"), self);
-        return;
+        val.attr("_jxc_encode")(self);
+        return *this;
     }
-    
-    // do we have a fallback encoder?
-    if (try_use_encoder(find_fallback_encoder_callback, val))
+
+    // check if we have a default - this lookup function is called after trying all of the standard types.
+    if (default_primary_encoder_callback && try_use_encoder(default_primary_encoder_callback, val))
     {
-        return;
+        return *this;
+    }
+
+    // check if we have a secondary default - this lookup function is called after trying all of the standard types.
+    if (default_secondary_encoder_callback && try_use_encoder(default_secondary_encoder_callback, val))
+    {
+        return *this;
     }
 
     throw py::type_error(jxc::format("Failed encoding value {}", py::cast<std::string>(py::repr(val))));

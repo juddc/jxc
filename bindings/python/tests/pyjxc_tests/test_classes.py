@@ -33,7 +33,7 @@ def construct_test_enum_int(val):
     raise ValueError(f'Value {val!r} not valid for TestEnumInt')
 
 
-def encode_test_enum_int(doc: jxc.Serializer, enc: jxc.Encoder, val: TestEnumInt):
+def encode_test_enum_int(doc: jxc.Serializer, val: TestEnumInt):
     doc.annotation(TestEnumInt.__name__)
     doc.expression_begin().identifier(val.name).expression_end()
 

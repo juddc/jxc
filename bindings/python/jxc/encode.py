@@ -6,12 +6,11 @@ import enum
 import typing
 import dataclasses
 
-from _pyjxc import Serializer, SerializerSettings, StringQuoteMode, Encoder, FloatLiteralType
+from _pyjxc import Serializer, SerializerSettings, StringQuoteMode
 from .util import get_class_path
 
 
-EncodeFunc = typing.Callable[[Serializer, Encoder, typing.Any], None]
-
+EncodeFunc = typing.Callable[[Serializer, typing.Any], None]
 
 _OBJECT_KEY_IDENT_REGEX = re.compile(r'([a-zA-Z_$*][a-zA-Z0-9_$*]*)([\.\-][a-zA-Z_$*][a-zA-Z0-9_$*]*)*')
 _EXPR_IDENT_REGEX = re.compile(r'[a-zA-Z_$][a-zA-Z0-9_$]*')
@@ -33,7 +32,7 @@ def is_valid_expression_identifier(val: str) -> bool:
 
 
 
-def enum_encoder(doc: Serializer, enc: Encoder, val: enum.Enum):
+def enum_encoder(doc: Serializer, val: enum.Enum):
     doc.annotation(get_class_path(val.__class__))
     if isinstance(val, enum.IntEnum):
         doc.value_int(val.value)
@@ -47,11 +46,11 @@ def enum_encoder(doc: Serializer, enc: Encoder, val: enum.Enum):
         doc.value_string(val.value)
     else:
         raise TypeError(f"Failed to serialize enum type {type(val).__name__}: "
-            "value type {type(val.value).__name__} is not supported")
+            f"value type {type(val.value).__name__} is not supported")
 
 
 
-def dataclass_encoder(doc: Serializer, enc: Encoder, val: typing.Any):
+def dataclass_encoder(doc: Serializer, val: typing.Any):
     doc.annotation(get_class_path(val.__class__))
     doc.object_begin()
     if hasattr(val.__class__, '__annotations__') and len(val.__class__.__annotations__) > 0:
@@ -61,7 +60,7 @@ def dataclass_encoder(doc: Serializer, enc: Encoder, val: typing.Any):
             else:
                 doc.value_string(var_name)
             doc.object_sep()
-            enc.encode_value(getattr(val, var_name, None))
+            doc.value_auto(getattr(val, var_name, None))
     else:
         for var_name, var_value in val.__dict__.items():
             if is_valid_identifier_for_object_key(var_name):
@@ -69,7 +68,7 @@ def dataclass_encoder(doc: Serializer, enc: Encoder, val: typing.Any):
             else:
                 doc.value_string(var_name)
             doc.object_sep()
-            enc.encode_value(var_value)
+            doc.value_auto(var_value)
     doc.object_end()
 
 
@@ -77,15 +76,15 @@ def dataclass_encoder(doc: Serializer, enc: Encoder, val: typing.Any):
 def dumps(obj, *,
         indent: typing.Union[None, str, int] = None,
         sort_keys: bool = False,
-        skip_keys: bool = False,
         decode_unicode: bool = False,
         check_circular: bool = True,
-        separators: typing.Optional[tuple[str, str]] = None,
+        key_separator: typing.Optional[str] = None,
+        value_separator: typing.Optional[str] = None,
         encode_enum: bool = False,
         encode_dataclass: bool = False,
         encode_inline: bool = True,
         encode_class: typing.Optional[dict[type, EncodeFunc]] = None,
-        default: typing.Optional[EncodeFunc] = None,
+        default_encoder: typing.Optional[typing.Callable[[typing.Any], typing.Optional[EncodeFunc]]] = None,
         quote: StringQuoteMode = StringQuoteMode.Double,
         as_bytes: bool = False) -> typing.Union[str, bytes]:
     """
@@ -105,23 +104,22 @@ def dumps(obj, *,
 
     settings.default_quote = quote
 
-    if separators is not None:
-        if not isinstance(separators, tuple) or len(separators) != 2:
-            raise ValueError(f'separators should be a 2-tuple or None, got {separators!r}')
-        settings.value_separator = separators[0]
-        settings.key_separator = separators[1]
-    
+    if key_separator:
+        settings.key_separator = key_separator
+
+    if value_separator:
+        settings.value_separator = value_separator
+
     #TODO: implement check_circular
 
-    encoder = Encoder(
+    doc = Serializer(
         settings,
         encode_inline=encode_inline,
         sort_keys=sort_keys,
-        skip_keys=skip_keys,
         decode_unicode=decode_unicode)
 
     if encode_class is not None or encode_enum or encode_dataclass:
-        def find_encoder(value: typing.Any) -> typing.Optional[typing.Callable[[Serializer, Encoder, typing.Any], None]]:
+        def find_encoder(value: typing.Any) -> typing.Optional[EncodeFunc]:
             if encode_inline and hasattr(value, '_jxc_encode'):
                 # object has an inline encoder, so skip the enum/dataclass auto-encoding and let the class handle it
                 return None
@@ -132,15 +130,14 @@ def dumps(obj, *,
             elif encode_class is not None and (class_encoder := encode_class.get(type(value))):
                 return class_encoder
             return None
-        encoder.set_find_encoder_callback(find_encoder)
 
-    if default is not None:
-        def fallback_encoder(value: typing.Any):
-            return default
-        encoder.set_find_fallback_encoder_callback(fallback_encoder)
+        doc.set_default_primary_encoder_callback(find_encoder)
 
-    encoder.encode_value(obj)
-    return encoder.get_result_bytes() if as_bytes else encoder.get_result()
+    if default_encoder is not None:
+        doc.set_default_secondary_encoder_callback(default_encoder)
+
+    doc.value_auto(obj)
+    return doc.get_result_bytes() if as_bytes else doc.get_result()
 
 
 def dump(obj: typing.Any, fp: typing.TextIO, **kwargs):

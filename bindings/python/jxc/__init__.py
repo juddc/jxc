@@ -18,7 +18,6 @@ from _pyjxc import (
     Element,
     Serializer,
     SerializerSettings,
-    Encoder,
 
     # functions
     token_type_has_value,

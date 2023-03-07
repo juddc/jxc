@@ -4,7 +4,6 @@
 #include "jxc_pyparser.h"
 #include "jxc_pyserializer.h"
 
-
 JXC_BEGIN_NAMESPACE(jxc)
 
 JXC_BEGIN_NAMESPACE(detail)
@@ -916,16 +915,49 @@ If require_time_data is false and the token does not include time data, out_date
     ;
 
     py::class_<PySerializer>(m, "Serializer")
-        .def(py::init<const jxc::SerializerSettings&>(), py::arg("settings") = jxc::SerializerSettings{})
+        .def(py::init<const jxc::SerializerSettings&, bool, bool, bool>(),
+            py::arg("settings") = jxc::SerializerSettings{},
+            py::arg("encode_inline") = false,
+            py::arg("sort_keys") = false,
+            py::arg("decode_unicode") = false)
+
+        .def_readwrite("encode_inline", &PySerializer::encode_inline)
+        .def_readwrite("sort_keys", &PySerializer::sort_keys)
+        .def_readwrite("decode_unicode", &PySerializer::decode_unicode)
+
         .def("get_settings", &PySerializer::get_settings)
+
+        .def("get_result", &PySerializer::get_result,
+            py::doc("Returns the serialization buffer as a string"))
+
+        .def("get_result_bytes", &PySerializer::get_result_bytes,
+            py::doc("Returns the serialization buffer as a bytes object"))
+
+        .def("set_override_encoder_callback", &PySerializer::set_override_encoder_callback,
+            py::doc("Assigns an override encoder lookup callback. This callback is always called first, before any other serializer lookup. "
+            "The argument should be a function that accepts any value, and returns a callable that takes this Serializer and a value."))
+
+        .def("set_default_primary_encoder_callback", &PySerializer::set_default_primary_encoder_callback,
+            py::doc("Assigns a default encoder lookup callback. This callback is used when no other serializer is found for a value. "
+            "Called before trying the secondary encoder. "
+            "The argument should be a function that accepts any value, and returns a callable that takes this Serializer and a value."))
+
+        .def("set_default_secondary_encoder_callback", &PySerializer::set_default_secondary_encoder_callback,
+            py::doc("Assigns a default encoder lookup callback. This callback is used when no other serializer is found for a value. "
+            "Called after trying the primary encoder. "
+            "The argument should be a function that accepts any value, and returns a callable that takes this Serializer and a value."))
+
         .def("is_pending_object_key", &PySerializer::is_pending_object_key,
             py::doc("Checks if an object key is expected to be written next. Useful for checking if an identifier should be used in place of a string."))
+
         .def("clear", &PySerializer::clear)
         .def("done", &PySerializer::done)
         .def("flush", &PySerializer::flush)
-        .def("get_result", &PySerializer::get_result)
         .def("__str__", &PySerializer::get_result)
+
         .def("annotation", &PySerializer::annotation)
+        .def("value_auto", &PySerializer::value_auto,
+            py::doc("Serializes any Python value, using the appropriate encoding function depending on the value's type"))
         .def("value_null", &PySerializer::value_null)
         .def("value_bool", &PySerializer::value_bool)
         .def("value_int", &PySerializer::value_int, py::arg("value"), py::arg("suffix") = std::string_view{})
@@ -955,6 +987,11 @@ If require_time_data is false and the token does not include time data, out_date
             py::arg("quote") = StringQuoteMode::Auto)
         .def("value_date", &PySerializer::value_date, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
         .def("value_datetime", &PySerializer::value_datetime, py::arg("value"), py::arg("auto_strip_time") = false, py::arg("quote") = StringQuoteMode::Auto)
+        .def("value_sequence", &PySerializer::value_sequence,
+            py::doc("Serializes a Python sequence, using the iterator protocol to write all values in the sequence."))
+        .def("value_dict", &PySerializer::value_dict,
+            py::doc("Serializes a Python dict object"))
+
         .def("identifier", &PySerializer::identifier)
         .def("identifier_or_string", &PySerializer::identifier_or_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("comment", &PySerializer::comment)
@@ -964,17 +1001,23 @@ If require_time_data is false and the token does not include time data, out_date
             self.write(s);
             return self;
         })
+
         .def("array_begin", &PySerializer::array_begin, py::arg("separator") = std::string_view{})
         .def("array_end", &PySerializer::array_end)
-        .def("array_empty", &PySerializer::array_empty)
+        .def("array_empty", &PySerializer::array_empty, py::doc("Encodes an empty array"))
+
         .def("expression_begin", &PySerializer::expression_begin)
         .def("expression_end", &PySerializer::expression_end)
-        .def("expression_empty", &PySerializer::expression_empty)
-        .def("sep", &PySerializer::sep)
-        .def("object_begin", &PySerializer::object_begin, py::arg("separator") = std::string_view{})
-        .def("object_sep", &PySerializer::object_sep)
-        .def("object_end", &PySerializer::object_end)
-        .def("object_empty", &PySerializer::object_empty)
+        .def("expression_empty", &PySerializer::expression_empty, py::doc("Encodes an empty expression"))
+
+        .def("object_begin", &PySerializer::object_begin, py::arg("separator") = std::string_view{}, py::doc("Starts an object/dict"))
+        .def("object_key", &PySerializer::object_key,
+            py::doc("Serializes an object key. Accepts None, int, or str. For str values, if the string is a valid identifier, "
+            "writes the key as an unquoted identifier. Throws TypeError on types not valid for object keys."))
+        .def("object_sep", &PySerializer::object_sep, py::doc("Object key/value separator"))
+        .def("sep", &PySerializer::sep, py::doc("Shorthand for object_sep()"))
+        .def("object_end", &PySerializer::object_end, py::doc("Ends an object/dict"))
+        .def("object_empty", &PySerializer::object_empty, py::doc("Encodes an empty object"))
     ;
 
     py::class_<ExpressionProxy>(m, "ExpressionProxy")
@@ -1019,28 +1062,6 @@ If require_time_data is false and the token does not include time data, out_date
         .def("paren_open", &ExpressionProxy::paren_open)
         .def("paren_close", &ExpressionProxy::paren_close)
         .def("expression_end", &ExpressionProxy::expression_end)
-    ;
-
-    py::class_<PyEncoder>(m, "Encoder")
-        .def(py::init<const SerializerSettings&, bool, bool, bool, bool>(),
-            py::arg("settings"),
-            py::kw_only{},
-            py::arg("encode_inline") = false,
-            py::arg("sort_keys") = false,
-            py::arg("skip_keys") = false,
-            py::arg("decode_unicode") = true)
-
-        .def_property_readonly("doc", &PyEncoder::get_serializer, py::return_value_policy::reference_internal)
-
-        .def("set_find_encoder_callback", &PyEncoder::set_find_encoder_callback)
-        .def("set_find_fallback_encoder_callback", &PyEncoder::set_find_fallback_encoder_callback)
-
-        .def("encode_sequence", &PyEncoder::encode_sequence)
-        .def("encode_dict", &PyEncoder::encode_dict)
-        .def("encode_value", &PyEncoder::encode_value)
-
-        .def("get_result", [](PyEncoder& self) -> py::str { return self.get_serializer().get_result(); })
-        .def("get_result_bytes", [](PyEncoder& self) -> py::bytes { return self.get_serializer().get_result_bytes(); })
     ;
 
 }

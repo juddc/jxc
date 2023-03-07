@@ -12,67 +12,91 @@ namespace jxc
 class PyOutputBuffer : public IOutputBuffer
 {
     std::vector<char> buf;
+
 public:
-    PyOutputBuffer() : buf() {}
-    virtual ~PyOutputBuffer() {}
-    void write(const char* value, size_t value_len) override
+    PyOutputBuffer()
+        : buf()
+    {
+    }
+
+    virtual ~PyOutputBuffer()
+    {
+    }
+
+    virtual void write(const char* value, size_t value_len) override
     {
         const size_t start_idx = buf.size();
         buf.resize(buf.size() + value_len);
         JXC_MEMCPY(&buf[start_idx], value_len, value, value_len);
     }
-    void clear() { buf.clear(); }
-    py::str get_result() const { return py::str(buf.data(), buf.size()); }
-    py::bytes get_result_bytes() const { return py::bytes(buf.data(), buf.size()); }
-};
 
-
-// This wrapper is only needed to force the lifetime of the
-// output buffer to match the lifetime of the serializer
-class PySerializer : public Serializer
-{
-    PyOutputBuffer py_output_buffer;
-
-public:
-    PySerializer(const SerializerSettings& settings)
-        : py_output_buffer()
-        , Serializer(&py_output_buffer, settings)
+    inline void clear()
     {
+        buf.clear();
     }
 
-    virtual ~PySerializer() {}
+    inline py::str get_result() const
+    {
+        return py::str(buf.data(), buf.size());
+    }
 
-    py::str get_result() { flush(); return py_output_buffer.get_result(); }
-    py::bytes get_result_bytes() { flush(); return py_output_buffer.get_result_bytes(); }
+    inline py::bytes get_result_bytes() const
+    {
+        return py::bytes(buf.data(), buf.size());
+    }
 };
 
 
-class JXC_NOEXPORT PyEncoder
+class JXC_NOEXPORT PySerializer : public Serializer
 {
 public:
     using FindEncoderFunc = std::function<py::object(py::object)>;
 
 private:
-    PySerializer doc;
-    bool encode_inline = false;
-    bool sort_keys = false;
-    bool skip_keys = false;
-    bool decode_unicode = false;
-    FindEncoderFunc find_encoder_callback;
-    FindEncoderFunc find_fallback_encoder_callback;
-
-    bool encode_dict_key(py::object key);
+    PyOutputBuffer py_output_buffer;
+    FindEncoderFunc override_encoder_callback;
+    FindEncoderFunc default_primary_encoder_callback;
+    FindEncoderFunc default_secondary_encoder_callback;
 
 public:
-    PyEncoder(const SerializerSettings& settings, bool encode_inline, bool sort_keys, bool skip_keys, bool decode_unicode);
-    void set_find_encoder_callback(py::object callback);
-    void set_find_fallback_encoder_callback(py::object callback);
+    bool encode_inline = false;
+    bool sort_keys = false;
+    bool decode_unicode = false;
 
-    void encode_sequence(py::sequence val);
-    void encode_dict(py::dict val);
-    void encode_value(py::object val);
+    PySerializer(const SerializerSettings& settings, bool encode_inline, bool sort_keys, bool decode_unicode)
+        : py_output_buffer()
+        , encode_inline(encode_inline)
+        , sort_keys(sort_keys)
+        , decode_unicode(decode_unicode)
+        , Serializer(&py_output_buffer, settings)
+    {
+    }
 
-    PySerializer& get_serializer() { return doc; }
+    virtual ~PySerializer()
+    {
+    }
+
+    py::str get_result()
+    {
+        flush();
+        return py_output_buffer.get_result();
+    }
+
+    py::bytes get_result_bytes()
+    {
+        flush();
+        return py_output_buffer.get_result_bytes();
+    }
+
+    void set_override_encoder_callback(py::object callback);
+    void set_default_primary_encoder_callback(py::object callback);
+    void set_default_secondary_encoder_callback(py::object callback);
+
+    PySerializer& object_key(py::object key);
+
+    PySerializer& value_sequence(py::sequence val);
+    PySerializer& value_dict(py::dict val);
+    PySerializer& value_auto(py::object val);
 };
 
 } // namespace jxc

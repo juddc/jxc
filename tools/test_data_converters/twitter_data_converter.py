@@ -65,7 +65,7 @@ class IdNumber:
     def __repr__(self):
         return f'IdNumber({self.value:#x}, {self.value_str!r})'
     
-    def _jxc_encode(self, doc: jxc.Serializer, enc: jxc.Encoder):
+    def _jxc_encode(self, doc: jxc.Serializer):
         doc.annotation('id')
         (doc.array_begin(separator=', ')
             .value_int_hex(self.value)
@@ -88,7 +88,7 @@ class IndexSpan:
     def __repr__(self):
         return f'IndexSpan({self.start}, {self.end})'
     
-    def _jxc_encode(self, doc: jxc.Serializer, enc: jxc.Encoder):
+    def _jxc_encode(self, doc: jxc.Serializer):
         doc.annotation('span')
         (doc.expression_begin()
             .value_int(self.start)
@@ -143,13 +143,13 @@ class Media:
         if isinstance(self.resize, str):
             self.resize = MediaResize(self.resize)
 
-    def _jxc_encode(self, doc: jxc.Serializer, enc: jxc.Encoder):
+    def _jxc_encode(self, doc: jxc.Serializer):
         doc.annotation(self.__class__.__name__)
         doc.object_begin(separator=', ')
         doc.identifier('w').sep().value_int(self.w)
         doc.identifier('h').sep().value_int(self.h)
         doc.identifier('resize').sep()
-        enc.encode_value(self.resize)
+        doc.value_auto(self.resize)
         doc.object_end()
 
 
