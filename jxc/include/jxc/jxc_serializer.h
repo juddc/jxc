@@ -39,7 +39,12 @@ public:
         buf.clear();
     }
 
-    std::string to_string() const
+    inline std::string_view to_string_view() const
+    {
+        return std::string_view(buf.data(), buf.size());
+    }
+
+    inline std::string to_string() const
     {
         return std::string(buf.data(), buf.size());
     }
@@ -51,7 +56,7 @@ JXC_BEGIN_NAMESPACE(detail)
 
 struct OutputBuffer
 {
-    IOutputBuffer* output;
+    IOutputBuffer* output = nullptr;
 
     // buffered output so we're not calling a virtual function every time we write a single character
     FixedArray<char, 255> output_buffer;
@@ -66,17 +71,34 @@ private:
     }
 
 public:
+    OutputBuffer(IOutputBuffer* output_buffer)
+        : output(output_buffer)
+    {
+        JXC_ASSERT(output != nullptr);
+    }
+
     size_t write(std::string_view str);
     size_t write(char ch);
     size_t write(char a, char b);
-    inline void flush() { if (output_buffer.size() > 0) { flush_internal(); } }
 
-    inline char get_last_char() const { return last_char_written; }
+    inline void flush()
+    {
+        if (output_buffer.size() > 0)
+        {
+            flush_internal();
+        }
+    }
 
-    inline void clear() { output_buffer.clear(); output->clear(); }
+    inline char get_last_char() const
+    {
+        return last_char_written;
+    }
 
-    OutputBuffer(IOutputBuffer* output) : output(output) { JXC_ASSERT(output != nullptr); }
-    ~OutputBuffer() { flush(); }
+    inline void clear()
+    {
+        output_buffer.clear();
+        output->clear();
+    }
 };
 
 
@@ -99,6 +121,60 @@ inline bool find_linebreak(const char* str, size_t max_len)
 }
 
 
+enum class SerializerStackType : uint8_t
+{
+    Invalid = 0,
+    Array,
+    Expr,
+    Obj,
+};
+
+
+struct SerializerStackVars
+{
+    SerializerStackType type = SerializerStackType::Invalid;
+
+    // if false, waiting for object key. otherwise waiting for object value.
+    bool pending_value = false;
+
+    int64_t container_size = 0;
+    
+    bool suppress_next_separator = false;
+
+    static constexpr size_t max_separator_len = 4;
+    static constexpr size_t separator_buf_len = max_separator_len + 1;
+    char separator[separator_buf_len] = { 0 };
+
+    bool value_separator_has_linebreak = false;
+
+    SerializerStackVars(SerializerStackType type = SerializerStackType::Invalid)
+        : type(type)
+    {
+    }
+
+    void set_separator(std::string_view new_sep)
+    {
+        JXC_STRNCPY(&separator[0], separator_buf_len, new_sep.data(), std::min(max_separator_len, new_sep.size()));
+        value_separator_has_linebreak = detail::find_linebreak(separator, max_separator_len);
+    }
+
+    inline size_t separator_len() const
+    {
+        size_t result = 0;
+        while (result < max_separator_len + 1 && separator[result] != '\0')
+        {
+            ++result;
+        }
+        return result;
+    }
+
+    std::string_view get_separator() const
+    {
+        return separator[0] != '\0' ? std::string_view{ &separator[0], separator_len() } : std::string_view{};
+    }
+};
+
+
 JXC_END_NAMESPACE(detail)
 
 
@@ -111,66 +187,23 @@ class Serializer
 
     SerializerSettings settings;
     int32_t indent_width = 0;
-    size_t last_token_size = 0;
     bool value_separator_has_linebreak = false;
 
     detail::OutputBuffer output;
 
-    enum StackType : uint8_t
-    {
-        ST_Invalid = 0,
-        ST_Array,
-        ST_Expr,
-        ST_Obj,
-    };
-
-    struct StackVars
-    {
-        StackType type = ST_Invalid;
-
-        // if false, waiting for object key. otherwise waiting for object value.
-        bool pending_value = false;
-
-        int64_t container_size = 0;
-        
-        bool suppress_next_separator = false;
-
-        static constexpr size_t max_separator_len = 4;
-        static constexpr size_t separator_buf_len = max_separator_len + 1;
-        char separator[separator_buf_len] = { 0 };
-
-        bool value_separator_has_linebreak = false;
-
-        void set_separator(std::string_view new_sep)
-        {
-            JXC_STRNCPY(&separator[0], separator_buf_len, new_sep.data(), std::min(max_separator_len, new_sep.size()));
-            value_separator_has_linebreak = detail::find_linebreak(separator, max_separator_len);
-        }
-
-        inline size_t separator_len() const
-        {
-            size_t result = 0;
-            while (result < max_separator_len + 1 && separator[result] != '\0')
-            {
-                ++result;
-            }
-            return result;
-        }
-
-        std::string_view get_separator() const
-        {
-            return separator[0] != '\0' ? std::string_view{ &separator[0], separator_len() } : std::string_view{};
-        }
-
-        StackVars(StackType type = ST_Invalid) : type(type) {}
-    };
-
-    detail::ArrayBuffer<StackVars, 255> container_stack;
-
-    inline StackVars& container_stack_top() { return container_stack.back(); }
-    inline const StackVars& container_stack_top() const { return container_stack.back(); }
-
+    size_t last_token_size = 0;
+    detail::ArrayBuffer<detail::SerializerStackVars, 255> container_stack;
     detail::ArrayBuffer<char, 255> annotation_buffer;
+
+    inline detail::SerializerStackVars& container_stack_top()
+    {
+        return container_stack.back();
+    }
+
+    inline const detail::SerializerStackVars& container_stack_top() const
+    {
+        return container_stack.back();
+    }
 
     inline void set_annotation_buffer(const char* str, size_t str_len)
     {
@@ -221,7 +254,7 @@ class Serializer
         {
             return std::numeric_limits<int64_t>::max();
         }
-        else if (container_stack_top().type == ST_Obj)
+        else if (container_stack_top().type == detail::SerializerStackType::Obj)
         {
             return tgt_length - (get_current_indent_width() + last_token_size);
         }
@@ -259,8 +292,8 @@ class Serializer
                 {
                     switch (container_stack[i].type)
                     {
-                    case ST_Obj:
-                    case ST_Array:
+                    case detail::SerializerStackType::Obj:
+                    case detail::SerializerStackType::Array:
                         len += output.write(settings.indent);
                         break;
                     default:
@@ -281,11 +314,17 @@ class Serializer
 
     size_t pre_write_token(TokenType type, std::string_view post_annotation_suffix = " ");
     void post_write_token();
+
 public:
-    Serializer(IOutputBuffer* output, const SerializerSettings& settings = SerializerSettings{});
+    explicit Serializer(IOutputBuffer* output_buffer, const SerializerSettings& serializer_settings = SerializerSettings{});
+
     virtual ~Serializer() {}
 
     inline const SerializerSettings& get_settings() const { return settings; }
+    void set_settings(const SerializerSettings& new_settings);
+
+    // Resets all state and sets a new output buffer
+    void set_output_buffer(IOutputBuffer* new_buffer);
 
     // Checks if an object key is expected to be written next.
     // Useful for checking if an identifier should be used in place of a string.
@@ -372,7 +411,7 @@ private:
 
     ExpressionProxy(Serializer& parent) : parent(parent)
     {
-        JXC_DEBUG_ASSERT(parent.container_stack_top().type == Serializer::ST_Expr);
+        JXC_DEBUG_ASSERT(parent.container_stack_top().type == detail::SerializerStackType::Expr);
     }
 
     // auto-add spacing before a token if we have existing tokens

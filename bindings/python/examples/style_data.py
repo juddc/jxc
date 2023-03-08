@@ -158,26 +158,27 @@ class Stylesheet:
                 return Value(value=value, unit=Unit(suffix))
             return make
 
-        def parse_comma_separated_values_expression(ele: jxc.Element, expr: list):
+        def parse_comma_separated_values_expression(expr: list):
             result = []
             i = 0
             while i < len(expr):
                 result.append(expr[i])
                 i += 1
                 if i < len(expr) and expr[i] != ',':
-                    raise jxc.decode.ParseError.make(f'Expected comma, got {expr[i]!r}', ele, data)
+                    raise jxc.decode.ParseError.make(f'Expected comma, got {expr[i]!r}', None, buffer=data)
                 i += 1
             return result
 
-        def make_from_annotation(ele: jxc.Element):
-            if len(ele.annotation) == 1 and ele.annotation[0].type == jxc.TokenType.Identifier:
-                match ele.annotation[0].value:
+        def make_from_annotation(anno: jxc.TokenList):
+            tok = anno[0] if len(anno) > 0 else None
+            if len(anno) == 1 and anno[0].type == jxc.TokenType.Identifier:
+                match anno[0].value:
                     case 'rgb' | 'rgba':
-                        return lambda parsed_expr: RGBAColor(*parse_comma_separated_values_expression(ele, parsed_expr))
+                        return lambda parsed_expr: RGBAColor(*parse_comma_separated_values_expression(parsed_expr))
 
             # You don't have to raise ParseError, but doing so with the related element and original data
             # adds full context to the error message (line, col, and related snippet)
-            raise jxc.decode.ParseError.make(f'Invalid annotation `{ele.annotation!s}`', ele, data)
+            raise jxc.decode.ParseError.make(f'Invalid annotation `{anno!s}`', tok, data)
 
         # parse the input
         parser = jxc.Parser(data)

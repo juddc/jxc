@@ -90,7 +90,7 @@ public:
 enum class ExpressionParseMode : uint8_t
 {
     ValueList = 0,
-    ValueListWithComments,
+    ValueAndTokenList,
     TokenList,
     SourceString,
 };
@@ -139,9 +139,17 @@ inline ClassConstructMode python_value_to_construct_mode(py::object val)
 }
 
 
+// converts a Python value to a Token
+Token make_token_from_python_value(py::handle tok);
+
+// converts a Python value to a TokenList, interpreting each value as a token or sequence of tokens
+TokenList make_token_list_from_python_values(py::args tokens);
+
+
 class JXC_NOEXPORT PyParser
 {
 public:
+    using OverrideConstructFunc = std::function<py::object(const Element&)>;
     using FindConstructAnnotationFunc = std::function<std::optional<ValueConstructor>(const Element&)>;
     using FindConstructNumberSuffixFunc = std::function<std::optional<ValueConstructor>(std::string_view)>;
 
@@ -153,6 +161,7 @@ private:
     bool ignore_unknown_number_suffixes = true;
     ExpressionParseMode default_expr_parse_mode = ExpressionParseMode::ValueList;
     std::optional<py::type> custom_list_type;
+    std::optional<std::string> custom_list_type_append_func_name;
     std::optional<py::type> custom_dict_type;
 
     FindConstructAnnotationFunc find_construct_from_annotation;
@@ -160,15 +169,25 @@ private:
 
     python_util::AnnotationMap<std::optional<ValueConstructor>> annotation_type_map;
     python_util::StringMap<std::optional<ValueConstructor>> number_suffix_type_map;
+    ankerl::unordered_dense::map<ElementType, OverrideConstructFunc> element_parse_override_map;
 
     std::optional<ValueConstructor> get_construct_from_annotation(const Element& ele);
     std::optional<ValueConstructor> get_construct_from_suffix(std::string_view suffix);
 
 public:
+    PyParser() = default;
+
     PyParser(py::object buf,
         ExpressionParseMode default_expr_parse_mode,
         bool ignore_unknown_annotations,
         bool ignore_unknown_number_suffixes);
+
+    void reset(py::object new_buf)
+    {
+        buf = py::cast<std::string>(new_buf);
+        parser.reset(buf);
+        parse_error.reset();
+    }
 
     ExpressionParseMode get_default_expr_parse_mode() const { return default_expr_parse_mode; }
     void set_default_expr_parse_mode(ExpressionParseMode new_value) { default_expr_parse_mode = new_value; }
@@ -179,12 +198,14 @@ public:
     bool get_ignore_unknown_number_suffixes() const { return ignore_unknown_number_suffixes; }
     void set_ignore_unknown_number_suffixes(bool new_value) { ignore_unknown_number_suffixes = new_value; }
 
+    void set_override_element_parse_function(ElementType element_type, py::object parse_callback);
+
     void set_annotation_constructor(py::object annotation, py::object construct);
     void set_number_suffix_constructor(py::str suffix, py::object construct);
     void set_find_construct_from_annotation_callback(py::object callback);
     void set_find_construct_from_number_suffix_callback(py::object callback);
 
-    void set_custom_list_type(py::object new_type);
+    void set_custom_list_type(py::object new_type, py::str append_func_name);
     void set_custom_dict_type(py::object new_type);
 
     bool has_error() const { return parse_error.is_err || parser.has_error(); }
@@ -192,20 +213,23 @@ public:
 
     bool advance();
 
+    inline const Element& current_element() const { return parser.value(); }
+    inline py::object current_element_py() const { return detail::cast_element_to_python(parser.value()); }
+
     py::object parse();
-    py::object parse_value(const Element& ele);
-    py::object parse_number_element(const Element& ele);
-    py::object parse_string_element(const Element& ele);
-    py::object parse_bytes_element(const Element& ele);
-    py::object parse_datetime_element(const Element& ele);
+    py::object parse_value();
+    py::object parse_number();
+    py::object parse_string();
+    py::object parse_bytes();
+    py::object parse_datetime();
     py::object parse_list();
-    py::object parse_list_custom();
-    py::object parse_expr_value(const Element& ele);
-    py::object parse_expr_token(const Element& ele);
+    py::object parse_list_custom(py::type list_type, const std::string& append_func_name);
+    py::object parse_expr_value(bool allow_tokens);
+    Token parse_expr_token();
     py::object parse_expr(ExpressionParseMode parse_mode);
-    py::object parse_key(const Element& ele);
+    py::object parse_dict_key();
     py::object parse_dict();
-    py::object parse_dict_custom();
+    py::object parse_dict_custom(py::type dict_type);
 };
 
 } // namespace jxc

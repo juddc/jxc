@@ -75,9 +75,9 @@ PySerializer& PySerializer::object_key(py::object key)
 }
 
 
-PySerializer& PySerializer::value_sequence(py::sequence val)
+PySerializer& PySerializer::value_sequence(py::sequence val, std::string_view separator)
 {
-    array_begin();
+    array_begin(separator);
     for (const auto& item : val)
     {
         value_auto(item);
@@ -87,9 +87,9 @@ PySerializer& PySerializer::value_sequence(py::sequence val)
 }
 
 
-PySerializer& PySerializer::value_dict(py::dict val)
+PySerializer& PySerializer::value_dict(py::dict val, std::string_view separator)
 {
-    object_begin();
+    object_begin(separator);
     if (sort_keys)
     {
         py::list keys;
@@ -104,19 +104,16 @@ PySerializer& PySerializer::value_dict(py::dict val)
             py::object key = py::reinterpret_borrow<py::object>(key_handle);
             object_key(key);
             object_sep();
-            py::object item = py::reinterpret_borrow<py::object>(val[key]);
-            value_auto(item);
+            value_auto(py::reinterpret_borrow<py::object>(val[key]));
         }
     }
     else
     {
         for (const auto& pair : val)
         {
-            py::object key = py::reinterpret_borrow<py::object>(pair.first);
-            object_key(key);
+            object_key(py::reinterpret_borrow<py::object>(pair.first));
             object_sep();
-            py::object item = py::reinterpret_borrow<py::object>(pair.second);
-            value_auto(item);
+            value_auto(py::reinterpret_borrow<py::object>(pair.second));
         }
     }
     object_end();

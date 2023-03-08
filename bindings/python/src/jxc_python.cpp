@@ -138,114 +138,6 @@ void get_tzinfo_offset(py::handle datetime, const py::object& tzinfo, int8_t& ou
 
 JXC_END_NAMESPACE(detail)
 
-template<typename T>
-auto bind_tokenlist(py::module_& m, const char* name)
-{
-    return py::class_<T>(m, name)
-        .def("__bool__", &T::operator bool)
-        .def("__getitem__", [](const T& self, int64_t idx) -> const Token& { return self[detail::python_index(idx, self.size())]; })
-        .def("__eq__", [](const T& self, const T& rhs) { return self == rhs; })
-        .def("__ne__", [](const T& self, const T& rhs) { return self != rhs; })
-        .def("__len__", &T::size)
-        .def("__repr__", &T::to_repr)
-        .def("__str__", &T::to_string)
-        .def("__hash__", &T::hash)
-        .def("copy", [](const T& self) -> TokenList { return TokenList(self); })
-        .def("source", [](const T& self) { return self.source(false); },
-            "The original text from the buffer that represents all the tokens in this span. "
-            "Primarily useful for accessing the original whitespace.");
-}
-
-
-template<typename T>
-auto bind_element(py::module_& m, const char* name)
-{
-    using anno_type = typename T::anno_type;
-
-    auto cls = py::class_<T>(m, name);
-
-    cls.def(py::init([](ElementType element_type, const Token& token, const anno_type& annotation) -> T
-    {
-        return T{ element_type, token, annotation };
-    }),
-        py::arg("element_type"),
-        py::arg("token"),
-        py::arg("annotation"));
-
-    if constexpr (std::is_same_v<T, TokenList>)
-    {
-        cls.def(py::init([](ElementType element_type, const Token& token, py::sequence annotation) -> T
-        {
-            TokenList anno_tokens;
-            for (const auto& tok : annotation)
-            {
-                if (py::isinstance<TokenType>(tok))
-                {
-                    anno_tokens.tokens.push(Token(py::cast<TokenType>(tok)));
-                }
-                else if (py::isinstance<Token>(tok))
-                {
-                    anno_tokens.tokens.push(Token(py::cast<Token>(tok)));
-                }
-                else
-                {
-                    throw py::type_error(jxc::format("Expected TokenType or Token, got {}", py::cast<std::string>(py::repr(tok))));
-                }
-            }
-            return T{ element_type, token, anno_tokens };
-        }),
-            py::arg("element_type"),
-            py::arg("token"),
-            py::arg("annotation") = py::make_tuple());
-    }
-
-    cls.def_readwrite("type", &T::type);
-    cls.def_property("token",
-        [](const T& self) { return self.token; },
-        [](T& self, const Token& new_token) { self.token = new_token; self.token.to_owned_inplace(); }
-    );
-    cls.def_readonly("annotation", &T::annotation);
-
-    auto element_eq = [](const T& self, py::object rhs) -> bool
-    {
-        if (rhs.is_none())
-        {
-            return false;
-        }
-        else if (py::isinstance<T>(rhs))
-        {
-            return self == py::cast<T>(rhs);
-        }
-
-        if constexpr (std::is_same_v<T, Element>)
-        {
-            // compare against an owned element
-            if (py::isinstance<OwnedElement>(rhs))
-            {
-                return self == py::cast<OwnedElement>(rhs);
-            }
-        }
-        else if constexpr (std::is_same_v<T, OwnedElement>)
-        {
-            // compare against a non-owned element
-            if (py::isinstance<Element>(rhs))
-            {
-                return self == py::cast<Element>(rhs);
-            }
-        }
-
-        return false;
-    };
-
-    cls.def("__eq__", [element_eq](const T& self, py::object rhs) -> bool { return element_eq(self, rhs); });
-    cls.def("__ne__", [element_eq](const T& self, py::object rhs) -> bool { return !element_eq(self, rhs); });
-
-    cls.def("__str__", &T::to_string);
-    cls.def("__repr__", &T::to_repr);
-
-    return cls;
-}
-
 JXC_END_NAMESPACE(jxc)
 
 
@@ -384,8 +276,12 @@ PYBIND11_MODULE(_pyjxc, m)
 
     m.def("token_type_to_symbol", &token_type_to_symbol);
     m.def("token_type_from_symbol",
-        [](py::str symbol) { return token_type_from_symbol(py::cast<std::string_view>(symbol)); },
-        py::arg("symbol"));
+        [](py::str symbol, bool allow_object_key)
+        {
+            return token_type_from_symbol(py::cast<std::string_view>(symbol), allow_object_key);
+        },
+        py::arg("symbol"),
+        py::arg("allow_object_key") = true);
     m.def("token_type_has_value", &token_type_has_value);
 
     auto token_cls = py::class_<Token>(m, "Token")
@@ -430,23 +326,58 @@ PYBIND11_MODULE(_pyjxc, m)
 
     token_cls.attr("__match_args__") = py::make_tuple("type", "value");
 
-    bind_tokenlist<TokenView>(m, "TokenView");
+    py::class_<TokenView>(m, "TokenView");
 
-    bind_tokenlist<TokenList>(m, "TokenList")
+    py::class_<TokenList>(m, "TokenList")
         .def(py::init([](py::args args, py::str source) -> TokenList
-        {
-            TokenList result{};
-            for (const auto& arg : args)
             {
-                result.tokens.push(py::cast<Token>(arg));
-            }
-            if (py::len(source) > 0)
-            {
-                result.src = py::cast<FlexString>(source);
-            }
-            return result;
-        }),
+                TokenList result{};
+                for (const auto& arg : args)
+                {
+                    result.tokens.push(py::cast<Token>(arg));
+                }
+                if (py::len(source) > 0)
+                {
+                    result.src = py::cast<FlexString>(source);
+                }
+                return result;
+            }),
+            py::kw_only{},
             py::arg("source") = "")
+
+        .def("__getitem__", [](const TokenList& self, int64_t idx) -> const Token& { return self[detail::python_index(idx, self.size())]; })
+        .def("__setitem__", [](TokenList& self, int64_t idx, const Token& tok) { self.tokens[detail::python_index(idx, self.tokens.size())] = tok; })
+
+        .def("__getitem__", [](const TokenList& self, py::slice slice) -> TokenList
+        {
+            size_t start = 0;
+            size_t stop = 0;
+            size_t step = 0;
+            size_t slicelength = 0;
+            if (slice.compute(self.size(), &start, &stop, &step, &slicelength))
+            {
+                if (step != 1)
+                {
+                    throw py::value_error(jxc::format("TokenList slice requires a step size of 1, got {}", step));
+                }
+                return self.slice_copy(start, slicelength);
+            }
+            throw py::value_error("Invalid slice object");
+        })
+
+        .def("__bool__", &TokenList::operator bool)
+        .def("__eq__", [](const TokenList& self, const TokenList& rhs) { return self == rhs; })
+        .def("__ne__", [](const TokenList& self, const TokenList& rhs) { return self != rhs; })
+        .def("__len__", &TokenList::size)
+        .def("__repr__", &TokenList::to_repr)
+        .def("__str__", &TokenList::to_string)
+        .def("__hash__", &TokenList::hash)
+
+        .def("copy", [](const TokenList& self) -> TokenList { return TokenList(self); })
+
+        .def("source", [](const TokenList& self) { return self.source(false); },
+            py::doc("The original text from the buffer that represents all the tokens in this span. "
+            "Primarily useful for accessing the original whitespace."))
 
         .def_static("parse", [](py::str source) -> TokenList
         {
@@ -482,21 +413,6 @@ PYBIND11_MODULE(_pyjxc, m)
         })
 
         .def("reset", &TokenList::reset)
-        .def("__setitem__", [](TokenList& self, int64_t idx, const Token& tok)
-        {
-            self.tokens[detail::python_index(idx, self.tokens.size())] = tok;
-        })
-        .def("append", [](TokenList& self, const Token& tok) { self.tokens.push(tok); })
-        .def("pop_back", [](TokenList& self) -> py::object
-        {
-            if (self.tokens.size() > 0)
-            {
-                auto result = py::cast(self.tokens.back().copy());
-                self.tokens.pop_back();
-                return result;
-            }
-            return py::none();
-        })
     ;
 
     py::class_<PyLexer>(m, "Lexer")
@@ -569,8 +485,77 @@ PYBIND11_MODULE(_pyjxc, m)
     m.def("element_is_expression_value_type", &element_is_expression_value_type,
         py::doc("Returns true if a given element is valid for use inside an expression container"));
 
-    bind_element<Element>(m, "Element");
-    bind_element<OwnedElement>(m, "OwnedElement");
+
+    //py::class_<Element>(m, "ElementView");
+
+
+    auto element_eq = [](const OwnedElement& self, py::object rhs) -> bool
+    {
+        if (rhs.is_none())
+        {
+            return false;
+        }
+        else if (py::isinstance<OwnedElement>(rhs))
+        {
+            return self == py::cast<OwnedElement>(rhs);
+        }
+        return false;
+    };
+
+
+    py::class_<OwnedElement>(m, "Element")
+        .def(py::init([](ElementType element_type, const Token& token, const TokenList& annotation) -> OwnedElement
+            {
+                return { element_type, token, annotation };
+            }),
+            py::arg("element_type"),
+            py::arg("token"),
+            py::arg("annotation"))
+
+        .def(py::init([](ElementType element_type, const Token& token, py::sequence annotation) -> OwnedElement
+            {
+                TokenList anno_tokens;
+                for (const auto& tok : annotation)
+                {
+                    if (py::isinstance<TokenType>(tok))
+                    {
+                        anno_tokens.tokens.push(Token(py::cast<TokenType>(tok)));
+                    }
+                    else if (py::isinstance<Token>(tok))
+                    {
+                        anno_tokens.tokens.push(Token(py::cast<Token>(tok)));
+                    }
+                    else
+                    {
+                        throw py::type_error(jxc::format("Expected TokenType or Token, got {}", py::cast<std::string>(py::repr(tok))));
+                    }
+                }
+                return OwnedElement{ element_type, token, anno_tokens };
+            }),
+            py::arg("element_type"),
+            py::arg("token"),
+            py::arg("annotation") = py::make_tuple())
+
+        .def_readwrite("type", &OwnedElement::type)
+
+        .def_property("token",
+            [](const OwnedElement& self) { return self.token; },
+            [](OwnedElement& self, const Token& new_token)
+            {
+                self.token = new_token;
+                self.token.to_owned_inplace();
+            }
+        )
+
+        .def_readwrite("annotation", &OwnedElement::annotation)
+
+        .def("__eq__", [element_eq](const OwnedElement& self, py::object rhs) -> bool { return element_eq(self, rhs); })
+        .def("__ne__", [element_eq](const OwnedElement& self, py::object rhs) -> bool { return !element_eq(self, rhs); })
+
+        .def("__str__", &OwnedElement::to_string)
+        .def("__repr__", &OwnedElement::to_repr)
+    ;
+
 
     m.def("is_debug_build", []() -> bool
     {
@@ -589,7 +574,7 @@ PYBIND11_MODULE(_pyjxc, m)
         .def(py::init<std::string_view>())
         .def("reset", &JumpParser::reset)
         .def("next", &JumpParser::next)
-        .def("value", &JumpParser::value)
+        .def("value", [](const JumpParser& self) { return detail::cast_element_to_python(self.value()); })
         .def("has_error", &JumpParser::has_error)
         .def("stack_depth", &JumpParser::stack_depth)
         .def("get_error", &JumpParser::get_error)
@@ -807,9 +792,10 @@ If require_time_data is false and the token does not include time data, out_date
 
     py::enum_<ExpressionParseMode>(m, "ExpressionParseMode")
         .value("ValueList", ExpressionParseMode::ValueList,
-            "Returns the expression as a list of values (excluding comments)")
-        .value("ValueListWithComments", ExpressionParseMode::ValueListWithComments,
-            "Returns the expression as a list of values (including comments)")
+            "Returns the expression as a list of values")
+        .value("ValueAndTokenList", ExpressionParseMode::ValueAndTokenList,
+            "Returns the expression as a list of values. "
+            "Any non-base-type token (eg. Identifier) will be represented as a Token object.")
         .value("TokenList", ExpressionParseMode::TokenList,
             "Returns the expression as a list of Token objects")
         .value("SourceString", ExpressionParseMode::SourceString,
@@ -828,18 +814,35 @@ If require_time_data is false and the token does not include time data, out_date
             "Require that the class value is a dict, and pass through all dict key/value pairs as `**kwargs` to the class constructor")
     ;
 
+    m.def("make_token", &make_token_from_python_value);
+    m.def("make_token_list", &make_token_list_from_python_values);
+
     py::class_<PyParser>(m, "Parser")
+        .def(py::init<>())
+
         .def(py::init<py::object, ExpressionParseMode, bool, bool>(),
             py::arg("buf"),
             py::kw_only{},
             py::arg("default_expr_parse_mode") = ExpressionParseMode::ValueList,
             py::arg("ignore_unknown_annotations") = true,
             py::arg("ignore_unknown_number_suffixes") = true)
+        
+        .def("reset", &PyParser::reset)
 
-        .def_property("default_expr_parse_mode", &PyParser::get_default_expr_parse_mode, &PyParser::set_default_expr_parse_mode)
-        .def_property("ignore_unknown_annotations", &PyParser::get_ignore_unknown_annotations, &PyParser::set_ignore_unknown_annotations)
-        .def_property("ignore_unknown_number_suffixes", &PyParser::get_ignore_unknown_number_suffixes, &PyParser::set_ignore_unknown_number_suffixes)
+        .def_property("default_expr_parse_mode",
+            &PyParser::get_default_expr_parse_mode,
+            &PyParser::set_default_expr_parse_mode)
 
+        .def_property("ignore_unknown_annotations",
+            &PyParser::get_ignore_unknown_annotations,
+            &PyParser::set_ignore_unknown_annotations)
+
+        .def_property("ignore_unknown_number_suffixes",
+            &PyParser::get_ignore_unknown_number_suffixes,
+            &PyParser::set_ignore_unknown_number_suffixes)
+
+        .def("set_override_element_parse_function", &PyParser::set_override_element_parse_function,
+            py::arg("annotation"), py::arg("construct"))
         .def("set_annotation_constructor", &PyParser::set_annotation_constructor,
             py::arg("annotation"), py::arg("construct"))
         .def("set_number_suffix_constructor", &PyParser::set_number_suffix_constructor,
@@ -849,12 +852,42 @@ If require_time_data is false and the token does not include time data, out_date
         .def("set_find_construct_from_number_suffix_callback", &PyParser::set_find_construct_from_number_suffix_callback,
             py::arg("callback"))
 
-        .def("set_custom_list_type", &PyParser::set_custom_list_type, py::arg("list_type"))
+        .def("set_custom_list_type", &PyParser::set_custom_list_type, py::arg("list_type"), py::arg("append_func_name") = "")
         .def("set_custom_dict_type", &PyParser::set_custom_dict_type, py::arg("dict_type"))
 
-        .def("parse", &PyParser::parse)
+        .def("parse", &PyParser::parse,
+            py::doc("Parses the current buffer."))
+
+        .def("parse", [](PyParser& self, py::object new_buf)
+            {
+                self.reset(new_buf);
+                return self.parse();
+            },
+            py::doc("Resets the parser to use a new buffer, then parses it."))
+
         .def("has_error", &PyParser::has_error)
         .def("get_error", &PyParser::get_error)
+
+        // advance the parser by one element
+        .def("advance", &PyParser::advance)
+
+        // access the parser's current element
+        .def("current_element", &PyParser::current_element_py, py::doc("ReturnType=Element"))
+
+        // expose the individual parsing functions for use by custom parsers
+        .def("parse_value", &PyParser::parse_value)
+        .def("parse_number", &PyParser::parse_number)
+        .def("parse_string", &PyParser::parse_string)
+        .def("parse_bytes", &PyParser::parse_bytes)
+        .def("parse_datetime", &PyParser::parse_datetime)
+        .def("parse_list", &PyParser::parse_list)
+        .def("parse_list_custom", &PyParser::parse_list_custom, py::arg("list_type"), py::arg("append_func_name") = "")
+        .def("parse_expr_value", &PyParser::parse_expr_value, py::arg("allow_tokens"))
+        .def("parse_expr_token", &PyParser::parse_expr_token)
+        .def("parse_expr", &PyParser::parse_expr, py::arg("parse_mode"))
+        .def("parse_dict_key", &PyParser::parse_dict_key)
+        .def("parse_dict", &PyParser::parse_dict)
+        .def("parse_dict_custom", &PyParser::parse_dict_custom, py::arg("dict_type"))
     ;
 
     py::enum_<StringQuoteMode>(m, "StringQuoteMode")
@@ -969,7 +1002,7 @@ If require_time_data is false and the token does not include time data, out_date
         .def("value_float", &PySerializer::value_float, py::arg("value"), py::arg("suffix") = std::string_view{}, py::arg("precision") = 16, py::arg("fixed") = false)
         .def("value_string", &PySerializer::value_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("value_string_raw", &PySerializer::value_string_raw, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("tag") = std::string_view{})
-        .def("value_bytes", [](PySerializer& self, py::bytes value, StringQuoteMode quote)
+        .def("value_bytes", [](PySerializer& self, py::bytes value, StringQuoteMode quote) -> PySerializer&
         {
             auto data = py::cast<std::string_view>(value);
             self.value_bytes(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
@@ -977,7 +1010,7 @@ If require_time_data is false and the token does not include time data, out_date
         },
             py::arg("value"),
             py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_bytes_base64", [](PySerializer& self, py::bytes value, StringQuoteMode quote)
+        .def("value_bytes_base64", [](PySerializer& self, py::bytes value, StringQuoteMode quote) -> PySerializer&
         {
             auto data = py::cast<std::string_view>(value);
             self.value_bytes_base64(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
@@ -988,14 +1021,18 @@ If require_time_data is false and the token does not include time data, out_date
         .def("value_date", &PySerializer::value_date, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
         .def("value_datetime", &PySerializer::value_datetime, py::arg("value"), py::arg("auto_strip_time") = false, py::arg("quote") = StringQuoteMode::Auto)
         .def("value_sequence", &PySerializer::value_sequence,
+            py::arg("val"),
+            py::arg("separator") = std::string_view{},
             py::doc("Serializes a Python sequence, using the iterator protocol to write all values in the sequence."))
         .def("value_dict", &PySerializer::value_dict,
+            py::arg("val"),
+            py::arg("separator") = std::string_view{},
             py::doc("Serializes a Python dict object"))
 
         .def("identifier", &PySerializer::identifier)
         .def("identifier_or_string", &PySerializer::identifier_or_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("comment", &PySerializer::comment)
-        .def("write", [](PySerializer& self, py::str value)
+        .def("write", [](PySerializer& self, py::str value) -> PySerializer&
         {
             const auto s = py::cast<std::string_view>(value);
             self.write(s);
@@ -1032,7 +1069,7 @@ If require_time_data is false and the token does not include time data, out_date
         .def("value_float", &ExpressionProxy::value_float, py::arg("value"), py::arg("suffix") = std::string_view{}, py::arg("precision") = 8, py::arg("fixed") = false)
         .def("value_string", &ExpressionProxy::value_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("value_string_raw", &ExpressionProxy::value_string_raw, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_bytes", [](ExpressionProxy& self, py::bytes value, StringQuoteMode quote)
+        .def("value_bytes", [](ExpressionProxy& self, py::bytes value, StringQuoteMode quote) -> ExpressionProxy&
         {
             auto data = py::cast<std::string_view>(value);
             self.value_bytes(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
@@ -1040,7 +1077,7 @@ If require_time_data is false and the token does not include time data, out_date
         },
             py::arg("value"),
             py::arg("quote") = StringQuoteMode::Auto)
-        .def("value_bytes_base64", [](ExpressionProxy& self, py::bytes value, StringQuoteMode quote)
+        .def("value_bytes_base64", [](ExpressionProxy& self, py::bytes value, StringQuoteMode quote) -> ExpressionProxy&
         {
             auto data = py::cast<std::string_view>(value);
             return self.value_bytes_base64(reinterpret_cast<const uint8_t*>(data.data()), data.size(), quote);
@@ -1052,7 +1089,7 @@ If require_time_data is false and the token does not include time data, out_date
         .def("identifier", &ExpressionProxy::identifier)
         .def("identifier_or_string", &ExpressionProxy::identifier_or_string, py::arg("value"), py::arg("quote") = StringQuoteMode::Auto, py::arg("decode_unicode") = true)
         .def("op", &ExpressionProxy::op)
-        .def("write", [](ExpressionProxy& self, py::str value)
+        .def("write", [](ExpressionProxy& self, py::str value) -> ExpressionProxy&
         {
             const auto s = py::cast<std::string_view>(value);
             return self.write(s);

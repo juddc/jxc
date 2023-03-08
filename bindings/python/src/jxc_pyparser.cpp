@@ -22,6 +22,24 @@
 } while(0)
 
 
+#define JXC_REQUIRE_ELEMENT_TYPE(ELE, REQ_ELE_TYPE) do { \
+    if ((ELE).type != ElementType::REQ_ELE_TYPE) { \
+        parse_error = ErrorInfo(jxc::format("Expected " #REQ_ELE_TYPE " element, got {}", element_type_to_string((ELE).type)), \
+            (ELE).token.start_idx, (ELE).token.end_idx); \
+        JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error); \
+    } \
+} while(0)
+
+
+#define JXC_REQUIRE_TOKEN_TYPE(TOK, REQ_TOK_TYPE) do { \
+    if ((TOK).type != TokenType::REQ_TOK_TYPE) { \
+        parse_error = ErrorInfo(jxc::format("Expected " #REQ_TOK_TYPE " token, got {}", token_type_to_string((TOK).type)), \
+            (TOK).start_idx, (TOK).end_idx); \
+        JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error); \
+    } \
+} while(0)
+
+
 namespace jxc
 {
 
@@ -126,6 +144,166 @@ py::object ValueConstructor::construct(py::object value, const Element& ele, Err
 }
 
 
+Token make_token_from_python_value(py::handle tok)
+{
+    if (tok.is_none())
+    {
+        return Token(TokenType::Null);
+    }
+    else if (py::isinstance<py::str>(tok))
+    {
+        std::string_view str_value = py::cast<std::string_view>(tok);
+
+        if (str_value.size() == 0)
+        {
+            throw py::value_error("Can't convert string \"\" to token");
+        }
+
+        // See if we can determine the token type from the string.
+        // eg. '+' == TokenType::Plus
+        const TokenType tok_type = token_type_from_symbol(str_value, false);
+        if (tok_type != TokenType::Invalid)
+        {
+            return Token(tok_type, invalid_idx, invalid_idx, FlexString(str_value));
+        }
+        else
+        {
+            // try using the lexer to identify the token, since token_type_from_symbol is built to be fast, and doesn't handle all cases
+            TokenLexer lexer(str_value);
+            size_t tok_count = 0;
+            Token result;
+
+            Token tok;
+            while (lexer.next(tok))
+            {
+                if (tok_count == 0)
+                {
+                    result = tok.copy();
+                }
+                else
+                {
+                    throw py::value_error(jxc::format("String {} is more than one token",
+                        detail::debug_string_repr(str_value)));
+                }
+
+                ++tok_count;
+            }
+
+            if (lexer.has_error())
+            {
+                throw py::value_error(jxc::format("String {} is not a valid token: {}",
+                    detail::debug_string_repr(str_value), lexer.get_error_message()));
+            }
+
+            return result;
+        }
+        
+        throw py::value_error(jxc::format("Can't convert string {} to token", detail::debug_string_repr(str_value)));
+    }
+    else if (py::isinstance<TokenType>(tok))
+    {
+        return Token(py::cast<TokenType>(tok));
+    }
+    else if (py::isinstance<py::tuple>(tok))
+    {
+        // accept tuples in the form (Value, TokenType)
+        py::tuple tup_val = py::reinterpret_borrow<py::tuple>(tok);
+        if (tup_val.size() == 2)
+        {
+            const TokenType tok_type = py::cast<TokenType>(tup_val[1]);
+            return token_type_has_value(tok_type)
+                ? Token(tok_type, invalid_idx, invalid_idx, FlexString::make_owned(py::cast<std::string_view>(tup_val[0])))
+                : Token(tok_type);
+        }
+        else
+        {
+            throw py::type_error(jxc::format("Expected 2-tuple in the form (value, token_type), got {}", py::cast<std::string>(py::repr(tok))));
+        }
+    }
+    else if (py::isinstance<Token>(tok))
+    {
+        return py::cast<Token>(tok);
+    }
+    else
+    {
+        throw py::type_error(jxc::format("Failed to convert value {} to Token", py::cast<std::string>(py::repr(tok))));
+    }
+}
+
+
+TokenList make_token_list_from_python_values(py::args tokens)
+{
+    TokenList result;
+
+    for (py::handle item : tokens)
+    {
+        if (py::isinstance<py::str>(item))
+        {
+            // Handle string values ourselves here instead of relying on make_token_from_python_value, because strings can potentially
+            // contain multiple tokens, and make_token_from_python_value can't return more than one.
+            std::string_view str_value = py::cast<std::string_view>(item);
+            if (str_value.size() == 0)
+            {
+                continue;
+            }
+
+            // See if we can determine the token type from the string.
+            // eg. '+' == TokenType::Plus
+            const TokenType tok_type = token_type_from_symbol(str_value, false);
+            if (tok_type != TokenType::Invalid)
+            {
+                result.tokens.push(Token(tok_type, invalid_idx, invalid_idx, FlexString(str_value)));
+            }
+            else
+            {
+                // treat the string as a sequence of tokens - lex them and push them all to the output
+                TokenLexer lexer(str_value);
+                Token tok;
+                while (lexer.next(tok))
+                {
+                    result.tokens.push(tok.copy());
+                }
+                if (lexer.has_error())
+                {
+                    throw py::value_error(jxc::format("Lexer error converting string into tokens: {}", lexer.get_error_message()));
+                }
+            }
+        }
+        else
+        {
+            result.tokens.push(make_token_from_python_value(item));
+        }
+    }
+
+    return result;
+}
+
+
+static TokenList make_annotation_token_list(py::handle annotation)
+{
+    if (py::isinstance<py::tuple>(annotation) || py::isinstance<py::list>(annotation))
+    {
+        return make_token_list_from_python_values(py::cast<py::tuple>(annotation));
+    }
+    else if (annotation.is_none()
+        || py::isinstance<py::str>(annotation)
+        || py::isinstance<TokenType>(annotation)
+        || py::isinstance<Token>(annotation))
+    {
+        return make_token_list_from_python_values(py::make_tuple(annotation));
+    }
+    else if (py::isinstance<TokenList>(annotation))
+    {
+        return py::cast<TokenList>(annotation);
+    }
+
+    // assume single token
+    TokenList result;
+    result.tokens.push(make_token_from_python_value(annotation));
+    return result;
+}
+
+
 PyParser::PyParser(
     py::object data,
     ExpressionParseMode default_expr_parse_mode,
@@ -182,58 +360,32 @@ std::optional<ValueConstructor> PyParser::get_construct_from_suffix(std::string_
 }
 
 
-static Token make_token_from_pyobject(py::handle tok)
+void PyParser::set_override_element_parse_function(ElementType element_type, py::object parse_callback)
 {
-    if (tok.is_none())
+    if (parse_callback.is_none())
     {
-        return Token(TokenType::Null);
-    }
-    else if (py::isinstance<Token>(tok))
-    {
-        return py::cast<Token>(tok);
-    }
-    else if (py::isinstance<TokenType>(tok))
-    {
-        return Token(py::cast<TokenType>(tok));
-    }
-    else if (py::isinstance<py::str>(tok))
-    {
-        std::string_view tok_val = py::cast<std::string_view>(tok);
-        const TokenType tok_type = token_type_from_symbol(tok_val);
-        return token_type_has_value(tok_type)
-            ? Token(tok_type, invalid_idx, invalid_idx, FlexString::make_owned(tok_val))
-            : Token(tok_type);
-    }
-    else if (py::isinstance<py::tuple>(tok))
-    {
-        if (py::len(tok) != 2)
+        if (element_parse_override_map.contains(element_type))
         {
-            throw py::value_error(jxc::format("make_token_from_pyobject: tuple arg must be length-2 (got {})", py::len(tok)));
+            element_parse_override_map.erase(element_type);
         }
-        py::tuple vals = py::reinterpret_borrow<py::tuple>(tok);
-        const std::string_view tok_val = py::cast<std::string_view>(vals[0]);
-        const TokenType tok_type = py::cast<TokenType>(vals[1]);
-        return token_type_has_value(tok_type)
-            ? Token(tok_type, invalid_idx, invalid_idx, FlexString::make_owned(tok_val))
-            : Token(tok_type);
     }
-    throw py::type_error(jxc::format("Can't create token from {}", py::cast<std::string>(py::repr(tok))));
+    else
+    {
+        element_parse_override_map.insert_or_assign(element_type, [parse_callback](const Element& ele) -> py::object
+        {
+            return parse_callback(detail::cast_element_to_python(ele));
+        });
+    }
 }
 
 
 void PyParser::set_annotation_constructor(py::object annotation, py::object construct)
 {
-    TokenList anno;
-    if (py::isinstance<py::tuple>(annotation) || py::isinstance<py::list>(annotation))
+    TokenList anno = make_annotation_token_list(annotation);
+    if (anno.size() == 0)
     {
-        for (py::handle item : annotation)
-        {
-            anno.tokens.push(make_token_from_pyobject(item));
-        }
-    }
-    else
-    {
-        anno.tokens.push(make_token_from_pyobject(annotation));
+        throw py::value_error(jxc::format("Value {} evaluated to empty annotation",
+            detail::debug_string_repr(py::cast<std::string>(py::repr(annotation)))));
     }
     annotation_type_map.insert_or_assign(anno, ValueConstructor::from_python(construct));
 }
@@ -257,8 +409,14 @@ void PyParser::set_find_construct_from_annotation_callback(py::object callback)
         {
             JXC_DEBUG_ASSERT(ele.annotation.size() > 0);
             JXC_DEBUG_ASSERT(!annotation_type_map.contains(ele.annotation));
-            auto result = ValueConstructor::from_python(callback(ele));
-            annotation_type_map.insert({ TokenList(ele.annotation), result });
+
+            TokenList anno_list(ele.annotation);
+
+            auto result = ValueConstructor::from_python(callback(py::cast(anno_list, py::return_value_policy::copy)));
+
+            // cache the constructor callback so we don't have to do this lookup for every duplicate suffix
+            annotation_type_map.insert({ anno_list, result });
+
             return result;
         };
     }
@@ -278,14 +436,17 @@ void PyParser::set_find_construct_from_number_suffix_callback(py::object callbac
             JXC_DEBUG_ASSERT(suffix.size() > 0);
             JXC_DEBUG_ASSERT(!number_suffix_type_map.contains(suffix));
             auto result = ValueConstructor::from_python(callback(suffix));
+
+            // cache the constructor callback so we don't have to do this lookup for every duplicate suffix
             number_suffix_type_map.insert({ std::string(suffix), result });
+
             return result;
         };
     }
 }
 
 
-void PyParser::set_custom_list_type(py::object new_type)
+void PyParser::set_custom_list_type(py::object new_type, py::str append_func_name)
 {
     if (new_type.is_none())
     {
@@ -293,10 +454,16 @@ void PyParser::set_custom_list_type(py::object new_type)
         {
             custom_list_type.reset();
         }
+
+        if (custom_list_type_append_func_name)
+        {
+            custom_list_type_append_func_name.reset();
+        }
     }
     else
     {
         custom_list_type = py::type(new_type);
+        custom_list_type_append_func_name = py::cast<std::string>(append_func_name);
     }
 }
 
@@ -335,15 +502,17 @@ py::object PyParser::parse()
 {
     if (advance())
     {
-        return parse_value(parser.value());
+        return parse_value();
     }
     return py::none();
 }
 
 
-py::object PyParser::parse_value(const Element& ele)
+py::object PyParser::parse_value()
 {
     py::object result;
+
+    const Element& ele = parser.value();
 
     const bool have_annotation = ele.annotation.size() > 0;
 
@@ -358,49 +527,63 @@ py::object PyParser::parse_value(const Element& ele)
         }
     }
 
-    switch (ele.type)
+    if (element_parse_override_map.size() > 0 && element_parse_override_map.contains(ele.type))
     {
-    case ElementType::Null:
-        result = py::none();
-        break;
-    case ElementType::Bool:
-    {
-        JXC_DEBUG_ASSERT(ele.token.type == TokenType::True || ele.token.type == TokenType::False);
-        result = py::bool_((ele.token.type == TokenType::True) ? true : false);
-        break;
+        result = element_parse_override_map[ele.type](ele);
     }
-    case ElementType::Number:
-        result = parse_number_element(ele);
-        break;
-    case ElementType::String:
-        result = parse_string_element(ele);
-        break;
-    case ElementType::Bytes:
-        result = parse_bytes_element(ele);
-        break;
-    case ElementType::DateTime:
-        result = parse_datetime_element(ele);
-        break;
-    case ElementType::BeginArray:
-        result = custom_list_type ? parse_list_custom() : parse_list();
-        break;
-    case ElementType::BeginExpression:
+    else
     {
-        ExpressionParseMode parse_mode = default_expr_parse_mode;
-        if (type_constructor && type_constructor->expr_parse_mode.has_value())
+        switch (ele.type)
         {
-            parse_mode = type_constructor->expr_parse_mode.value();
+        case ElementType::Null:
+            result = py::none();
+            break;
+        case ElementType::Bool:
+        {
+            JXC_DEBUG_ASSERT(ele.token.type == TokenType::True || ele.token.type == TokenType::False);
+            result = py::bool_((ele.token.type == TokenType::True) ? true : false);
+            break;
         }
-        result = parse_expr(parse_mode);
-        break;
-    }
-    case ElementType::BeginObject:
-        result = custom_dict_type ? parse_dict_custom() : parse_dict();
-        break;
-    default:
-        parse_error = ErrorInfo(jxc::format("Unexpected element type {}", element_type_to_string(ele.type)),
-            ele.token.start_idx, ele.token.end_idx);
-        JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
+        case ElementType::Number:
+            result = parse_number();
+            break;
+        case ElementType::String:
+            result = parse_string();
+            break;
+        case ElementType::Bytes:
+            result = parse_bytes();
+            break;
+        case ElementType::DateTime:
+            result = parse_datetime();
+            break;
+        case ElementType::BeginArray:
+            if (custom_list_type)
+            {
+                result = parse_list_custom(*custom_list_type, custom_list_type_append_func_name.value_or(std::string()));
+            }
+            else
+            {
+                result = parse_list();
+            }
+            break;
+        case ElementType::BeginExpression:
+        {
+            ExpressionParseMode parse_mode = default_expr_parse_mode;
+            if (type_constructor && type_constructor->expr_parse_mode.has_value())
+            {
+                parse_mode = type_constructor->expr_parse_mode.value();
+            }
+            result = parse_expr(parse_mode);
+            break;
+        }
+        case ElementType::BeginObject:
+            result = custom_dict_type ? parse_dict_custom(*custom_dict_type) : parse_dict();
+            break;
+        default:
+            parse_error = ErrorInfo(jxc::format("Unexpected element type {}", element_type_to_string(ele.type)),
+                ele.token.start_idx, ele.token.end_idx);
+            JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
+        }
     }
 
     if (type_constructor)
@@ -488,9 +671,10 @@ static py::object parse_python_large_integer(const util::NumberTokenSplitResult&
 }
 
 
-py::object PyParser::parse_number_element(const Element& ele)
+py::object PyParser::parse_number()
 {
-    JXC_ASSERT(ele.token.type == TokenType::Number);
+    const Element& ele = parser.value();
+    JXC_REQUIRE_TOKEN_TYPE(ele.token, Number);
 
     util::NumberTokenSplitResult number;
     if (!util::split_number_token_value(ele.token, number, parse_error))
@@ -553,9 +737,10 @@ py::object PyParser::parse_number_element(const Element& ele)
 }
 
 
-py::object PyParser::parse_string_element(const Element& ele)
+py::object PyParser::parse_string()
 {
-    JXC_ASSERT(ele.token.type == TokenType::String);
+    const Element& ele = parser.value();
+    JXC_REQUIRE_TOKEN_TYPE(ele.token, String);
     std::string result;
     if (!util::parse_string_token(ele.token, result, parse_error))
     {
@@ -583,9 +768,10 @@ py::object PyParser::parse_string_element(const Element& ele)
 }
 
 
-py::object PyParser::parse_bytes_element(const Element& ele)
+py::object PyParser::parse_bytes()
 {
-    JXC_ASSERT(ele.token.type == TokenType::ByteString);
+    const Element& ele = parser.value();
+    JXC_REQUIRE_TOKEN_TYPE(ele.token, ByteString);
 
     py::bytearray result{};
     std::string_view value = ele.token.value.as_view();
@@ -612,10 +798,10 @@ py::object PyParser::parse_bytes_element(const Element& ele)
 }
 
 
-py::object PyParser::parse_datetime_element(const Element& ele)
+py::object PyParser::parse_datetime()
 {
-    JXC_ASSERT(ele.token.type == TokenType::DateTime);
-
+    const Element& ele = parser.value();
+    JXC_REQUIRE_TOKEN_TYPE(ele.token, DateTime);
     if (util::datetime_token_is_date(ele.token))
     {
         jxc::Date result;
@@ -639,10 +825,8 @@ py::object PyParser::parse_datetime_element(const Element& ele)
 
 py::object PyParser::parse_list()
 {
-    const Element& start_ele = parser.value();
-
     py::list result{};
-    JXC_ASSERT(start_ele.type == ElementType::BeginArray);
+    JXC_REQUIRE_ELEMENT_TYPE(parser.value(), BeginArray);
     while (advance())
     {
         const Element& ele = parser.value();
@@ -650,21 +834,21 @@ py::object PyParser::parse_list()
         {
             break;
         }
-        result.append(parse_value(ele));
+        result.append(parse_value());
     }
 
     return result;
 }
 
 
-py::object PyParser::parse_list_custom()
+py::object PyParser::parse_list_custom(py::type list_type, const std::string& append_func_name)
 {
-    JXC_DEBUG_ASSERT(custom_list_type.has_value());
+    JXC_DEBUG_ASSERT(list_type.ptr() != nullptr);
+    py::object result = list_type();
 
-    const Element& start_ele = parser.value();
+    const char* append = (append_func_name.size() > 0) ? append_func_name.c_str() : "append";
 
-    py::object result = (*custom_list_type)();
-    JXC_ASSERT(start_ele.type == ElementType::BeginArray);
+    JXC_REQUIRE_ELEMENT_TYPE(parser.value(), BeginArray);
     while (advance())
     {
         const Element& ele = parser.value();
@@ -672,15 +856,15 @@ py::object PyParser::parse_list_custom()
         {
             break;
         }
-        result.attr("append")(parse_value(ele));
+        result.attr(append)(parse_value());
     }
-
     return result;
 }
 
 
-py::object PyParser::parse_expr_value(const Element& ele)
+py::object PyParser::parse_expr_value(bool allow_tokens)
 {
+    const Element& ele = parser.value();
     switch (ele.type)
     {
     case ElementType::Null:
@@ -688,17 +872,24 @@ py::object PyParser::parse_expr_value(const Element& ele)
     case ElementType::Bool:
         return (ele.token.type == TokenType::True) ? py::bool_(true) : py::bool_(false);
     case ElementType::Number:
-        return parse_number_element(ele);
+        return parse_number();
     case ElementType::String:
-        return parse_string_element(ele);
+        return parse_string();
     case ElementType::Bytes:
-        return parse_bytes_element(ele);
+        return parse_bytes();
     case ElementType::DateTime:
-        return parse_datetime_element(ele);
-    case ElementType::ExpressionToken:
-        return py::cast(ele.token.value);
+        return parse_datetime();
     case ElementType::Comment:
-        return py::cast(ele.token.value);
+        // fallthrough
+    case ElementType::ExpressionToken:
+        if (allow_tokens)
+        {
+            return py::cast(std::move(ele.token.copy()), py::return_value_policy::move);
+        }
+        else
+        {
+            return py::cast(ele.token.value);
+        }
     default:
         break;
     }
@@ -709,29 +900,32 @@ py::object PyParser::parse_expr_value(const Element& ele)
 }
 
 
-py::object PyParser::parse_expr_token(const Element& ele)
+Token PyParser::parse_expr_token()
 {
-    if (element_is_expression_value_type(ele.type))
+    const Element& ele = parser.value();
+    if (!element_is_expression_value_type(ele.type))
     {
-        return py::cast(ele.token.copy(), py::return_value_policy::move);
+        parse_error = ErrorInfo(jxc::format("Invalid element for expression value {}", element_type_to_string(ele.type)),
+            ele.token.start_idx, ele.token.end_idx);
+        JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
     }
 
-    parse_error = ErrorInfo(jxc::format("Invalid element for expression value {}", element_type_to_string(ele.type)),
-        ele.token.start_idx, ele.token.end_idx);
-    JXC_PYTHON_PARSE_ERROR(py::value_error, parse_error);
+    return ele.token.copy();
 }
 
 
 py::object PyParser::parse_expr(ExpressionParseMode parse_mode)
 {
-    const Element& start_ele = parser.value();
-    const size_t expr_start_idx = start_ele.token.start_idx;
-    JXC_ASSERT(start_ele.type == ElementType::BeginExpression);
-
     py::object result;
+    JXC_REQUIRE_ELEMENT_TYPE(parser.value(), BeginExpression);
+    const size_t expr_start_idx = parser.value().token.start_idx;
+    bool allow_tokens = false;
 
     switch (parse_mode)
     {
+    case ExpressionParseMode::ValueAndTokenList:
+        allow_tokens = true;
+        // fallthrough
     case ExpressionParseMode::ValueList:
     {
         py::list list_result{};
@@ -742,32 +936,19 @@ py::object PyParser::parse_expr(ExpressionParseMode parse_mode)
             {
                 break;
             }
-            else if (ele.type != ElementType::Comment)
+            else if (ele.type == ElementType::Comment)
             {
-                list_result.append(parse_expr_value(ele));
+                continue;
             }
-        }
-        result = list_result;
-        break;
-    }
-    case ExpressionParseMode::ValueListWithComments:
-    {
-        py::list list_result{};
-        while (advance())
-        {
-            const Element& ele = parser.value();
-            if (ele.type == ElementType::EndExpression)
-            {
-                break;
-            }
-            list_result.append(parse_expr_value(ele));
+
+            list_result.append(parse_expr_value(allow_tokens));
         }
         result = list_result;
         break;
     }
     case ExpressionParseMode::TokenList:
     {
-        py::list list_result{};
+        TokenList list_result;
         while (advance())
         {
             const Element& ele = parser.value();
@@ -775,9 +956,22 @@ py::object PyParser::parse_expr(ExpressionParseMode parse_mode)
             {
                 break;
             }
-            list_result.append(parse_expr_token(ele));
+            list_result.tokens.push(parse_expr_token());
         }
-        result = list_result;
+
+        // get the source substring for the token list
+        if (list_result.size() > 0)
+        {
+            const size_t start_idx = list_result[0].start_idx;
+            const size_t end_idx = list_result[list_result.size() - 1].end_idx;
+            if (end_idx >= start_idx && start_idx < buf.size() && end_idx < buf.size())
+            {
+                const size_t source_len = end_idx - start_idx;
+                list_result.src = FlexString(std::string_view(buf).substr(start_idx, source_len));
+            }
+        }
+
+        result = py::cast(list_result);
         break;
     }
     case ExpressionParseMode::SourceString:
@@ -833,9 +1027,10 @@ py::object PyParser::parse_expr(ExpressionParseMode parse_mode)
 }
 
 
-py::object PyParser::parse_key(const Element& ele)
+py::object PyParser::parse_dict_key()
 {
-    JXC_ASSERT(ele.type == ElementType::ObjectKey);
+    const Element& ele = parser.value();
+    JXC_REQUIRE_ELEMENT_TYPE(ele, ObjectKey);
     switch (ele.token.type)
     {
     case TokenType::Identifier:
@@ -848,7 +1043,7 @@ py::object PyParser::parse_key(const Element& ele)
         return py::none();
     case TokenType::Number:
     {
-        py::object number_val = parse_number_element(ele);
+        py::object number_val = parse_number();
         if (py::isinstance<py::float_>(number_val))
         {
             parse_error = ErrorInfo("Got float type for dict key", ele.token.start_idx, ele.token.end_idx);
@@ -857,9 +1052,9 @@ py::object PyParser::parse_key(const Element& ele)
         return number_val;
     }
     case TokenType::String:
-        return parse_string_element(ele);
+        return parse_string();
     case TokenType::ByteString:
-        return parse_bytes_element(ele);
+        return parse_bytes();
     default:
         parse_error = ErrorInfo(jxc::format("Invalid token for dict key {}", ele.token.to_repr()),
             ele.token.start_idx, ele.token.end_idx);
@@ -871,8 +1066,7 @@ py::object PyParser::parse_key(const Element& ele)
 py::object PyParser::parse_dict()
 {
     const Element& start_ele = parser.value();
-    JXC_ASSERT(start_ele.type == ElementType::BeginObject);
-
+    JXC_REQUIRE_ELEMENT_TYPE(start_ele, BeginObject);
     py::dict result{};
     while (advance())
     {
@@ -881,26 +1075,24 @@ py::object PyParser::parse_dict()
         {
             break;
         }
-        py::object key = parse_key(key_ele);
+        py::object key = parse_dict_key();
         if (!advance())
         {
             break;
         }
-        result[key] = parse_value(parser.value());
+        result[key] = parse_value();
     }
 
     return result;
 }
 
 
-py::object PyParser::parse_dict_custom()
+py::object PyParser::parse_dict_custom(py::type dict_type)
 {
-    JXC_DEBUG_ASSERT(custom_dict_type.has_value());
-
+    JXC_DEBUG_ASSERT(dict_type.ptr() != nullptr);
     const Element& start_ele = parser.value();
-    JXC_ASSERT(start_ele.type == ElementType::BeginObject);
-
-    py::object result = (*custom_dict_type)();
+    JXC_REQUIRE_ELEMENT_TYPE(start_ele, BeginObject);
+    py::object result = dict_type();
     while (advance())
     {
         const Element& key_ele = parser.value();
@@ -908,15 +1100,14 @@ py::object PyParser::parse_dict_custom()
         {
             break;
         }
-        py::object key = parse_key(key_ele);
+        py::object key = parse_dict_key();
         if (!advance())
         {
             break;
         }
 
-        result[key] = parse_value(parser.value());
+        result[key] = parse_value();
     }
-
     return result;
 }
 

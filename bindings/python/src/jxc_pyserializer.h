@@ -58,17 +58,22 @@ private:
     FindEncoderFunc default_primary_encoder_callback;
     FindEncoderFunc default_secondary_encoder_callback;
 
+    static IOutputBuffer* init_output_buffer(PyOutputBuffer& out_buffer)
+    {
+        out_buffer = PyOutputBuffer();
+        return &out_buffer;
+    }
+
 public:
     bool encode_inline = false;
     bool sort_keys = false;
     bool decode_unicode = false;
 
     PySerializer(const SerializerSettings& settings, bool encode_inline, bool sort_keys, bool decode_unicode)
-        : py_output_buffer()
-        , encode_inline(encode_inline)
+        : encode_inline(encode_inline)
         , sort_keys(sort_keys)
         , decode_unicode(decode_unicode)
-        , Serializer(&py_output_buffer, settings)
+        , Serializer(init_output_buffer(py_output_buffer), settings)
     {
     }
 
@@ -94,8 +99,8 @@ public:
 
     PySerializer& object_key(py::object key);
 
-    PySerializer& value_sequence(py::sequence val);
-    PySerializer& value_dict(py::dict val);
+    PySerializer& value_sequence(py::sequence val, std::string_view separator = std::string_view{});
+    PySerializer& value_dict(py::dict val, std::string_view separator = std::string_view{});
     PySerializer& value_auto(py::object val);
 };
 

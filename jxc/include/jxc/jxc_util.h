@@ -130,8 +130,8 @@ inline bool is_valid_identifier_char(char ch)
 bool is_valid_identifier(std::string_view value);
 
 
-// Checks if a given string is a valid identifier for an object key (allows dots or dashes as separators)
-bool is_valid_object_key(std::string_view key);
+// Checks if a given string is a valid identifier for an object key (allows dots as separators)
+bool is_valid_object_key(std::string_view key, bool allow_separators = true);
 
 // Classifier for JXC float literals (nan, +inf, -inf)
 enum class FloatLiteralType : uint8_t
@@ -248,7 +248,7 @@ inline std::ostream& operator<<(std::ostream& os, TokenType type)
 const char* token_type_to_symbol(TokenType type);
 
 
-TokenType token_type_from_symbol(std::string_view symbol);
+TokenType token_type_from_symbol(std::string_view symbol, bool allow_object_key = true);
 
 
 inline TokenType token_type_from_symbol(char symbol)
@@ -634,9 +634,11 @@ private:
 
 public:
     TokenList() = default;
+
+    explicit TokenList(TokenView span) { copy_from_internal(span); }
+
     TokenList(const TokenList& rhs) { copy_from_internal(rhs); }
     TokenList& operator=(const TokenList& rhs) { copy_from_internal(rhs); return *this; }
-    explicit TokenList(TokenView span) { copy_from_internal(span); }
 
     TokenList(TokenList&& rhs) = default;
     TokenList& operator=(TokenList&& rhs) = default;
@@ -680,15 +682,19 @@ public:
     friend bool operator==(std::string_view lhs, const TokenList& rhs) { return rhs.operator==(lhs); }
     friend bool operator!=(std::string_view lhs, const TokenList& rhs) { return rhs.operator!=(lhs); }
 
-    void reset() { tokens.clear(); }
+    void reset() { tokens.clear(); src.reset(); }
 
     size_t size() const { return tokens.size(); }
+
+    TokenList slice_copy(size_t start_idx, size_t length) const;
+
+    inline TokenView slice_view(size_t start_idx, size_t length) const { return TokenView(*this).slice(start_idx, length); }
 
     FlexString source(bool force_owned = false) const;
 
     inline uint64_t hash() const { return TokenView(*this).hash(); }
 
-    inline std::string to_repr() const { return TokenView(*this).to_repr(); }
+    std::string to_repr() const;
     inline std::string to_string() const { return TokenView(*this).to_string(); }
 };
 

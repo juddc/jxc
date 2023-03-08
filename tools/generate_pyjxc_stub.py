@@ -553,7 +553,7 @@ def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, or
             docstr_lines = docstr_lines[:-1]
         # recombine docstring without the function signatures
         docstr = '\n'.join(docstr_lines)
-
+    
     # clean up docstring so we're not duplicating the overload data in each overloaded function
     if is_overloaded:
         docstr = strip_overloads_from_docstring(docstr)
@@ -592,6 +592,10 @@ def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, or
         forced_ret_type = 'int'
     elif item_name in STR_FUNC_NAMES:
         forced_ret_type = 'str'
+    elif 'ReturnType=Element' in docstr:
+        #TODO: find a cleaner, less hard-coded way to encode this...
+        docstr = docstr.replace('ReturnType=Element', '')
+        forced_ret_type = 'Element'
 
     for sig in sigs:
         if forced_ret_type is not None:

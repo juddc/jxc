@@ -15,6 +15,7 @@ from _pyjxc import (
     ErrorInfo,
     Parser,
     Token,
+    TokenList,
     Element,
     Serializer,
     SerializerSettings,
@@ -28,6 +29,8 @@ from _pyjxc import (
     element_is_expression_value_type,
     element_is_value_type,
     set_custom_assert_handler,
+    make_token,
+    make_token_list,
 )
 
 from . import (encode, decode)

@@ -177,7 +177,7 @@ def parse(docgen_path: str) -> SiteGenerator:
             fp.read(),
             ignore_unknown_annotations=False,
             ignore_unknown_number_suffixes=False,
-            annotation_hooks=[(cls.__name__, (cls, mode)) for (cls, mode) in annotation_classes])
+            annotation_hooks={ cls.__name__: (cls, mode) for (cls, mode) in annotation_classes })
 
     if not isinstance(result, SiteGenerator):
         raise ValueError(f"Failed to parse docgen: Expected SiteGenerator type, got {type(result)}")

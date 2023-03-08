@@ -484,12 +484,12 @@ bool is_valid_identifier(std::string_view value)
 }
 
 
-bool is_valid_object_key(std::string_view key)
+bool is_valid_object_key(std::string_view key, bool allow_separators)
 {
-    // ([a-zA-Z_$*][a-zA-Z0-9_$*]*)([\.\-][a-zA-Z_$*][a-zA-Z0-9_$*]*)*')
+    // ([a-zA-Z_$*][a-zA-Z0-9_$*]*)([\.][a-zA-Z_$*][a-zA-Z0-9_$*]*)*')
     auto is_valid_first_char = [](char ch) { return is_valid_identifier_first_char(ch) || ch == '*'; };
     auto is_valid_char = [](char ch) { return is_valid_identifier_char(ch) || ch == '*'; };
-    auto is_separator = [](char ch) { return ch == '.' || ch == '-'; };
+    auto is_separator = [](char ch) { return ch == '.'; };
 
     if (key.size() == 0 || (!is_valid_first_char(key[0]) && !is_separator(key[0])))
     {
@@ -503,6 +503,10 @@ bool is_valid_object_key(std::string_view key)
         const char ch = key[idx];
         if (is_separator(ch))
         {
+            if (!allow_separators)
+            {
+                return false;
+            }
             segment_len = 0;
         }
         else
@@ -839,7 +843,7 @@ const char* token_type_to_symbol(TokenType type)
 }
 
 
-TokenType token_type_from_symbol(std::string_view sym)
+TokenType token_type_from_symbol(std::string_view sym, bool allow_object_key)
 {
     const size_t sz = sym.size();
     auto is_quote_char = [](char ch) { return ch == '\'' || ch == '\"'; };
@@ -888,6 +892,12 @@ TokenType token_type_from_symbol(std::string_view sym)
         default: break;
         }
         break;
+    case 3:
+        if ((sym[0] == 'n' && sym[1] == 'a' && sym[2] == 'n') || (sym[0] == 'i' && sym[1] == 'n' && sym[2] == 'f'))
+        {
+            return TokenType::Number;
+        }
+        break;
     case 4:
         if (sym[0] == 't' && sym[1] == 'r' && sym[2] == 'u' && sym[3] == 'e')
         {
@@ -920,7 +930,7 @@ TokenType token_type_from_symbol(std::string_view sym)
     {
         return TokenType::DateTime;
     }
-    else if (is_valid_identifier(sym) || is_valid_object_key(sym))
+    else if (is_valid_identifier(sym) || (allow_object_key && is_valid_object_key(sym)))
     {
         return TokenType::Identifier;
     }
@@ -1036,6 +1046,59 @@ std::string Token::to_string() const
 }
 
 
+JXC_BEGIN_NAMESPACE(detail)
+
+template<typename T>
+static inline bool token_list_slice(const T& tokens, size_t start_idx, size_t length, size_t& out_start_idx, size_t& out_length, std::string_view& out_source)
+{
+    static_assert(std::is_same_v<T, TokenView> || std::is_same_v<T, TokenList>,
+        "token_list_slice requires a TokenView or TokenList type");
+
+    out_start_idx = start_idx;
+    out_length = length;
+    out_source = std::string_view{""};
+
+    if (tokens.size() == 0)
+    {
+        // we can return "success" here only if the requested slice is length-0 starting from the first index
+        return start_idx == 0 && length == 0;
+    }
+
+    const Token* start_token = &tokens[0];
+    const size_t num_tokens = tokens.size();
+
+    std::string_view token_source = tokens.source().as_view();
+
+    // make sure out_length is valid for the size of the token array
+    if (start_idx < num_tokens)
+    {
+        const size_t tokens_remaining = num_tokens - start_idx;
+        out_length = (length > tokens_remaining) ? tokens_remaining : length;
+    }
+
+    // determine the slice of token_source that this token slice represents
+    if (out_length > 0 && num_tokens > 0 && token_source.size() > 0)
+    {
+        const size_t base_idx = start_token->start_idx;
+        size_t start_idx = start_token[0].start_idx;
+        size_t end_idx = start_token[num_tokens - 1].end_idx;
+        if (start_idx >= base_idx && end_idx >= base_idx && end_idx >= start_idx)
+        {
+            start_idx -= base_idx;
+            end_idx -= base_idx;
+            if (start_idx < token_source.size() && end_idx < token_source.size())
+            {
+                out_source = token_source.substr(start_idx, end_idx - start_idx);
+            }
+        }
+    }
+
+    return true;
+}
+
+JXC_END_NAMESPACE(detail)
+
+
 TokenView::TokenView(const TokenList& rhs)
     : start(const_cast<Token*>(rhs.tokens.data()))
     , num_tokens(rhs.size())
@@ -1071,7 +1134,17 @@ bool TokenView::operator==(std::string_view rhs) const
 
 TokenView TokenView::slice(size_t start_idx, size_t length) const
 {
-    TokenView result = {};
+    size_t result_start_idx = 0;
+    size_t result_length = 0;
+    std::string_view result_source_view;
+    if (detail::token_list_slice<TokenView>(*this, start_idx, length, result_start_idx, result_length, result_source_view))
+    {
+        return TokenView{ start[result_start_idx], result_length, result_source_view };
+    }
+    return TokenView{};
+
+    /*
+    TokenView result;
     if (start_idx < num_tokens)
     {
         result.start = &start[start_idx];
@@ -1095,8 +1168,8 @@ TokenView TokenView::slice(size_t start_idx, size_t length) const
             }
         }
     }
-
     return result;
+    */
 }
 
 
@@ -1146,6 +1219,14 @@ std::string TokenView::to_string() const
     std::ostringstream ss;
     for (size_t i = 0; i < num_tokens; i++)
     {
+        if (i > 0
+            && start[i].type != TokenType::Comma
+            && start[i].type != TokenType::Period
+            && start[i - 1].type != TokenType::Period)
+        {
+            ss << ' ';
+        }
+
         ss << start[i].to_string();
     }
     return ss.str();
@@ -1668,6 +1749,33 @@ void TokenList::serialize(Serializer& doc) const
 }
 
 
+TokenList TokenList::slice_copy(size_t start_idx, size_t length) const
+{
+    TokenList result;
+
+    size_t result_start_idx = 0;
+    size_t result_length = 0;
+    std::string_view result_source_view;
+    if (detail::token_list_slice<TokenList>(*this, start_idx, length, result_start_idx, result_length, result_source_view))
+    {
+        result.tokens.resize(result_length);
+
+        size_t idx = result_start_idx;
+        size_t last_idx = idx + result_length;
+        while (idx < last_idx)
+        {
+            JXC_DEBUG_ASSERT(idx >= result_start_idx && (result_start_idx - idx) < result_length);
+            result.tokens[result_start_idx - idx] = tokens[idx].copy();
+            ++idx;
+        }
+
+        result.src = FlexString(result_source_view);
+    }
+
+    return result;
+}
+
+
 FlexString TokenList::source(bool force_owned) const
 {
     if (src.size() > 0)
@@ -1682,6 +1790,25 @@ FlexString TokenList::source(bool force_owned) const
     {
         return detail::concat_token_values(&tokens.front(), tokens.size());
     }
+}
+
+
+std::string TokenList::to_repr() const
+{
+    std::ostringstream ss;
+    ss << "TokenList(";
+    bool first = true;
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+        if (!first)
+        {
+            ss << ", ";
+        }
+        ss << tokens[i].to_repr();
+        first = false;
+    }
+    ss << ")";
+    return ss.str();
 }
 
 

@@ -175,6 +175,7 @@ template<typename T>
 struct TElement
 {
     using anno_type = T;
+    static constexpr bool owned_data = std::is_same_v<anno_type, TokenList>;
 
     ElementType type = ElementType::Invalid;
     Token token;
@@ -182,16 +183,20 @@ struct TElement
 
     TElement() = default;
 
-    TElement(ElementType type)
-        : type(type)
+    TElement(ElementType in_type)
+        : type(in_type)
     {
     }
 
-    TElement(ElementType type, const Token& token, const anno_type& annotation)
-        : type(type)
-        , token(token)
-        , annotation(annotation)
+    TElement(ElementType in_type, const Token& in_token, const anno_type& in_annotation)
+        : type(in_type)
+        , token(in_token)
+        , annotation(in_annotation)
     {
+        if constexpr (owned_data)
+        {
+            token.to_owned_inplace();
+        }
     }
 
     TElement(const TElement& rhs) = default;

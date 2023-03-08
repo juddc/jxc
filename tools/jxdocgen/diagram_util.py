@@ -11,14 +11,6 @@ import _pyjxc
 from jxc import Token, TokenType
 
 
-class ParseError(ValueError):
-    def __init__(self, msg: str, tok: Token, orig_buf: str):
-        err = _pyjxc.ErrorInfo(msg, tok.start_idx, tok.end_idx)
-        err.get_line_and_col_from_buffer(orig_buf)
-        super().__init__(err.to_string(orig_buf))
-
-
-
 def char_repr(ch: str, quote_char='`') -> str:
     if not isinstance(ch, str) or len(ch) != 1:
         raise ValueError(f"Expected single character, got {ch!r}")
@@ -220,19 +212,20 @@ class PatternRepeat:
 
 
     @classmethod
-    def parse(cls, expr: list[typing.Any]):
-        if len(expr) == 0 or not isinstance(expr, list):
-            raise ValueError("Expected non-empty repeat expression or list")
+    def parse(cls, expr: typing.Union[list, jxc.TokenList]):
+        if len(expr) == 0 or not isinstance(expr, (list, jxc.TokenList)):
+            raise ValueError(f"Expected non-empty repeat expression or TokenList (got {expr!r})")
 
         # if we don't get tokens, assume we got a list of Matches
-        if not isinstance(expr[0], Token):
+        if not isinstance(expr, jxc.TokenList):
             vals = [ match for match in expr ]
             grp = vals.pop() if len(vals) > 1 and isinstance(vals[-1], str) else None
             return cls(values=vals, group_name=grp)
 
         src_range = (expr[0].start_idx, expr[-1].end_idx)
 
-        match expr:
+        #TODO: determine why converting a TokenList to list is needed
+        match list(expr):
             case [Token(TokenType.Number)]:
                 return cls(
                     values=[PatternRepeat._parse_count_number_token(expr[0])],
@@ -453,9 +446,9 @@ class SyntaxParser:
         self.parser.set_find_construct_from_annotation_callback(self.parse_annotation)
         self._refs = set()
 
-    def parse_annotation(self, ele: jxc.Element) -> jxc.decode.ValueConstructor:
-        #TODO: investigate why converting to list is needed here
-        match list(ele.annotation):
+    def parse_annotation(self, anno: jxc.TokenList) -> jxc.decode.ValueConstructor:
+        #TODO: determine why converting a TokenList to list is needed
+        match list(anno):
             case []:
                 return None
             case [Token(TokenType.Identifier, ident)]:
@@ -463,7 +456,7 @@ class SyntaxParser:
             case [Token(TokenType.Identifier, ident), Token(TokenType.AngleBracketOpen), Token(TokenType.Identifier, ident_inner), Token(TokenType.AngleBracketClose)]:
                 return self._find_construct(ident, ident_inner)
             case _:
-                raise ParseError(f'Invalid annotation {ele.annotation.source()!r}', ele.token, self.buf)
+                raise jxc.decode.ParseError.make('Invalid annotation', anno, self.buf)
 
     def _find_construct(self, ident: str, ident_inner: typing.Optional[str] = None) -> jxc.decode.ValueConstructor:
         pat = getattr(PatternType, ident_inner) if ident_inner is not None else None

@@ -28,7 +28,9 @@ def construct_test_enum_int(val):
         return TestEnumInt(val)
     elif isinstance(val, str):
         return getattr(TestEnumInt, val)
-    elif isinstance(val, list) and len(val) == 1 and type(val[0]) in (int, str):
+    elif isinstance(val, jxc.Token) and val.type == jxc.TokenType.Identifier:
+        return construct_test_enum_int(val.value)
+    elif isinstance(val, (list, tuple)) and len(val) == 1:
         return construct_test_enum_int(val[0])
     raise ValueError(f'Value {val!r} not valid for TestEnumInt')
 
@@ -69,13 +71,29 @@ class ClassTests(unittest.TestCase):
         self.assertEqual(jxc.dumps(TestEnumStr.C, encode_enum=True), 'pyjxc_tests.test_classes.TestEnumStr "C"')
 
     def test_enum_parsing_custom(self):
-        anno_hooks = [(TestEnumInt.__name__, construct_test_enum_int)]
-        self.assertEqual(jxc.loads("TestEnumInt 0", annotation_hooks=anno_hooks), TestEnumInt.A)
-        self.assertEqual(jxc.loads("TestEnumInt 'A'", annotation_hooks=anno_hooks), TestEnumInt.A)
-        self.assertEqual(jxc.loads("TestEnumInt(A)", annotation_hooks=anno_hooks), TestEnumInt.A)
-        self.assertEqual(jxc.loads("TestEnumInt(C)", annotation_hooks=anno_hooks), TestEnumInt.C)
-        self.assertEqual(jxc.loads("TestEnumInt['A']", annotation_hooks=anno_hooks), TestEnumInt.A)
-        self.assertEqual(jxc.loads("TestEnumInt[0]", annotation_hooks=anno_hooks), TestEnumInt.A)
+        hooks = {
+            TestEnumInt.__name__: (construct_test_enum_int, jxc.ExpressionParseMode.ValueAndTokenList),
+            f'!{TestEnumInt.__name__}': (construct_test_enum_int, jxc.ExpressionParseMode.ValueAndTokenList),
+        }
+        self.assertEqual(jxc.loads("TestEnumInt 0", annotation_hooks=hooks), TestEnumInt.A)
+        self.assertEqual(jxc.loads("TestEnumInt 'A'", annotation_hooks=hooks), TestEnumInt.A)
+        self.assertEqual(jxc.loads("TestEnumInt(A)", annotation_hooks=hooks), TestEnumInt.A)
+        self.assertEqual(jxc.loads("TestEnumInt(C)", annotation_hooks=hooks), TestEnumInt.C)
+        self.assertEqual(jxc.loads("TestEnumInt ['A']", annotation_hooks=hooks), TestEnumInt.A)
+        self.assertEqual(jxc.loads("TestEnumInt[0]", annotation_hooks=hooks), TestEnumInt.A)
+
+    def test_custom_annos(self):
+        parser = jxc.Parser()
+
+        def construct(val: list[int]):
+            assert isinstance(val, list) and len(val) == 3 and all(isinstance(v, int) for v in val)
+            return val
+
+        parser.set_annotation_constructor(('vec3', jxc.TokenType.AngleBracketOpen, 'int', jxc.TokenType.AngleBracketClose), construct)
+        parser.set_annotation_constructor('vec3', construct)
+
+        self.assertEqual(parser.parse("vec3<int>[ 0, 2, -4 ]"), [ 0, 2, -4 ])
+        self.assertEqual(parser.parse("vec3[ -1, 0, 1 ]"), [ -1, 0, 1 ])
 
     def test_enum_serializing_custom(self):
         encoders = { TestEnumInt: encode_test_enum_int }

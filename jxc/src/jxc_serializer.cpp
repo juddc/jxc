@@ -88,12 +88,32 @@ size_t OutputBuffer::write(char a, char b)
 JXC_END_NAMESPACE(detail)
 
 
-Serializer::Serializer(IOutputBuffer* output, const SerializerSettings& settings)
-    : settings(settings)
-    , value_separator_has_linebreak(detail::find_linebreak(settings.value_separator.c_str(), settings.value_separator.size()))
-    , output(output)
+Serializer::Serializer(IOutputBuffer* output_buffer, const SerializerSettings& serializer_settings)
+    : output(output_buffer)
 {
-    container_stack.push(StackVars{ ST_Invalid });
+    set_settings(serializer_settings);
+    container_stack.push(detail::SerializerStackVars{ detail::SerializerStackType::Invalid });
+}
+
+
+void Serializer::set_output_buffer(IOutputBuffer* new_buffer)
+{
+    JXC_ASSERT(new_buffer != nullptr);
+    output = detail::OutputBuffer(new_buffer);
+
+    // reset any serialization state
+    last_token_size = 0;
+    annotation_buffer.clear();
+    container_stack.clear();
+    container_stack.push(detail::SerializerStackVars{ detail::SerializerStackType::Invalid });
+}
+
+
+void Serializer::set_settings(const SerializerSettings& new_settings)
+{
+    settings = new_settings;
+
+    value_separator_has_linebreak = detail::find_linebreak(settings.value_separator.c_str(), settings.value_separator.size());
 
     indent_width = 0;
     for (size_t i = 0; i < settings.indent.size(); i++)
@@ -134,7 +154,7 @@ size_t Serializer::pre_write_token(TokenType type, std::string_view post_annotat
     // }
 
     // writing a key into a non-empty object, or a value into a non-empty array, so add a separator first
-    if (vars.type == ST_Array || (vars.type == ST_Obj && !vars.pending_value))
+    if (vars.type == detail::SerializerStackType::Array || (vars.type == detail::SerializerStackType::Obj && !vars.pending_value))
     {
         if (vars.suppress_next_separator)
         {
@@ -160,7 +180,7 @@ size_t Serializer::pre_write_token(TokenType type, std::string_view post_annotat
         }
     }
 
-    if (vars.type == ST_Array || (vars.type == ST_Obj && !vars.pending_value))
+    if (vars.type == detail::SerializerStackType::Array || (vars.type == detail::SerializerStackType::Obj && !vars.pending_value))
     {
         // starting a new value inside a container?
         switch (type)
@@ -211,7 +231,7 @@ void Serializer::post_write_token()
 bool Serializer::is_pending_object_key() const
 {
     auto& vars = container_stack_top();
-    return vars.type == ST_Obj && !vars.pending_value;
+    return vars.type == detail::SerializerStackType::Obj && !vars.pending_value;
 }
 
 
@@ -603,7 +623,7 @@ Serializer& Serializer::identifier_or_string(std::string_view value, StringQuote
 Serializer& Serializer::comment(std::string_view value)
 {
     auto& vars = container_stack_top();
-    if (vars.type == ST_Array || (vars.type == ST_Obj && !vars.pending_value))
+    if (vars.type == detail::SerializerStackType::Array || (vars.type == detail::SerializerStackType::Obj && !vars.pending_value))
     {
         bool sep_has_linebreak = false;
         if (vars.container_size > 0)
@@ -645,7 +665,7 @@ Serializer& Serializer::array_begin(std::string_view separator)
     last_token_size = pre_write_token(TokenType::SquareBracketOpen, "");
     last_token_size += output.write('[');
     post_write_token();
-    auto& vars = container_stack.push(ST_Array);
+    auto& vars = container_stack.push(detail::SerializerStackType::Array);
     if (separator.size() > 0)
     {
         vars.set_separator(separator);
@@ -657,7 +677,7 @@ Serializer& Serializer::array_begin(std::string_view separator)
 Serializer& Serializer::array_end()
 {
     auto& vars = container_stack_top();
-    JXC_ASSERT(vars.type == ST_Array);
+    JXC_ASSERT(vars.type == detail::SerializerStackType::Array);
     if (vars.container_size > 0)
     {
         bool sep_has_linebreak = false;
@@ -689,14 +709,14 @@ ExpressionProxy Serializer::expression_begin()
     last_token_size = pre_write_token(TokenType::ParenOpen, "");
     last_token_size += output.write('(');
     post_write_token();
-    container_stack.push(ST_Expr);
+    container_stack.push(detail::SerializerStackType::Expr);
     return ExpressionProxy(*this);
 }
 
 
 Serializer& Serializer::expression_end()
 {
-    JXC_ASSERT(container_stack_top().type == ST_Expr);
+    JXC_ASSERT(container_stack_top().type == detail::SerializerStackType::Expr);
     container_stack.pop_back();
     output.write(")");
     return *this;
@@ -731,7 +751,7 @@ Serializer& Serializer::object_begin(std::string_view separator)
     last_token_size = pre_write_token(TokenType::BraceOpen, "");
     last_token_size += output.write('{');
     post_write_token();
-    auto& vars = container_stack.push(ST_Obj);
+    auto& vars = container_stack.push(detail::SerializerStackType::Obj);
     if (separator.size() > 0)
     {
         vars.set_separator(separator);
@@ -743,7 +763,7 @@ Serializer& Serializer::object_begin(std::string_view separator)
 Serializer& Serializer::object_end()
 {
     auto& vars = container_stack_top();
-    JXC_ASSERT(vars.type == ST_Obj);
+    JXC_ASSERT(vars.type == detail::SerializerStackType::Obj);
     if (vars.container_size > 0)
     {
         bool sep_has_linebreak = false;

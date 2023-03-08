@@ -51,6 +51,14 @@ bool is_python_datetime(py::handle value);
 py::object create_tzinfo_from_offset(int8_t tz_hour, uint8_t tz_minute);
 void get_tzinfo_offset(py::handle datetime, const py::object& tzinfo, int8_t& out_tz_hour, uint8_t& out_tz_minute);
 
+// Converts an Element to an OwnedElement that is owned by Python.
+// This is _much_ safer than binding Element, which contains pointers and views, directly to Python code.
+inline py::object cast_element_to_python(const Element& ele)
+{
+    OwnedElement owned_ele{ ele.type, ele.token, TokenList(ele.annotation) };
+    return py::cast(std::move(owned_ele), py::return_value_policy::move);
+}
+
 JXC_END_NAMESPACE(jxc::detail)
 
 
@@ -86,6 +94,29 @@ public:
         return PyUnicode_FromStringAndSize(src.data(), src.size());
     }
 };
+
+
+template<>
+struct type_caster<jxc::Element>
+{
+public:
+    PYBIND11_TYPE_CASTER(jxc::Element, const_name("Element"));
+
+    // Python -> C++
+    bool load(handle src, bool /* implicit_conversion_allowed */)
+    {
+        // no conversion allowed - jxc::Element is a view, so we have no place to store data
+        throw cast_error("Don't pass Element values to Python (use OwnedElement instead)");
+        return false;
+    }
+
+    // C++ -> Python
+    static handle cast(const jxc::Element& ele, return_value_policy /* policy */, handle /* parent */)
+    {
+        throw cast_error("Don't pass Element values to Python (use OwnedElement instead)");
+    }
+};
+
 
 template<>
 struct type_caster<jxc::Date>
