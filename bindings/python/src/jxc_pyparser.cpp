@@ -962,8 +962,8 @@ py::object PyParser::parse_expr(ExpressionParseMode parse_mode)
         // get the source substring for the token list
         if (list_result.size() > 0)
         {
-            const size_t start_idx = list_result[0].start_idx;
-            const size_t end_idx = list_result[list_result.size() - 1].end_idx;
+            const size_t start_idx = list_result.front().start_idx;
+            const size_t end_idx = list_result.back().end_idx;
             if (end_idx >= start_idx && start_idx < buf.size() && end_idx < buf.size())
             {
                 const size_t source_len = end_idx - start_idx;

@@ -427,6 +427,12 @@ public:
     friend bool operator==(std::string_view lhs, const TokenView& rhs) { return rhs.operator==(lhs); }
     friend bool operator!=(std::string_view lhs, const TokenView& rhs) { return rhs.operator!=(lhs); }
 
+    inline Token& front() { JXC_ASSERT(num_tokens > 0 && start != nullptr); return *start; }
+    inline Token& back() { JXC_ASSERT(num_tokens > 0 && start != nullptr); return start[num_tokens - 1]; }
+
+    inline const Token& front() const { JXC_ASSERT(num_tokens > 0 && start != nullptr); return *start; }
+    inline const Token& back() const { JXC_ASSERT(num_tokens > 0 && start != nullptr); return start[num_tokens - 1]; }
+
     // Returns the start_idx value from the first token, and the end_idx value from the last token.
     // Useful for error messages.
     std::pair<size_t, size_t> get_index_span() const
@@ -682,13 +688,19 @@ public:
     friend bool operator==(std::string_view lhs, const TokenList& rhs) { return rhs.operator==(lhs); }
     friend bool operator!=(std::string_view lhs, const TokenList& rhs) { return rhs.operator!=(lhs); }
 
+    inline Token& front() { return tokens.front(); }
+    inline Token& back() { return tokens.back(); }
+
+    inline const Token& front() const { return tokens.front(); }
+    inline const Token& back() const { return tokens.back(); }
+
     void reset() { tokens.clear(); src.reset(); }
 
     size_t size() const { return tokens.size(); }
 
-    TokenList slice_copy(size_t start_idx, size_t length) const;
+    TokenList slice_copy(size_t start_idx, size_t length = invalid_idx) const;
 
-    inline TokenView slice_view(size_t start_idx, size_t length) const { return TokenView(*this).slice(start_idx, length); }
+    inline TokenView slice_view(size_t start_idx, size_t length = invalid_idx) const { return TokenView(*this).slice(start_idx, length); }
 
     FlexString source(bool force_owned = false) const;
 

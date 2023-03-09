@@ -248,7 +248,7 @@ TEST(jxc_core, TokenLists)
     // make sure we can use slice to get the inner generic parts
     TokenView inner = span.slice(2, 4);
     EXPECT_EQ(inner.size(), 4);
-    EXPECT_EQ(inner.source(), "set<string>");
+    EXPECT_EQ(inner.source(), std::string_view("set<string>"));
     EXPECT_TRUE(inner.equals_annotation_string_lexed(" set < string > "));
     EXPECT_FALSE(inner.equals_annotation_string_lexed(" set < std.string > "));
 
@@ -261,6 +261,29 @@ TEST(jxc_core, TokenLists)
     EXPECT_EQ(span.slice(5, 999999).size(), 2);
     EXPECT_EQ(span.slice(6, 999999).size(), 1);
     EXPECT_EQ(span.slice(7, 999999).start, nullptr);
+
+    // test slice method on TokenList as well
+    TokenList toklist = TokenList(span);
+
+    // the span's source should be identical to a copy of our original source
+    EXPECT_EQ(toklist.source(), std::string(anno_source));
+
+    // make sure we can use slice to get the inner generic parts
+    TokenList inner_copy = toklist.slice_copy(2, 4);
+    EXPECT_EQ(inner_copy.size(), 4);
+    EXPECT_EQ(inner_copy.source(), std::string_view("set<string>"));
+    EXPECT_TRUE(TokenView(inner_copy).equals_annotation_string_lexed(" set < string > "));
+    EXPECT_FALSE(TokenView(inner_copy).equals_annotation_string_lexed(" set < std.string > "));
+
+    // test slice_copy params
+    EXPECT_EQ(toklist.slice_copy(4).size(), 3);
+    EXPECT_EQ(toklist.slice_copy(5).size(), 2);
+    EXPECT_EQ(toklist.slice_copy(6).size(), 1);
+    EXPECT_EQ(toklist.slice_copy(7).size(), 0);
+    EXPECT_EQ(toklist.slice_copy(4, 999999).size(), 3);
+    EXPECT_EQ(toklist.slice_copy(5, 999999).size(), 2);
+    EXPECT_EQ(toklist.slice_copy(6, 999999).size(), 1);
+    EXPECT_EQ(toklist.slice_copy(7, 999999).size(), 0);
 }
 
 

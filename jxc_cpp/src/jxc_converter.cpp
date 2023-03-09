@@ -175,8 +175,8 @@ std::string_view Parser::require_identifier_annotation(TokenView anno, std::init
         throw parse_error(jxc::format("Annotation required (valid annotations: {})", jxc::detail::debug_string_repr(anno.source()), make_valid_anno_list()), value());
     }
 
-    const size_t ctx_start_idx = anno[0].start_idx;
-    const size_t ctx_end_idx = anno[anno.size() - 1].end_idx;
+    const size_t ctx_start_idx = anno.front().start_idx;
+    const size_t ctx_end_idx = anno.back().end_idx;
 
     if (expected_identifiers.size() == 0 && anno.size() > 0)
     {

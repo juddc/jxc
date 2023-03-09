@@ -771,11 +771,11 @@ void AnnotationParser::set_error(std::string&& err_msg, size_t start_idx, size_t
 {
     if (start_idx == invalid_idx && anno.size() > 0)
     {
-        start_idx = anno[0].start_idx;
+        start_idx = anno.front().start_idx;
     }
     if (end_idx == invalid_idx && anno.size() > 0)
     {
-        end_idx = anno[anno.size() - 1].end_idx;
+        end_idx = anno.back().end_idx;
     }
 
     err = ErrorInfo(std::move(err_msg), start_idx, end_idx);

@@ -730,7 +730,7 @@ struct jxc::Converter<TextDocument>
                 else if (doc_generic.size() > 0)
                 {
                     throw jxc::parse_error(jxc::format("Expected mimetype string inside angle brackets: {}", doc_generic.to_repr()),
-                        doc_generic[0].start_idx, doc_generic[doc_generic.size() - 1].end_idx);
+                        doc_generic.front().start_idx, doc_generic.back().end_idx);
                 }
             }
         }
