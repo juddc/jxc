@@ -24,6 +24,8 @@ except ImportError as e:
     print(f"Error: Failed to import _pyjxc: {e}")
     sys.exit(1)
 
+from _pyjxc import Token, TokenType
+
 assert _script_args.output.endswith(".pyi")
 
 DEBUG_DOCSTRINGS = False
@@ -327,102 +329,97 @@ class FunctionSig:
 
 def _lex(value: str):
     lexer = _pyjxc.Lexer(value)
-    tok: _pyjxc.Token = lexer.next()
-    while tok.type != _pyjxc.TokenType.EndOfStream:
-        if tok.type == _pyjxc.TokenType.Invalid:
+    tok: Token = lexer.next()
+    while tok.type != TokenType.EndOfStream:
+        if tok.type == TokenType.Invalid:
             raise ValueError(lexer.get_error().to_repr(value))
         yield tok
         tok = lexer.next()
 
 
 def _parse_args(value: str) -> list[FunctionArg]:
-    args: list[list[_pyjxc.Token]] = []
+    args: list[list[Token]] = []
 
     paren_depth = 0
     bracket_depth = 0
     brace_depth = 0
-    arg_parts: list[_pyjxc.Token] = []
+    arg_parts: list[Token] = []
     for tok in _lex(value):
-        assert isinstance(tok, _pyjxc.Token)
-        match tok.type:
-            case _pyjxc.TokenType.ParenOpen:
-                paren_depth += 1
-            case _pyjxc.TokenType.ParenClose:
-                paren_depth -= 1
-            case _pyjxc.TokenType.SquareBracketOpen:
-                bracket_depth += 1
-            case _pyjxc.TokenType.SquareBracketClose:
-                bracket_depth -= 1
-            case _pyjxc.TokenType.BraceOpen:
-                brace_depth += 1
-            case _pyjxc.TokenType.BraceClose:
-                brace_depth -= 1
-            case _pyjxc.TokenType.Comma if paren_depth == 0 and bracket_depth == 0 and brace_depth == 0:
-                args.append(arg_parts)
-                arg_parts = []
-                continue
-            case _:
-                pass
+        assert isinstance(tok, Token)
+        if tok.type == TokenType.ParenOpen:
+            paren_depth += 1
+        elif tok.type == TokenType.ParenClose:
+            paren_depth -= 1
+        elif tok.type == TokenType.SquareBracketOpen:
+            bracket_depth += 1
+        elif tok.type == TokenType.SquareBracketClose:
+            bracket_depth -= 1
+        elif tok.type == TokenType.BraceOpen:
+            brace_depth += 1
+        elif tok.type == TokenType.BraceClose:
+            brace_depth -= 1
+        elif tok.type == TokenType.Comma and paren_depth == 0 and bracket_depth == 0 and brace_depth == 0:
+            args.append(arg_parts)
+            arg_parts = []
+            continue
 
         arg_parts.append(tok.copy())
 
     if len(arg_parts) > 0:
         args.append(arg_parts)
 
-    def merge_token_list(orig_value: str, token_list: list[_pyjxc.Token]) -> str:
-        match len(token_list):
-            case 0:
-                return ''
-            case 1:
-                if token_list[0].type in (_pyjxc.TokenType.True_, _pyjxc.TokenType.False_):
-                    return token_list[0].value.capitalize()
-                return token_list[0].value
-            case _:
-                # capitalize True and False literals
-                orig_value_chars = [ ch for ch in orig_value ]
-                for i, tok in enumerate(token_list):
-                    if tok.type == _pyjxc.TokenType.True_:
-                        orig_value_chars[tok.start_idx] = 'T'
-                    elif tok.type == _pyjxc.TokenType.False_:
-                        orig_value_chars[tok.start_idx] = 'F'
-                return ''.join(orig_value_chars[token_list[0].start_idx : token_list[-1].end_idx])
+    def merge_token_list(orig_value: str, token_list: list[Token]) -> str:
+        num_tokens = len(token_list)
+        if num_tokens == 0:
+            return ''
+        elif num_tokens == 1:
+            if token_list[0].type in (TokenType.True_, TokenType.False_):
+                return token_list[0].value.capitalize()
+            return token_list[0].value
+        else:
+            # capitalize True and False literals
+            orig_value_chars = [ ch for ch in orig_value ]
+            for i, tok in enumerate(token_list):
+                if tok.type == TokenType.True_:
+                    orig_value_chars[tok.start_idx] = 'T'
+                elif tok.type == TokenType.False_:
+                    orig_value_chars[tok.start_idx] = 'F'
+            return ''.join(orig_value_chars[token_list[0].start_idx : token_list[-1].end_idx])
 
     # merge result tokens
     result: list[FunctionArg] = []
     for arg_tokens in args:
         idx = 0
 
-        name_parts: list[_pyjxc.Token] = []
+        name_parts: list[Token] = []
         while idx < len(arg_tokens):
-            match arg_tokens[idx].type:
-                case _pyjxc.TokenType.Asterisk | _pyjxc.TokenType.Identifier:
-                    name_parts.append(arg_tokens[idx])
-                    idx += 1
-                case _pyjxc.TokenType.Colon:
-                    idx += 1
-                    break
+            if arg_tokens[idx].type in (TokenType.Asterisk, TokenType.Identifier):
+                name_parts.append(arg_tokens[idx])
+                idx += 1
+            elif arg_tokens[idx].type == TokenType.Colon:
+                idx += 1
+                break
         
-        type_parts: list[_pyjxc.Token] = []
+        type_parts: list[Token] = []
         bracket_depth = 0
         while idx < len(arg_tokens):
-            match arg_tokens[idx].type:
-                case _pyjxc.TokenType.Identifier | _pyjxc.TokenType.Period:
-                    type_parts.append(arg_tokens[idx])
-                    idx += 1
-                case _pyjxc.TokenType.SquareBracketOpen:
-                    type_parts.append(arg_tokens[idx])
-                    bracket_depth += 1
-                    idx += 1
-                case _pyjxc.TokenType.SquareBracketClose:
-                    type_parts.append(arg_tokens[idx])
-                    bracket_depth -= 1
-                    idx += 1
-                case _pyjxc.TokenType.Equals if bracket_depth == 0:
-                    idx += 1
-                    break
+            if arg_tokens[idx].type in (TokenType.Identifier, TokenType.Period):
+                type_parts.append(arg_tokens[idx])
+                idx += 1
+            elif arg_tokens[idx].type == TokenType.SquareBracketOpen:
+                type_parts.append(arg_tokens[idx])
+                bracket_depth += 1
+                idx += 1
+            elif arg_tokens[idx].type == TokenType.SquareBracketClose:
+                type_parts.append(arg_tokens[idx])
+                bracket_depth -= 1
+                idx += 1
+            elif arg_tokens[idx].type == TokenType.Equals and bracket_depth == 0:
+                idx += 1
+                break
         
         assert bracket_depth == 0
-        default_value_parts: list[_pyjxc.Token] = []
+        default_value_parts: list[Token] = []
         while idx < len(arg_tokens):
             default_value_parts.append(arg_tokens[idx])
             idx += 1
@@ -651,21 +648,20 @@ def write_func(parent: typing.Any, fp: InterfaceFile, name: str, item: typing.Ca
         else:
             arg_list.append("self")
 
-        match name:
-            case "__eq__" | "__ge__" | "__gt__" | "__le__" | "__lt__" | "__ne__":
-                arg_list.append("rhs")
-                if is_class(parent):
-                    arg_list[-1] += f": {parent.__name__}"
-                ret_type = "bool"
-            case "__str__" | "__repr__":
-                ret_type = "str"
-            case "__setattr__" | "__setitem__":
-                arg_list += ["name", "value"]
-                ret_type = ''
-            case "__hash__":
-                ret_type = "int"
-            case _:
-                arg_list += ["*args", "**kwargs"]
+        if name in ("__eq__", "__ge__", "__gt__", "__le__", "__lt__", "__ne__"):
+            arg_list.append("rhs")
+            if is_class(parent):
+                arg_list[-1] += f": {parent.__name__}"
+            ret_type = "bool"
+        elif name in ("__str__", "__repr__"):
+            ret_type = "str"
+        elif name in ("__setattr__", "__setitem__"):
+            arg_list += ["name", "value"]
+            ret_type = ''
+        elif name == "__hash__":
+            ret_type = "int"
+        else:
+            arg_list += ["*args", "**kwargs"]
 
         ret_type_sep = ' -> ' if len(ret_type) > 0 else ''
         fp.write(f'def {name}({(", ".join(arg_list))}){ret_type_sep}{ret_type}:', indent=True)
