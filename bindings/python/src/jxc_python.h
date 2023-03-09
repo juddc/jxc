@@ -1,6 +1,7 @@
 #pragma once
 #include "jxc/jxc_format.h"
 #include "jxc/jxc_string.h"
+#include "jxc/jxc_parser.h"
 
 #include "pybind11/pybind11.h"
 namespace py = pybind11;
@@ -160,12 +161,15 @@ public:
 
 
 // backport PyDateTime_DATE_GET_TZINFO from Python 3.10 to support Python 3.8 and 3.9
-#if !defined(PyDateTime_DATE_GET_TZINFO) && PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 10
+#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 10
 #if !defined(_PyDateTime_HAS_TZINFO)
-#error Unsupported Python version (missing macros _PyDateTime_HAS_TZINFO and PyDateTime_DATE_GET_TZINFO)
+#define _PyDateTime_HAS_TZINFO(o)  (((_PyDateTime_BaseTZInfo *)(o))->hastzinfo)
 #endif
+#if !defined(PyDateTime_DATE_GET_TZINFO)
 #define PyDateTime_DATE_GET_TZINFO(o) (_PyDateTime_HAS_TZINFO(o) ? ((PyDateTime_DateTime *)(o))->tzinfo : Py_None)
 #endif
+#endif
+
 
 template<>
 struct type_caster<jxc::DateTime>
