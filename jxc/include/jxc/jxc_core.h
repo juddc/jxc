@@ -21,6 +21,10 @@
 #define JXC_VERSION_MINOR 9
 #define JXC_VERSION_PATCH 1
 
+#if !defined(JXC_EXPORT)
+#define JXC_EXPORT
+#endif
+
 #if !defined(JXC_ENABLE_RELEASE_ASSERTS)
 #define JXC_ENABLE_RELEASE_ASSERTS 1
 #endif
@@ -189,23 +193,23 @@ enum class LogLevel : uint8_t
 
 JXC_END_NAMESPACE(jxc)
 
-void _jxc_log_message_string(jxc::LogLevel level, std::string&& msg);
-void _jxc_assert_failed_msg(const char* file, int line, const char* cond, std::string&& msg);
-void _jxc_assert_failed(const char* file, int line, const char* cond);
+JXC_EXPORT void _jxc_log_message_string(jxc::LogLevel level, std::string&& msg);
+JXC_EXPORT void _jxc_assert_failed_msg(const char* file, int line, const char* cond, std::string&& msg);
+JXC_EXPORT void _jxc_assert_failed(const char* file, int line, const char* cond);
 
 JXC_BEGIN_NAMESPACE(jxc)
 
 using LogHandlerFunc = std::function<void(LogLevel, std::string&&)>;
 using AssertHandlerFunc = std::function<void(std::string_view file, int line, std::string_view cond, std::string&& msg)>;
 
-const char* log_level_to_string(LogLevel level);
+JXC_EXPORT const char* log_level_to_string(LogLevel level);
 
-void set_custom_log_handler(const LogHandlerFunc& handler_func);
-bool have_custom_log_handler();
+JXC_EXPORT void set_custom_log_handler(const LogHandlerFunc& handler_func);
+JXC_EXPORT bool have_custom_log_handler();
 inline void clear_custom_log_handler() { set_custom_log_handler(nullptr); }
 
-void set_custom_assert_handler(const AssertHandlerFunc& handler_func);
-bool have_custom_assert_handler();
+JXC_EXPORT void set_custom_assert_handler(const AssertHandlerFunc& handler_func);
+JXC_EXPORT bool have_custom_assert_handler();
 inline void clear_custom_assert_handler() { set_custom_assert_handler(nullptr); }
 
 /// Checks if JXC was compiled with the JXC_ENABLE_JUMP_BLOCK_PROFILER flag
@@ -311,7 +315,7 @@ bool find_line_and_col(std::string_view buf, size_t idx, size_t& out_line, size_
 
 JXC_END_NAMESPACE(detail)
 
-struct ErrorInfo
+struct JXC_EXPORT ErrorInfo
 {
     bool is_err = false;
     std::string message;
@@ -361,7 +365,7 @@ struct ErrorInfo
 struct DateTime;
 
 
-struct Date
+struct JXC_EXPORT Date
 {
     int16_t year = 1970;
     int8_t month = 1;
@@ -379,7 +383,7 @@ struct Date
 };
 
 
-struct DateTime
+struct JXC_EXPORT DateTime
 {
     int16_t year = 1970;
     int8_t month = 1;

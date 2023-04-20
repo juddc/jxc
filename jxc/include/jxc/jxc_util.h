@@ -22,35 +22,35 @@ JXC_BEGIN_NAMESPACE(detail)
 
 // Gets the base filename (with no path info) of a path. Returns a string_view into the string passed into the function.
 // Intended for shortening the __FILE__ macro for use in error messages.
-std::string_view get_base_filename(const char* file);
+JXC_EXPORT std::string_view get_base_filename(const char* file);
 
-std::optional<std::string> read_file_to_string(const std::string& file_path, std::string* out_error = nullptr);
+JXC_EXPORT std::optional<std::string> read_file_to_string(const std::string& file_path, std::string* out_error = nullptr);
 
-std::string debug_string_repr(std::string_view value, char quote_char = '"');
+JXC_EXPORT std::string debug_string_repr(std::string_view value, char quote_char = '"');
 
-std::string debug_bytes_repr(BytesView bytes, char quote_char = '"');
+JXC_EXPORT std::string debug_bytes_repr(BytesView bytes, char quote_char = '"');
 
 // Returns all the input bytes as a string, except all non-printable character bytes are encoded in the form `\xFF`
-std::string encode_bytes_to_string(BytesView bytes);
+JXC_EXPORT std::string encode_bytes_to_string(BytesView bytes);
 
 inline const char* debug_bool_repr(bool value) { return value ? "true" : "false"; }
 
 // intended for debug messages - always returns a printable version of the character (in hex form if needed)
-std::string debug_char_repr(uint32_t codepoint, char quote_char = '`');
+JXC_EXPORT std::string debug_char_repr(uint32_t codepoint, char quote_char = '`');
 
-bool is_ascii_escape_char(uint32_t codepoint, char quote_char = '\0');
+JXC_EXPORT bool is_ascii_escape_char(uint32_t codepoint, char quote_char = '\0');
 
 inline bool is_renderable_ascii_char(uint32_t codepoint) { return codepoint >= 32 && codepoint <= 126; }
 
 // Serializes an ASCII character. Requires a minimum buffer length of 4 for the largest escape form.
-size_t serialize_ascii_codepoint(uint8_t codepoint, char* out_buf, size_t out_buf_len,
+JXC_EXPORT size_t serialize_ascii_codepoint(uint8_t codepoint, char* out_buf, size_t out_buf_len,
     bool escape_backslash = false, bool escape_single_quote = false, bool escape_double_quote = false);
 
 // Serializes an ASCII character. Requires a minimum buffer length of 10 for the largest escape form.
-size_t serialize_utf32_codepoint(uint32_t codepoint, char* out_buf, size_t out_buf_len);
+JXC_EXPORT size_t serialize_utf32_codepoint(uint32_t codepoint, char* out_buf, size_t out_buf_len);
 
 // Deserializes hex chars (eg. "6a" or "1f600").
-uint32_t deserialize_hex_to_codepoint(const char* hex_buf, size_t hex_buf_len, std::string* out_error = nullptr);
+JXC_EXPORT uint32_t deserialize_hex_to_codepoint(const char* hex_buf, size_t hex_buf_len, std::string* out_error = nullptr);
 
 template<typename T>
 inline void hash_combine(T& inout_hash, T new_hash_value)
@@ -67,7 +67,7 @@ constexpr inline T hash_combine2(T orig_hash, T value)
 }
 
 // simple benchmarking tool
-struct Timer
+struct JXC_EXPORT Timer
 {
     std::chrono::high_resolution_clock::time_point start;
     Timer() { reset(); }
@@ -89,23 +89,23 @@ static constexpr uint32_t max_3byte_codepoint = 0xffff;
 static constexpr uint32_t max_4byte_codepoint = 0x1fffff;
 
 // Returns the number of bytes needed to encode a utf32 codepoint
-int32_t num_codepoint_bytes(uint32_t codepoint);
+JXC_EXPORT int32_t num_codepoint_bytes(uint32_t codepoint);
 
 // Decodes a stream of utf8 bytes to utf32 codepoints
-uint32_t decode(const char* buf, size_t buf_len, size_t& inout_index);
+JXC_EXPORT uint32_t decode(const char* buf, size_t buf_len, size_t& inout_index);
 
 // Encodes a utf32 codepoint to a stream of utf8 bytes
 // Assumes that code is <= 0x10FFFF. Ensures that nothing will be written at or beyond end.
 // Returns the number of characters written.
-size_t encode(char* buf, size_t buf_len, size_t& inout_index, uint32_t codepoint);
+JXC_EXPORT size_t encode(char* buf, size_t buf_len, size_t& inout_index, uint32_t codepoint);
 
 // Returns false if no split was needed.
-bool split_into_surrogates(uint32_t codepoint, uint32_t& out_surr1, uint32_t& out_surr2);
+JXC_EXPORT bool split_into_surrogates(uint32_t codepoint, uint32_t& out_surr1, uint32_t& out_surr2);
 
 // Expects to be used in a loop and see all code points in out_codepoint. Start inout_old at 0;
 // this function updates inout_old for you - don't change it. Returns true when out_codepoint is
 // the 1st of a surrogate pair; otherwise use out_codepoint as the final code point.
-bool join_from_surrogates(uint32_t& inout_old, uint32_t& out_codepoint);
+JXC_EXPORT bool join_from_surrogates(uint32_t& inout_old, uint32_t& out_codepoint);
 
 JXC_END_NAMESPACE(utf8)
 
@@ -127,11 +127,15 @@ inline bool is_valid_identifier_char(char ch)
 
 
 // Checks if a given string is a valid identifier
-bool is_valid_identifier(std::string_view value);
+JXC_EXPORT bool is_valid_identifier(std::string_view value);
+
+
+// Checks if a given string is a valid identifier (allows multiple dot-separated identifiers)
+JXC_EXPORT bool is_valid_dotted_identifier(std::string_view value);
 
 
 // Checks if a given string is a valid identifier for an object key (allows dots as separators)
-bool is_valid_object_key(std::string_view key, bool allow_separators = true);
+JXC_EXPORT bool is_valid_object_key(std::string_view key, bool allow_separators = true);
 
 // Classifier for JXC float literals (nan, +inf, -inf)
 enum class FloatLiteralType : uint8_t
@@ -142,7 +146,7 @@ enum class FloatLiteralType : uint8_t
     NegInfinity,
 };
 
-const char* float_literal_type_to_string(FloatLiteralType type);
+JXC_EXPORT const char* float_literal_type_to_string(FloatLiteralType type);
 
 inline std::ostream& operator<<(std::ostream& os, FloatLiteralType val)
 {
@@ -167,11 +171,11 @@ inline FloatLiteralType get_float_literal_type(T value)
 }
 
 // Converts a Date to ISO-8601
-std::string date_to_iso8601(const Date& dt);
+JXC_EXPORT std::string date_to_iso8601(const Date& dt);
 
 // Converts a DateTime to ISO-8601
 // If auto_strip_time is true, and the DateTime has no time data (see DateTime::has_time_or_timezone_data), this is serialized as just a Date.
-std::string datetime_to_iso8601(const DateTime& dt, bool auto_strip_time = false);
+JXC_EXPORT std::string datetime_to_iso8601(const DateTime& dt, bool auto_strip_time = false);
 
 inline std::ostream& operator<<(std::ostream& os, const Date& dt)
 {
@@ -236,7 +240,7 @@ enum class TokenType : uint8_t
 };
 
 
-const char* token_type_to_string(TokenType type);
+JXC_EXPORT const char* token_type_to_string(TokenType type);
 
 
 inline std::ostream& operator<<(std::ostream& os, TokenType type)
@@ -245,10 +249,10 @@ inline std::ostream& operator<<(std::ostream& os, TokenType type)
 }
 
 
-const char* token_type_to_symbol(TokenType type);
+JXC_EXPORT const char* token_type_to_symbol(TokenType type);
 
 
-TokenType token_type_from_symbol(std::string_view symbol, bool allow_object_key = true);
+JXC_EXPORT TokenType token_type_from_symbol(std::string_view symbol, bool allow_object_key = true);
 
 
 inline TokenType token_type_from_symbol(char symbol)
@@ -277,7 +281,7 @@ inline bool token_type_has_value(TokenType type)
 }
 
 
-struct Token
+struct JXC_EXPORT Token
 {
     TokenType type = TokenType::Invalid;
     FlexString value;
@@ -358,11 +362,11 @@ struct TokenList;
 
 namespace detail
 {
-FlexString concat_token_values(const Token* first_token, size_t token_count);
+JXC_EXPORT FlexString concat_token_values(const Token* first_token, size_t token_count);
 } // namespace detail
 
 
-struct TokenView
+struct JXC_EXPORT TokenView
 {
     friend struct TokenList;
 
@@ -475,7 +479,7 @@ enum class StringQuoteMode : uint8_t
 };
 
 
-const char* string_quote_mode_to_string(StringQuoteMode mode);
+JXC_EXPORT const char* string_quote_mode_to_string(StringQuoteMode mode);
 
 
 inline std::ostream& operator<<(std::ostream& os, StringQuoteMode type)
@@ -484,7 +488,7 @@ inline std::ostream& operator<<(std::ostream& os, StringQuoteMode type)
 }
 
 
-struct SerializerSettings
+struct JXC_EXPORT SerializerSettings
 {
     bool pretty_print = true;
 
@@ -531,7 +535,7 @@ struct SerializerSettings
 
 namespace base64
 {
-    bool is_base64_char(char ch);
+    JXC_EXPORT bool is_base64_char(char ch);
 
     // returns the number of characters that would be needed in a base64 string to store the specified number of bytes
     inline size_t get_base64_string_size(size_t num_bytes)
@@ -564,11 +568,11 @@ namespace base64
     }
 
     // returns the number of bytes represented in a base64 string
-    size_t get_num_bytes_in_base64_multiline_string(const char* base64_str, size_t base64_str_len);
+    JXC_EXPORT size_t get_num_bytes_in_base64_multiline_string(const char* base64_str, size_t base64_str_len);
 
-    void bytes_to_base64(const uint8_t* bytes, size_t bytes_len, char* out_data, size_t out_size);
-    void base64_to_bytes(const char* base64_str, size_t base64_str_len, uint8_t* out_data, size_t out_size);
-    size_t base64_multiline_to_bytes(const char* base64_str, size_t base64_str_len, uint8_t* out_data, size_t out_size);
+    JXC_EXPORT void bytes_to_base64(const uint8_t* bytes, size_t bytes_len, char* out_data, size_t out_size);
+    JXC_EXPORT void base64_to_bytes(const char* base64_str, size_t base64_str_len, uint8_t* out_data, size_t out_size);
+    JXC_EXPORT size_t base64_multiline_to_bytes(const char* base64_str, size_t base64_str_len, uint8_t* out_data, size_t out_size);
 
 } // namespace base64
 
@@ -613,7 +617,7 @@ inline void byte_to_hex(uint8_t value, char& out_char_a, char& out_char_b)
 } // namespace detail
 
 
-struct TokenList
+struct JXC_EXPORT TokenList
 {
     friend struct TokenView;
 

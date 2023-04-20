@@ -11,7 +11,7 @@
 JXC_BEGIN_NAMESPACE(jxc)
 
 
-class IOutputBuffer
+class JXC_EXPORT IOutputBuffer
 {
 public:
     virtual ~IOutputBuffer() {}
@@ -20,7 +20,7 @@ public:
 };
 
 
-class StringOutputBuffer : public IOutputBuffer
+class JXC_EXPORT StringOutputBuffer : public IOutputBuffer
 {
     std::vector<char> buf;
 
@@ -54,7 +54,7 @@ public:
 JXC_BEGIN_NAMESPACE(detail)
 
 
-struct OutputBuffer
+struct JXC_EXPORT OutputBuffer
 {
     IOutputBuffer* output = nullptr;
 
@@ -130,7 +130,7 @@ enum class SerializerStackType : uint8_t
 };
 
 
-struct SerializerStackVars
+struct JXC_EXPORT SerializerStackVars
 {
     SerializerStackType type = SerializerStackType::Invalid;
 
@@ -181,7 +181,7 @@ JXC_END_NAMESPACE(detail)
 class ExpressionProxy;
 
 
-class Serializer
+class JXC_EXPORT Serializer
 {
     friend class ExpressionProxy;
 
@@ -356,6 +356,31 @@ public:
 
     Serializer& value_float(double value, std::string_view suffix = std::string_view{}, int32_t precision = -1, bool fixed = false);
 
+    template<typename T>
+    inline Serializer& value_number(T value, std::string_view suffix = std::string_view{}, int32_t float_precision = -1, bool float_fixed = false)
+    {
+        if constexpr (std::is_enum_v<T>)
+        {
+            return value_int(static_cast<int64_t>(value, suffix));
+        }
+        else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+        {
+            return value_int(static_cast<int64_t>(value), suffix);
+        }
+        else if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T>)
+        {
+            return value_uint(static_cast<uint64_t>(value), suffix);
+        }
+        else if constexpr (std::is_floating_point_v<T>)
+        {
+            return value_float(static_cast<double>(value), suffix, float_precision, float_fixed);
+        }
+        else
+        {
+            []<bool Err = true>() { static_assert(!Err, "Invalid type for value_number()"); };
+        }
+    }
+
     Serializer& value_string(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto, bool decode_unicode = true);
 
     Serializer& value_string_raw(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto, std::string_view tag = std::string_view{});
@@ -400,7 +425,7 @@ public:
 
 
 
-class ExpressionProxy
+class JXC_EXPORT ExpressionProxy
 {
     friend class Serializer;
 
@@ -449,6 +474,8 @@ public:
     inline ExpressionProxy& value_nan() { JXC_EXPR_TOK(parent.value_nan()); }
     inline ExpressionProxy& value_inf(bool negative = false) { JXC_EXPR_TOK(parent.value_inf(negative)); }
     inline ExpressionProxy& value_float(double value, std::string_view suffix = std::string_view{}, int32_t precision = 8, bool fixed = false) { JXC_EXPR_TOK(parent.value_float(value, suffix, precision, fixed)); }
+    template<typename T>
+    inline ExpressionProxy& value_number(T value, std::string_view suffix = std::string_view{}, int32_t float_precision = -1, bool float_fixed = false) { JXC_EXPR_TOK(parent.value_number<T>(value, suffix, float_precision, float_fixed)); }
     inline ExpressionProxy& value_string(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto, bool decode_unicode = true) { JXC_EXPR_TOK(parent.value_string(value, quote, decode_unicode)); }
     inline ExpressionProxy& value_string_raw(std::string_view value, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_string_raw(value, quote)); }
     inline ExpressionProxy& value_bytes(const uint8_t* data, size_t data_len, StringQuoteMode quote = StringQuoteMode::Auto) { JXC_EXPR_TOK(parent.value_bytes(data, data_len, quote)); }

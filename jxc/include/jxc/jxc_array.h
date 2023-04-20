@@ -217,7 +217,7 @@ public:
         if (autozero && arr_size > orig_size)
         {
             const size_t num_elements_removed = arr_size - orig_size;
-            JXC_DEBUG_ASSERT(num_elements_removed < arr_capacity);
+            JXC_DEBUG_ASSERT(num_elements_removed <= arr_capacity);
             clear_slice(orig_size, num_elements_removed);
         }
     }

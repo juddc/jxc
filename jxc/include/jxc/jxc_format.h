@@ -247,7 +247,7 @@ public:
     inline FormatBuffer& operator<<(const T& value)
     {
         if constexpr (
-#if JXC_CPP20
+#if __cplusplus > 201703L
             std::is_same_v<T, char8_t> ||
 #endif
             std::is_same_v<T, wchar_t> || std::is_same_v<T, char16_t> || std::is_same_v<T, char32_t>)

@@ -5,7 +5,7 @@
 
 JXC_BEGIN_NAMESPACE(jxc)
 
-struct Lexer
+struct JXC_EXPORT Lexer
 {
     const uint8_t* start = nullptr;
     const uint8_t* token_start = nullptr;
@@ -82,7 +82,7 @@ public:
 
 JXC_BEGIN_NAMESPACE(detail)
 
-class BaseHelperLexer
+class JXC_EXPORT BaseHelperLexer
 {
 protected:
     Lexer lex;
@@ -130,7 +130,7 @@ JXC_END_NAMESPACE(detail)
 
 
 // helper class lexing any JXC string into tokens
-class TokenLexer : public detail::BaseHelperLexer
+class JXC_EXPORT TokenLexer : public detail::BaseHelperLexer
 {
 public:
     using detail::BaseHelperLexer::BaseHelperLexer; // inherit constructors
@@ -139,7 +139,7 @@ public:
 
 
 // helper class for parsing an annotation into tokens
-class AnnotationLexer : public detail::BaseHelperLexer
+class JXC_EXPORT AnnotationLexer : public detail::BaseHelperLexer
 {
     size_t num_tokens = 0;
     bool got_complete_angle_bracket_set = false;
@@ -152,7 +152,7 @@ public:
 
 
 // helper class for parsing an expression into tokens
-class ExpressionLexer : public detail::BaseHelperLexer
+class JXC_EXPORT ExpressionLexer : public detail::BaseHelperLexer
 {
 public:
     using detail::BaseHelperLexer::BaseHelperLexer; // inherit constructors

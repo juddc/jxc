@@ -1,6 +1,6 @@
 #pragma once
 #if !defined(JXC_HAVE_CONCEPTS)
-#if __cpp_concepts >= 201907L
+#if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 #define JXC_HAVE_CONCEPTS 1
 #else
 #define JXC_HAVE_CONCEPTS 0

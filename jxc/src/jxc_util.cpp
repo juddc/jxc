@@ -484,6 +484,44 @@ bool is_valid_identifier(std::string_view value)
 }
 
 
+bool is_valid_dotted_identifier(std::string_view value)
+{
+    if (value.size() == 0)
+    {
+        return false;
+    }
+
+    size_t idx = 0;
+    size_t ident_len = 0;
+    while (idx < value.size())
+    {
+        const char ch = value[idx];
+        if (ch == '.')
+        {
+            if (ident_len == 0 || idx == value.size() - 1)
+            {
+                // Dots must be between identifiers, so if we don't have an identifier (eg. this is the first char,
+                // this is the last char, or the char before this one was another dot), then this can't be valid.
+                return false;
+            }
+            ident_len = 0;
+        }
+        else
+        {
+            ++ident_len;
+            if ((ident_len == 1 && !is_valid_identifier_first_char(ch)) || (ident_len > 1 && !is_valid_identifier_char(ch)))
+            {
+                return false;
+            }
+        }
+
+        ++idx;
+    }
+
+    return true;
+}
+
+
 bool is_valid_object_key(std::string_view key, bool allow_separators)
 {
     // ([a-zA-Z_$*][a-zA-Z0-9_$*]*)([\.][a-zA-Z_$*][a-zA-Z0-9_$*]*)*')
