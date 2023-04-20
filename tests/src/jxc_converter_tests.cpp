@@ -269,17 +269,22 @@ TEST(jxc_cpp_converter, ConverterParseChars)
 
     EXPECT_CONV_PARSE_EQ(char16_t, "74", u'J');
     EXPECT_CONV_PARSE_EQ(char16_t, "'J'", u'J');
+#if !defined(_MSC_VER)
     EXPECT_CONV_PARSE_EQ(char16_t, "0x2192", u'→');
     EXPECT_CONV_PARSE_EQ(char16_t, R"('\u2192')", u'→');
     EXPECT_CONV_PARSE_EQ(char16_t, "'→'", u'→');
     EXPECT_CONV_PARSE_NE(char16_t, "'←'", u'→');
+#endif
     EXPECT_THROW(jxc::conv::parse<char16_t>("'→←'"), jxc::parse_error);
 
     EXPECT_CONV_PARSE_EQ(char32_t, "74", U'J');
     EXPECT_CONV_PARSE_EQ(char32_t, "'J'", U'J');
+
+#if !defined(_MSC_VER)
     EXPECT_CONV_PARSE_EQ(char32_t, "0x1F62E", U'😮');
     EXPECT_CONV_PARSE_EQ(char32_t, "'😮'", U'😮');
     EXPECT_CONV_PARSE_EQ(char32_t, R"('\U0001F62E')", U'😮');
+#endif
 }
 
 

@@ -1048,53 +1048,54 @@ std::string Token::to_string() const
 
 JXC_BEGIN_NAMESPACE(detail)
 
+
 template<typename T>
 static inline bool token_list_slice(const T& tokens, size_t start_idx, size_t length, size_t& out_start_idx, size_t& out_length, std::string_view& out_source)
 {
-    static_assert(std::is_same_v<T, TokenView> || std::is_same_v<T, TokenList>,
-        "token_list_slice requires a TokenView or TokenList type");
+    static_assert(std::is_same_v<T, TokenView> || std::is_same_v<T, TokenList>, "token_list_slice requires a TokenView or TokenList type");
 
-    out_start_idx = start_idx;
-    out_length = length;
+    out_start_idx = invalid_idx;
+    out_length = 0;
     out_source = std::string_view{""};
 
-    if (tokens.size() == 0)
+    const size_t num_tokens = tokens.size();
+    if (num_tokens == 0 || start_idx >= num_tokens)
     {
         // we can return "success" here only if the requested slice is length-0 starting from the first index
         return start_idx == 0 && length == 0;
     }
 
-    const Token* start_token = &tokens[0];
-    const size_t num_tokens = tokens.size();
+    const Token* first_token = &tokens[0];
 
-    std::string_view token_source = tokens.source().as_view();
-
-    // make sure out_length is valid for the size of the token array
     if (start_idx < num_tokens)
     {
+        out_start_idx = start_idx;
+        first_token = &tokens[start_idx];
         const size_t tokens_remaining = num_tokens - start_idx;
         out_length = (length > tokens_remaining) ? tokens_remaining : length;
     }
 
-    // determine the slice of token_source that this token slice represents
-    if (out_length > 0 && num_tokens > 0 && token_source.size() > 0)
+    // determine the slice of source_view that this token slice represents
+    const std::string_view source_view = tokens.source().as_view();
+    if (out_length > 0 && source_view.size() > 0)
     {
-        const size_t base_idx = start_token->start_idx;
-        size_t start_idx = start_token[0].start_idx;
-        size_t end_idx = start_token[num_tokens - 1].end_idx;
+        const size_t base_idx = tokens[0].start_idx;
+        size_t start_idx = first_token[0].start_idx;
+        size_t end_idx = first_token[out_length - 1].end_idx;
         if (start_idx >= base_idx && end_idx >= base_idx && end_idx >= start_idx)
         {
             start_idx -= base_idx;
             end_idx -= base_idx;
-            if (start_idx < token_source.size() && end_idx < token_source.size())
+            if (start_idx < source_view.size() && end_idx < source_view.size())
             {
-                out_source = token_source.substr(start_idx, end_idx - start_idx);
+                out_source = source_view.substr(start_idx, end_idx - start_idx);
             }
         }
     }
 
-    return true;
+    return out_length > 0;
 }
+
 
 JXC_END_NAMESPACE(detail)
 
@@ -1141,35 +1142,7 @@ TokenView TokenView::slice(size_t start_idx, size_t length) const
     {
         return TokenView{ start[result_start_idx], result_length, result_source_view };
     }
-    return TokenView{};
-
-    /*
-    TokenView result;
-    if (start_idx < num_tokens)
-    {
-        result.start = &start[start_idx];
-        const size_t tokens_remaining = num_tokens - start_idx;
-        result.num_tokens = (length > tokens_remaining) ? tokens_remaining : length;
-    }
-
-    // determine the slice of source_view that this token slice represents
-    if (result.num_tokens > 0 && source_view.size() > 0)
-    {
-        const size_t base_idx = start->start_idx;
-        size_t start_idx = result[0].start_idx;
-        size_t end_idx = result[result.size() - 1].end_idx;
-        if (start_idx >= base_idx && end_idx >= base_idx && end_idx >= start_idx)
-        {
-            start_idx -= base_idx;
-            end_idx -= base_idx;
-            if (start_idx < source_view.size() && end_idx < source_view.size())
-            {
-                result.source_view = source_view.substr(start_idx, end_idx - start_idx);
-            }
-        }
-    }
-    return result;
-    */
+    return TokenView();
 }
 
 

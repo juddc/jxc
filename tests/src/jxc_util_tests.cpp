@@ -253,6 +253,7 @@ TEST(jxc_core, TokenLists)
     EXPECT_FALSE(inner.equals_annotation_string_lexed(" set < std.string > "));
 
     // test slice params
+    EXPECT_EQ(span.size(), 7);
     EXPECT_EQ(span.slice(4).size(), 3);
     EXPECT_EQ(span.slice(5).size(), 2);
     EXPECT_EQ(span.slice(6).size(), 1);
@@ -431,6 +432,33 @@ TEST(jxc_util, StringIntegerComparison)
         return !decimal_integer_string_less_than_or_equal(lhs, rhs);
     };
 
+    for (int32_t i = 0; i < 450; i++)
+    {
+        const std::string int_str = std::to_string(i);
+        if (i <= 255)
+        {
+            EXPECT_TRUE(jxc::detail::value_lte_int_max<uint8_t>(int_str)) << jxc::format("Value {} fits in uint8_t", i);
+        }
+        else
+        {
+            EXPECT_FALSE(jxc::detail::value_lte_int_max<uint8_t>(int_str)) << jxc::format("Value {} does not fit in uint8_t", i);
+        }
+    }
+
+    const int32_t uint16_max = static_cast<int32_t>(UINT16_MAX);
+    for (int32_t i = 0; i <= uint16_max + 1000; i++)
+    {
+        const std::string int_str = std::to_string(i);
+        if (i <= uint16_max)
+        {
+            EXPECT_TRUE(jxc::detail::value_lte_int_max<uint16_t>(int_str)) << jxc::format("Value {} fits in uint16_t", i);
+        }
+        else
+        {
+            EXPECT_FALSE(jxc::detail::value_lte_int_max<uint16_t>(int_str)) << jxc::format("Value {} too large to fit in uint16_t", i);
+        }
+    }
+
     EXPECT_PRED2(decimal_integer_string_less_than_or_equal, "99", "101");
     EXPECT_PRED2(decimal_integer_string_less_than_or_equal, "100", "101");
     EXPECT_PRED2(decimal_integer_string_less_than_or_equal, "101", "101");
@@ -446,6 +474,8 @@ TEST(jxc_util, IntegerFitTests)
     // 0..255
     EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(0));
     EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(64));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(99));
+    EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(199));
     EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(200));
     EXPECT_TRUE(unsigned_integer_value_fits_in_type<uint8_t>(255));
     EXPECT_FALSE(unsigned_integer_value_fits_in_type<uint8_t>(256));

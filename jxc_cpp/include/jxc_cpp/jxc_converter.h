@@ -576,7 +576,10 @@ struct Converter<T>
         }
         else
         {
-            JXC_ASSERTF("Character type larger than expected (sizeof({}) == {})", detail::get_type_name<value_type>(), sizeof(value_type));
+            JXC_ASSERTF(sizeof(value_type) <= sizeof(uint32_t),
+                "Character type larger than expected (sizeof({}) == {})",
+                detail::get_type_name<value_type>(),
+                sizeof(value_type));
         }
     }
 
@@ -642,7 +645,10 @@ struct Converter<T>
             }
             else
             {
-                JXC_ASSERTF("Character type larger than expected (sizeof({}) == {})", detail::get_type_name<value_type>(), sizeof(value_type));
+                JXC_ASSERTF(sizeof(value_type) <= sizeof(uint32_t),
+                    "Character type larger than expected (sizeof({}) == {})",
+                    detail::get_type_name<value_type>(),
+                    sizeof(value_type));
             }
         }
         case TokenType::Number:
@@ -681,7 +687,10 @@ struct Converter<T>
             }
             else
             {
-                JXC_ASSERTF("Character type larger than expected (sizeof({}) == {})", detail::get_type_name<value_type>(), sizeof(value_type));
+                JXC_ASSERTF(sizeof(value_type) <= sizeof(uint32_t),
+                    "Character type larger than expected (sizeof({}) == {})",
+                    detail::get_type_name<value_type>(),
+                    sizeof(value_type));
             }
         }
         case TokenType::Null:
