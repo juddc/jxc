@@ -423,6 +423,26 @@ TEST(jxc_util, FloatLiteralTypes)
 }
 
 
+TEST(jxc_util, IdentifierChecks)
+{
+    EXPECT_FALSE(jxc::is_valid_identifier(""));
+    EXPECT_TRUE(jxc::is_valid_identifier("abc"));
+    EXPECT_TRUE(jxc::is_valid_identifier("Abc"));
+    EXPECT_FALSE(jxc::is_valid_identifier("Abc!"));
+    EXPECT_FALSE(jxc::is_valid_identifier("Abc.Def"));
+
+    EXPECT_FALSE(jxc::is_valid_dotted_identifier(""));
+    EXPECT_TRUE(jxc::is_valid_dotted_identifier("Abc"));
+    EXPECT_TRUE(jxc::is_valid_dotted_identifier("Abc.Def"));
+    EXPECT_TRUE(jxc::is_valid_dotted_identifier("Abc.Def1"));
+    EXPECT_FALSE(jxc::is_valid_dotted_identifier("Abc.Def1.1"));
+    EXPECT_FALSE(jxc::is_valid_dotted_identifier("Abc.Def."));
+    EXPECT_FALSE(jxc::is_valid_dotted_identifier(".Abc.Def"));
+    EXPECT_FALSE(jxc::is_valid_dotted_identifier(".Abc.Def."));
+    EXPECT_TRUE(jxc::is_valid_dotted_identifier("a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.q.r.s.t.u.v.w.x.y.z"));
+}
+
+
 TEST(jxc_util, StringIntegerComparison)
 {
     using jxc::detail::decimal_integer_string_less_than_or_equal;
