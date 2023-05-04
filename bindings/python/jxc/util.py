@@ -14,7 +14,8 @@ def get_main_module_name() -> str:
     Helper to get the name of the __main__ module, if any
     """
     if (main_module := sys.modules.get("__main__", None)) and hasattr(main_module, '__file__'):
-        return os.path.basename(main_module.__file__).removesuffix(".py")
+        result = os.path.basename(main_module.__file__)
+        return result[:-3] if result.endswith(".py") else result
     return '__main__'
 
 
@@ -35,7 +36,7 @@ def get_class_path(cls: type) -> str:
         return f"{cls.__module__}.{cls.__name__}"
 
 
-_FIND_CLASS_CACHE: dict[str, tuple[str, str]] = {}
+_FIND_CLASS_CACHE: typing.Dict[str, typing.Tuple[str, str]] = {}
 
 
 def find_class(path: str) -> typing.Optional[type]:

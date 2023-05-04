@@ -83,7 +83,7 @@ def dumps(obj, *,
         encode_enum: bool = False,
         encode_dataclass: bool = False,
         encode_inline: bool = True,
-        encode_class: typing.Optional[dict[type, EncodeFunc]] = None,
+        encode_class: typing.Optional[typing.Dict[type, EncodeFunc]] = None,
         default_encoder: typing.Optional[typing.Callable[[typing.Any], typing.Optional[EncodeFunc]]] = None,
         quote: StringQuoteMode = StringQuoteMode.Double,
         as_bytes: bool = False) -> typing.Union[str, bytes]:

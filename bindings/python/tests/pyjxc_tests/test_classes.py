@@ -1,6 +1,7 @@
 import unittest
 import jxc
 import enum
+import typing
 import dataclasses
 
 
@@ -85,7 +86,7 @@ class ClassTests(unittest.TestCase):
     def test_custom_annos(self):
         parser = jxc.Parser()
 
-        def construct(val: list[int]):
+        def construct(val: typing.List[int]):
             assert isinstance(val, list) and len(val) == 3 and all(isinstance(v, int) for v in val)
             return val
 

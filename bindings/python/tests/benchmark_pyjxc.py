@@ -157,8 +157,8 @@ def benchmark_class_lookup():
             print()
 
 
-def run_benchmark(label: str, files: list[str], num_iters: int = 64, func: typing.Callable[[str], typing.Any] = None):
-    benchmark_data: list[str] = []
+def run_benchmark(label: str, files: typing.List[str], num_iters: int = 64, func: typing.Callable[[str], typing.Any] = None):
+    benchmark_data: typing.List[str] = []
     for path in files:
         with open(path, 'r', encoding='utf-8') as fp:
             benchmark_data.append(fp.read())

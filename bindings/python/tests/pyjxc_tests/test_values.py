@@ -7,7 +7,11 @@ import enum
 import base64
 import dataclasses
 import datetime
-import zoneinfo
+
+try:
+    import zoneinfo
+except ImportError:
+    zoneinfo = None
 
 
 class BaseTestParser:
@@ -32,8 +36,8 @@ class CollectorParser(BaseTestParser):
     """
     def __init__(self):
         super().__init__()
-        self.tokens: list[jxc.Token] = []
-        self.elements: list[jxc.Element] = []
+        self.tokens: typing.List[jxc.Token] = []
+        self.elements: typing.List[jxc.Element] = []
 
     def construct_from_annotation(self, anno: jxc.TokenList):
         if anno_str := anno.source():
@@ -56,7 +60,7 @@ class TokenListAnnotationParser(BaseTestParser):
     Simple parser that converts all values to 2-tuples in the form (annotation_as_token_list, annotated_value)
     """
     def construct_from_annotation(self, anno: jxc.TokenList):
-        anno: list[str] = [anno[i].value for i in range(len(anno))]
+        anno: typing.List[str] = [anno[i].value for i in range(len(anno))]
         if len(anno) > 0:
             return lambda parsed_value: (anno, parsed_value)
         else:
@@ -259,9 +263,12 @@ class SimpleValueTests(unittest.TestCase):
         self.assertEqual(jxc.dumps(datetime.datetime(2001, 2, 3)), 'dt"2001-02-03T00:00:00"')
         self.assertEqual(jxc.dumps(datetime.datetime(2023, 3, 2, 12, 45, 10, tzinfo=tzinfo_from_offset(hours=-8))), 'dt"2023-03-02T12:45:10-08:00"')
         self.assertEqual(jxc.dumps(datetime.datetime(2023, 3, 2, 22, 10, 0, tzinfo=tzinfo_from_offset(hours=12, minutes=30))), 'dt"2023-03-02T22:10:00+12:30"')
-        # same time zone, different offsets depending on the time of year
-        self.assertEqual(jxc.dumps(datetime.datetime(2023, 2, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-02-16T00:00:00-08:00"')
-        self.assertEqual(jxc.dumps(datetime.datetime(2023, 7, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-07-16T00:00:00-07:00"')
+
+        # Same time zone, different offsets depending on the time of year
+        # Skip these tests if the system does not have timezone data available
+        if zoneinfo is not None and 'America/Los_Angeles' in zoneinfo.available_timezones():
+            self.assertEqual(jxc.dumps(datetime.datetime(2023, 2, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-02-16T00:00:00-08:00"')
+            self.assertEqual(jxc.dumps(datetime.datetime(2023, 7, 16, tzinfo=zoneinfo.ZoneInfo('America/Los_Angeles'))), 'dt"2023-07-16T00:00:00-07:00"')
 
         # test encoding directly with the serializer Serializer.value_datetime
         class A:
