@@ -435,9 +435,9 @@ struct Formatter<bool>
 
 
 template<>
-struct Formatter<nullptr_t>
+struct Formatter<std::nullptr_t>
 {
-    void format(FormatBuffer& output, std::string_view arg, nullptr_t) const
+    void format(FormatBuffer& output, std::string_view arg, std::nullptr_t) const
     {
         if (arg.size() != 0)
         {

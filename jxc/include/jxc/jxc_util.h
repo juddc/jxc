@@ -759,7 +759,7 @@ constexpr std::string get_type_name()
     else if JXC_TYPE_EQUALS(std::string_view)
     else if JXC_TYPE_EQUALS(std::wstring)
     else if JXC_TYPE_EQUALS(std::wstring_view)
-    else if JXC_TYPE_EQUALS(nullptr_t)
+    else if JXC_TYPE_EQUALS(std::nullptr_t)
 
     // JXC types
     else if JXC_TYPE_EQUALS(TokenType)
