@@ -252,7 +252,7 @@ TokenList make_token_list_from_python_values(py::args tokens)
             const TokenType tok_type = token_type_from_symbol(str_value, false);
             if (tok_type != TokenType::Invalid)
             {
-                result.tokens.push(Token(tok_type, invalid_idx, invalid_idx, FlexString(str_value)));
+                result.tokens.push_back(Token(tok_type, invalid_idx, invalid_idx, FlexString(str_value)));
             }
             else
             {
@@ -261,7 +261,7 @@ TokenList make_token_list_from_python_values(py::args tokens)
                 Token tok;
                 while (lexer.next(tok))
                 {
-                    result.tokens.push(tok.copy());
+                    result.tokens.push_back(tok.copy());
                 }
                 if (lexer.has_error())
                 {
@@ -271,7 +271,7 @@ TokenList make_token_list_from_python_values(py::args tokens)
         }
         else
         {
-            result.tokens.push(make_token_from_python_value(item));
+            result.tokens.push_back(make_token_from_python_value(item));
         }
     }
 
@@ -299,7 +299,7 @@ static TokenList make_annotation_token_list(py::handle annotation)
 
     // assume single token
     TokenList result;
-    result.tokens.push(make_token_from_python_value(annotation));
+    result.tokens.push_back(make_token_from_python_value(annotation));
     return result;
 }
 
@@ -956,7 +956,7 @@ py::object PyParser::parse_expr(ExpressionParseMode parse_mode)
             {
                 break;
             }
-            list_result.tokens.push(parse_expr_token());
+            list_result.tokens.push_back(parse_expr_token());
         }
 
         // get the source substring for the token list

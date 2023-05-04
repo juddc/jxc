@@ -18,8 +18,8 @@
 #include "jxc/jxc_format.h"
 
 #define JXC_VERSION_MAJOR 0
-#define JXC_VERSION_MINOR 9
-#define JXC_VERSION_PATCH 1
+#define JXC_VERSION_MINOR 10
+#define JXC_VERSION_PATCH 0
 
 #if !defined(JXC_ENABLE_RELEASE_ASSERTS)
 #define JXC_ENABLE_RELEASE_ASSERTS 1
@@ -101,6 +101,13 @@
 #if !defined(JXC_ASSERTF)
 #define JXC_ASSERTF(COND, MSG, ...) do { if (!(COND)) { _jxc_assert_failed_msg(__FILE__, __LINE__, (#COND), ::jxc::format(MSG, ##__VA_ARGS__)); } } while(0)
 #endif
+
+#if !defined(JXC_INDEX_ASSERT)
+#define JXC_INDEX_ASSERT(IDX, SIZE) do { \
+    if (!_jxc_index_is_valid((IDX), (SIZE))) { \
+        _jxc_assert_failed_msg(__FILE__, __LINE__, (#IDX " < " #SIZE), ::jxc::format("Index {} out of range for container with size {}", (IDX), (SIZE))); \
+    } } while(0)
+#endif
 #endif
 
 #if JXC_ENABLE_DEBUG_ASSERTS && JXC_DEBUG
@@ -121,6 +128,10 @@
 #else
 #define JXC_UNREACHABLE(...) JXC_ASSERTF(false, ##__VA_ARGS__)
 #endif
+#endif
+
+#if !defined(JXC_DEFINE_FUNCTION_POINTER)
+#define JXC_DEFINE_FUNCTION_POINTER(RETURN_TYPE, ...) RETURN_TYPE (*) (__VA_ARGS__)
 #endif
 
 #ifndef JXC_ENUMSTR
@@ -151,6 +162,9 @@ JXC_FORCEINLINE int32_t _jxc_internal_msvc_count_leading_zeros(uint32_t value)
 #endif
 #if !defined(JXC_ASSERTF)
 #define JXC_ASSERTF(...)
+#endif
+#if !defined(JXC_INDEX_ASSERT)
+#define JXC_INDEX_ASSERT(IDX, SIZE)
 #endif
 #if !defined(JXC_DEBUG_ASSERT)
 #define JXC_DEBUG_ASSERT(...)
@@ -192,6 +206,19 @@ JXC_END_NAMESPACE(jxc)
 void _jxc_log_message_string(jxc::LogLevel level, std::string&& msg);
 void _jxc_assert_failed_msg(const char* file, int line, const char* cond, std::string&& msg);
 void _jxc_assert_failed(const char* file, int line, const char* cond);
+
+template<typename SizeType>
+JXC_FORCEINLINE bool _jxc_index_is_valid(SizeType index, SizeType container_size)
+{
+    if constexpr (std::is_signed_v<SizeType>)
+    {
+        return index >= 0 && index < container_size;
+    }
+    else
+    {
+        return index < container_size;
+    }
+}
 
 JXC_BEGIN_NAMESPACE(jxc)
 

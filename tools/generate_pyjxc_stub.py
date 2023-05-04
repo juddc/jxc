@@ -304,7 +304,7 @@ class FunctionArg:
 @dataclass
 class FunctionSig:
     name: str
-    args: typing.Optional[list[typing.Optional[FunctionArg]]] = None
+    args: typing.Optional[typing.List[typing.Optional[FunctionArg]]] = None
     ret_type: typing.Optional[str] = None
     is_overload: bool = False
 
@@ -337,13 +337,13 @@ def _lex(value: str):
         tok = lexer.next()
 
 
-def _parse_args(value: str) -> list[FunctionArg]:
-    args: list[list[Token]] = []
+def _parse_args(value: str) -> typing.List[FunctionArg]:
+    args: typing.List[typing.List[Token]] = []
 
     paren_depth = 0
     bracket_depth = 0
     brace_depth = 0
-    arg_parts: list[Token] = []
+    arg_parts: typing.List[Token] = []
     for tok in _lex(value):
         assert isinstance(tok, Token)
         if tok.type == TokenType.ParenOpen:
@@ -368,7 +368,7 @@ def _parse_args(value: str) -> list[FunctionArg]:
     if len(arg_parts) > 0:
         args.append(arg_parts)
 
-    def merge_token_list(orig_value: str, token_list: list[Token]) -> str:
+    def merge_token_list(orig_value: str, token_list: typing.List[Token]) -> str:
         num_tokens = len(token_list)
         if num_tokens == 0:
             return ''
@@ -387,11 +387,11 @@ def _parse_args(value: str) -> list[FunctionArg]:
             return ''.join(orig_value_chars[token_list[0].start_idx : token_list[-1].end_idx])
 
     # merge result tokens
-    result: list[FunctionArg] = []
+    result: typing.List[FunctionArg] = []
     for arg_tokens in args:
         idx = 0
 
-        name_parts: list[Token] = []
+        name_parts: typing.List[Token] = []
         while idx < len(arg_tokens):
             if arg_tokens[idx].type in (TokenType.Asterisk, TokenType.Identifier):
                 name_parts.append(arg_tokens[idx])
@@ -400,7 +400,7 @@ def _parse_args(value: str) -> list[FunctionArg]:
                 idx += 1
                 break
         
-        type_parts: list[Token] = []
+        type_parts: typing.List[Token] = []
         bracket_depth = 0
         while idx < len(arg_tokens):
             if arg_tokens[idx].type in (TokenType.Identifier, TokenType.Period):
@@ -419,7 +419,7 @@ def _parse_args(value: str) -> list[FunctionArg]:
                 break
         
         assert bracket_depth == 0
-        default_value_parts: list[Token] = []
+        default_value_parts: typing.List[Token] = []
         while idx < len(arg_tokens):
             default_value_parts.append(arg_tokens[idx])
             idx += 1
@@ -491,7 +491,7 @@ def strip_overloads_from_docstring(doc: str) -> str:
 
 
 
-def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, orig_docstring: bool = False) -> tuple[list[FunctionSig], str]:
+def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, orig_docstring: bool = False) -> typing.Tuple[typing.List[FunctionSig], str]:
     if not hasattr(item, "__doc__") or not isinstance(item.__doc__, str) or len(item.__doc__) == 0:
         return [], ''
 
@@ -501,7 +501,7 @@ def parse_docstring(item: typing.Any, item_name: typing.Optional[str] = None, or
 
     docstr = item.__doc__ + ''
 
-    sigs: list[FunctionSig] = []
+    sigs: typing.List[FunctionSig] = []
     is_overloaded = False
 
     if is_function(item):
@@ -720,7 +720,7 @@ def write_enum(parent: typing.Any, fp: InterfaceFile, name: str, enum_class: typ
         num_members += 1
 
     # first collect enum names and values
-    enum_values: list[tuple[str, int]] = []
+    enum_values: typing.List[typing.Tuple[str, int]] = []
     for value_name in dir(enum_class):
         if not hasattr(enum_class, value_name):
             continue

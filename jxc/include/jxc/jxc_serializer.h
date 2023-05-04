@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 #include "jxc/jxc_array.h"
+#include "jxc/jxc_stack_vector.h"
 #include "jxc/jxc_bytes.h"
 #include "jxc/jxc_util.h"
 
@@ -192,8 +193,8 @@ class Serializer
     detail::OutputBuffer output;
 
     size_t last_token_size = 0;
-    detail::ArrayBuffer<detail::SerializerStackVars, 255> container_stack;
-    detail::ArrayBuffer<char, 255> annotation_buffer;
+    detail::StackVector<detail::SerializerStackVars, 255> container_stack;
+    detail::StackVector<char, 255> annotation_buffer;
 
     inline detail::SerializerStackVars& container_stack_top()
     {

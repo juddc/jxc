@@ -575,7 +575,7 @@ TokenList Value::get_annotation_tokens() const
         TokenList span;
         JXC_DEBUG_ASSERT(tok_view.size() <= FlexString::max_inline_len);
         span.src = FlexString(tok_view, FlexString::ConstructInline{});
-        span.tokens.push(Token(TokenType::Identifier, invalid_idx, invalid_idx,
+        span.tokens.push_back(Token(TokenType::Identifier, invalid_idx, invalid_idx,
             FlexString(tok_view, FlexString::ConstructInline{})));
         return span;
     }

@@ -95,6 +95,27 @@ template<typename T>
 static constexpr bool is_numeric_type = is_integer_type<T> || is_float_type<T>;
 
 
+// Determines the return type of a lambda expression
+// https://stackoverflow.com/questions/22863090/how-to-correctly-find-out-the-return-type-of-a-lambda
+template<typename T>
+struct FunctionReturnTypeHelper : FunctionReturnTypeHelper<decltype(&T::operator())>
+{
+};
+
+template<typename ClassType, typename RetType, typename... Args>
+struct FunctionReturnTypeHelper<RetType(ClassType::*)(Args...) const>
+{
+    using type = RetType;
+};
+
+template<typename T>
+using FunctionReturnType = typename FunctionReturnTypeHelper<T>::type;
+
+
+template<class T>
+using BaseType = std::remove_cv_t<std::remove_reference_t<std::remove_pointer_t<T>>>;
+
+
 #if JXC_HAVE_CONCEPTS
 
 template<typename T, typename ValueT>

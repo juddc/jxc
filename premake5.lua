@@ -23,13 +23,14 @@ project "jxc"
     kind "StaticLib"
     language "C++"
     targetdir "build/%{cfg.buildcfg}"
-    cppdialect "C++20"
+    cppdialect "C++17"
     staticruntime "On"
     pic "On"
     flags { "MultiProcessorCompile" }
     files {
         "%{prj.location}/jxc/include/jxc/jxc.h",
         "%{prj.location}/jxc/include/jxc/jxc_array.h",
+        "%{prj.location}/jxc/include/jxc/jxc_stack_vector.h",
         "%{prj.location}/jxc/include/jxc/jxc_bytes.h",
         "%{prj.location}/jxc/include/jxc/jxc_core.h",
         "%{prj.location}/jxc/include/jxc/jxc_format.h",
@@ -126,7 +127,7 @@ project "googletest"
     kind "StaticLib"
     language "C++"
     targetdir "build/%{cfg.buildcfg}"
-    cppdialect "C++20"
+    cppdialect "C++17"
     staticruntime "On"
     pic "On"
     flags { "MultiProcessorCompile" }
@@ -151,6 +152,11 @@ project "test_jxc"
     flags { "MultiProcessorCompile" }
     dependson { "googletest", "jxc", "jxc_cpp" }
     links { "googletest", "jxc", "jxc_cpp" }
+
+    -- needed for googletest
+    filter "platforms:linux64"
+        links { "pthread" }
+
     files {
         "%{prj.location}/tests/src/jxc_tests.h",
         "%{prj.location}/tests/src/jxc_core_tests.h",
@@ -268,6 +274,12 @@ project "example_custom_parser"
 
 project "example_web_server_using_second_stage_parser"
     setup_example_project("web_server_using_second_stage_parser.cpp", { "jxc" })
+    -- needed for httplib
+    filter "platforms:linux64"
+        links { "pthread" }
 
 project "example_web_server_using_converter"
     setup_example_project("web_server_using_converter.cpp", { "jxc_cpp", "jxc" })
+    -- needed for httplib
+    filter "platforms:linux64"
+        links { "pthread" }

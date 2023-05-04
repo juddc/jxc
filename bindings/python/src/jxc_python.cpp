@@ -334,7 +334,7 @@ PYBIND11_MODULE(_pyjxc, m)
                 TokenList result{};
                 for (const auto& arg : args)
                 {
-                    result.tokens.push(py::cast<Token>(arg));
+                    result.tokens.push_back(py::cast<Token>(arg));
                 }
                 if (py::len(source) > 0)
                 {
@@ -519,11 +519,11 @@ PYBIND11_MODULE(_pyjxc, m)
                 {
                     if (py::isinstance<TokenType>(tok))
                     {
-                        anno_tokens.tokens.push(Token(py::cast<TokenType>(tok)));
+                        anno_tokens.tokens.push_back(Token(py::cast<TokenType>(tok)));
                     }
                     else if (py::isinstance<Token>(tok))
                     {
-                        anno_tokens.tokens.push(Token(py::cast<Token>(tok)));
+                        anno_tokens.tokens.push_back(Token(py::cast<Token>(tok)));
                     }
                     else
                     {

@@ -54,10 +54,10 @@ size_t OutputBuffer::write(std::string_view str)
 size_t OutputBuffer::write(char ch)
 {
     JXC_DEBUG_ASSERT(ch != '\0');
-    if (!output_buffer.push(ch))
+    if (!output_buffer.push_back(ch))
     {
         flush_internal();
-        output_buffer.push(ch);
+        output_buffer.push_back(ch);
     }
     last_char_written = ch;
     return 1;
@@ -76,8 +76,8 @@ size_t OutputBuffer::write(char a, char b)
         flush_internal();
     }
 
-    JXC_UNUSED_IN_RELEASE const bool success_a = output_buffer.push(a);
-    JXC_UNUSED_IN_RELEASE const bool success_b = output_buffer.push(b);
+    JXC_UNUSED_IN_RELEASE const bool success_a = output_buffer.push_back(a);
+    JXC_UNUSED_IN_RELEASE const bool success_b = output_buffer.push_back(b);
     JXC_DEBUG_ASSERTF(success_a && success_b, "Failed to write two-char sequence to output buffer");
 
     last_char_written = b;
@@ -92,7 +92,7 @@ Serializer::Serializer(IOutputBuffer* output_buffer, const SerializerSettings& s
     : output(output_buffer)
 {
     set_settings(serializer_settings);
-    container_stack.push(detail::SerializerStackVars{ detail::SerializerStackType::Invalid });
+    container_stack.push_back(detail::SerializerStackVars{ detail::SerializerStackType::Invalid });
 }
 
 
@@ -105,7 +105,7 @@ void Serializer::set_output_buffer(IOutputBuffer* new_buffer)
     last_token_size = 0;
     annotation_buffer.clear();
     container_stack.clear();
-    container_stack.push(detail::SerializerStackVars{ detail::SerializerStackType::Invalid });
+    container_stack.push_back(detail::SerializerStackVars{ detail::SerializerStackType::Invalid });
 }
 
 
@@ -525,7 +525,7 @@ Serializer& Serializer::value_bytes_base64(const uint8_t* data, size_t data_len,
     last_token_size += output.write("b64");
     last_token_size += output.write(quote_char);
 
-    detail::ArrayBuffer<char, 255> buf;
+    detail::StackVector<char, 255> buf;
     if (data != nullptr && data_len > 0)
     {
         buf.resize(base64::get_base64_string_size(data_len));
@@ -665,7 +665,8 @@ Serializer& Serializer::array_begin(std::string_view separator)
     last_token_size = pre_write_token(TokenType::SquareBracketOpen, "");
     last_token_size += output.write('[');
     post_write_token();
-    auto& vars = container_stack.push(detail::SerializerStackType::Array);
+    const size_t vars_idx = container_stack.push_back(detail::SerializerStackType::Array);
+    auto& vars = container_stack[vars_idx];
     if (separator.size() > 0)
     {
         vars.set_separator(separator);
@@ -709,7 +710,7 @@ ExpressionProxy Serializer::expression_begin()
     last_token_size = pre_write_token(TokenType::ParenOpen, "");
     last_token_size += output.write('(');
     post_write_token();
-    container_stack.push(detail::SerializerStackType::Expr);
+    container_stack.push_back(detail::SerializerStackType::Expr);
     return ExpressionProxy(*this);
 }
 
@@ -751,7 +752,8 @@ Serializer& Serializer::object_begin(std::string_view separator)
     last_token_size = pre_write_token(TokenType::BraceOpen, "");
     last_token_size += output.write('{');
     post_write_token();
-    auto& vars = container_stack.push(detail::SerializerStackType::Obj);
+    const size_t vars_idx = container_stack.push_back(detail::SerializerStackType::Obj);
+    auto& vars = container_stack[vars_idx];
     if (separator.size() > 0)
     {
         vars.set_separator(separator);

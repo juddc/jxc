@@ -57,6 +57,14 @@ inline void* _jxc_memcpy(void* dest, size_t dest_len, const void* src, size_t sr
 #endif
 #endif
 
+#if !defined(JXC_MEMMOVE)
+#if defined(_MSC_VER)
+#define JXC_MEMMOVE(DEST, DEST_LEN, SRC, SRC_LEN) memmove_s((DEST), (DEST_LEN), (SRC), (SRC_LEN));
+#else
+#define JXC_MEMMOVE(DEST, DEST_LEN, SRC, SRC_LEN) memmove((DEST), (SRC), (SRC_LEN));
+#endif
+#endif
+
 #if !defined(JXC_STRNCPY)
 inline char* _jxc_strncpy(char* dest, size_t dest_size, const char* src, size_t src_size)
 {

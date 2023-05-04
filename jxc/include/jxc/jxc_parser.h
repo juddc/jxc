@@ -3,6 +3,7 @@
 #include <charconv>
 #include <cmath>
 #include "jxc/jxc_util.h"
+#include "jxc/jxc_stack_vector.h"
 #include "jxc/jxc_lexer.h"
 
 
@@ -316,8 +317,8 @@ private:
     Token tok;
     Element current_value;
 
-    detail::ArrayBuffer<Token, 32> annotation_buffer;
-    detail::ArrayBuffer<JumpStackVars, 96> jump_stack;
+    detail::StackVector<Token, 32> annotation_buffer;
+    detail::StackVector<JumpStackVars, 96> jump_stack;
 
     JumpStackVars* jump_vars = nullptr;
 
@@ -335,7 +336,7 @@ private:
 
     inline void jump_stack_push(JumpState new_state, ContainerState new_container_state = CS_None)
     {
-        jump_stack.push(JumpStackVars::make(new_state, new_container_state));
+        jump_stack.push_back(JumpStackVars::make(new_state, new_container_state));
         jump_vars = &jump_stack.back();
     }
 

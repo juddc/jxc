@@ -70,7 +70,7 @@ inline jxc::OwnedElement make_element(jxc::ElementType ele_type, const jxc::Toke
     jxc::TokenList anno;
     for (const jxc::Token& tok: annotation_tokens)
     {
-        anno.tokens.push(tok);
+        anno.tokens.push_back(tok);
     }
     return jxc::OwnedElement(ele_type, token, anno);
 }

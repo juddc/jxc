@@ -1250,9 +1250,9 @@ struct WebServerConfig
         ss << "\tlisten_host: " << jxc::detail::debug_string_repr(listen_host) << "\n";
         ss << "\tlisten_port: " << listen_port << "\n";
         ss << "\tworker_threads: " << worker_threads << "\n";
-        ss << "\tread_timeout: " << read_timeout << "\n";
-        ss << "\twrite_timeout: " << write_timeout << "\n";
-        ss << "\tidle_interval: " << idle_interval << "\n";
+        ss << "\tread_timeout: " << read_timeout.count() << "ms\n";
+        ss << "\twrite_timeout: " << write_timeout.count() << "ms\n";
+        ss << "\tidle_interval: " << idle_interval.count() << "ms\n";
         ss << "\tpayload_max_length: " << payload_max_length << " bytes\n";
 
         ss << "\taccess_log: " << access_log.to_repr() << "\n";

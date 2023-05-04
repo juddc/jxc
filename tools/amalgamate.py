@@ -20,6 +20,7 @@ SORTED_HEADER_NAMES = [
     'jxc_bytes.h',
     'jxc_string.h',
     'jxc_array.h',
+    'jxc_stack_vector.h',
     'jxc_util.h',
     'jxc_lexer.h',
     'jxc_parser.h',
@@ -27,12 +28,15 @@ SORTED_HEADER_NAMES = [
     'jxc.h', # meta-header for jxc (includes all previous headers)
 
     # jxc-cpp library
+    'jxc_cpp_core.h',
     'jxc_map.h',
     'jxc_value.h',
     'jxc_document.h',
     'jxc_converter.h',
     'jxc_converter_std.h',
     'jxc_converter_value.h',
+    'jxc_converter_enum.h',
+    'jxc_converter_struct.h',
     'jxc_cpp.h', # meta-header for jxc-cpp
 ]
 
@@ -50,10 +54,11 @@ SORTED_CPP_NAMES = [
     # JXC-CPP library
     'jxc_document.cpp',
     'jxc_value.cpp',
+    'jxc_converter.cpp',
 ]
 
 
-def validate_file_list(var_name: str, var_type: str, input_file_names: list[str], valid_names: list[str]):
+def validate_file_list(var_name: str, var_type: str, input_file_names: typing.List[str], valid_names: typing.List[str]):
     """
     Checks if SORTED_HEADER_NAMES or SORTED_CPP_NAMES matches the input file list
     """
@@ -65,8 +70,8 @@ def validate_file_list(var_name: str, var_type: str, input_file_names: list[str]
             f"If you added or removed a {var_type}, you need to update {var_name} in amalgamate.py.")
 
 
-def sort_files(headers: dict[str, list[str]], sorted_names: list[str]) -> list[tuple[str, list[str]]]:
-    result: list[tuple[str, list[str]]] = []
+def sort_files(headers: typing.Dict[str, typing.List[str]], sorted_names: typing.List[str]) -> typing.List[typing.Tuple[str, typing.List[str]]]:
+    result = []
     used_headers = set()
     for name in sorted_names:
         assert name in headers
@@ -76,7 +81,7 @@ def sort_files(headers: dict[str, list[str]], sorted_names: list[str]) -> list[t
     return result
 
 
-def parse_preprocessor_line(line: str) -> tuple[typing.Optional[str], typing.Optional[str]]:
+def parse_preprocessor_line(line: str) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
     if preproc := PREPROCESSOR_REGEX.match(line):
         directive = preproc.group(1)
         directive_value = preproc.group(2)
@@ -88,7 +93,7 @@ def parse_preprocessor_line(line: str) -> tuple[typing.Optional[str], typing.Opt
         return (None, None)
 
 
-def parse_include_path(inc: str) -> tuple[str, str]:
+def parse_include_path(inc: str) -> typing.Tuple[str, str]:
     path = inc.strip()
     assert len(path) > 2
     if path[0] == '<':
@@ -120,7 +125,7 @@ class FileData:
 
     def strip_pragma_once(self):
         found_pragma_once = False
-        new_lines: list[str] = []
+        new_lines: typing.List[str] = []
         for line in self.lines:
             preproc, preproc_value = parse_preprocessor_line(line)
             if preproc == "pragma" and preproc_value == "once":
@@ -130,9 +135,9 @@ class FileData:
         self.lines = new_lines
         return found_pragma_once
 
-    def strip_includes(self) -> list[tuple[str, str]]:
-        includes: list[tuple[str, str]] = []
-        new_lines: list[str] = []
+    def strip_includes(self) -> typing.List[typing.Tuple[str, str]]:
+        includes = []
+        new_lines: typing.List[str] = []
         for line in self.lines:
             preproc, preproc_value = parse_preprocessor_line(line)
             if preproc == "include":
@@ -142,10 +147,10 @@ class FileData:
         self.lines = new_lines
         return includes
 
-    def fixup_line_indicators(self, new_filename: str) -> list[tuple[str, str]]:
+    def fixup_line_indicators(self, new_filename: str) -> typing.Sequence[typing.Tuple[str, str]]:
         fix_path = lambda p: p.replace("\\\\", "/")
         new_filename = fix_path(new_filename)
-        new_lines: list[str] = []
+        new_lines: typing.List[str] = []
         cur_line = 1
         for line in self.lines:
             preproc, preproc_value = parse_preprocessor_line(line)
@@ -165,14 +170,14 @@ class FileData:
         self.lines = new_lines
 
 
-def amalgamate(jxc_dir: str, deps_dir: str, output_dir: str, jxc_cpp_dir: typing.Optional[str], deps: set[str] | list[str]):
+def amalgamate(jxc_dir: str, deps_dir: str, output_dir: str, jxc_cpp_dir: typing.Optional[str], deps: typing.Union[typing.Set[str], typing.List[str]]):
     # sort the dependency list for deterministic output
     if not isinstance(deps, list):
         deps = list(deps)
     deps.sort()
 
     # validate deps and load their files
-    dep_data: list[FileData] = []
+    dep_data: typing.List[FileData] = []
     for dep in deps:
         if not dep.endswith(".h"):
             raise ValueError(f"Invalid dependency {dep!r}: expected .h file")
@@ -184,10 +189,10 @@ def amalgamate(jxc_dir: str, deps_dir: str, output_dir: str, jxc_cpp_dir: typing
         else:
             raise FileNotFoundError(f"Dependency {dep!r} not found")
 
-    std_includes: list[tuple[str, str]] = []
-    dep_includes: list[tuple[str, str]] = []
+    std_includes: typing.List[typing.Tuple[str, str]] = []
+    dep_includes: typing.List[typing.Tuple[str, str]] = []
 
-    def classify_include(inc_tuple: tuple[str, str]):
+    def classify_include(inc_tuple: typing.Tuple[str, str]):
         inc_value, inc_path = inc_tuple
         if inc_value.startswith('<') and inc_tuple not in std_includes:
             std_includes.append(inc_tuple)
@@ -198,7 +203,7 @@ def amalgamate(jxc_dir: str, deps_dir: str, output_dir: str, jxc_cpp_dir: typing
     if jxc_cpp_dir is not None:
         include_globs.append(os.path.join(jxc_cpp_dir, 'include', '**', '*.h'))
 
-    header_data: list[FileData] = []
+    header_data: typing.List[FileData] = []
     for inc_glob in include_globs:
         for path in glob.glob(inc_glob):
             data = FileData(path)
@@ -218,8 +223,22 @@ def amalgamate(jxc_dir: str, deps_dir: str, output_dir: str, jxc_cpp_dir: typing
         fp.write("#define JXC_H_GUARD\n")
         fp.write("\n")
 
+        fp.write("#if !defined(JXC_HAVE_CONCEPTS)\n")
+        fp.write("#if __cpp_concepts >= 201907L\n")
+        fp.write("#define JXC_HAVE_CONCEPTS 1\n")
+        fp.write("#else\n")
+        fp.write("#define JXC_HAVE_CONCEPTS 0\n")
+        fp.write("#endif\n")
+        fp.write("#endif\n")
+        fp.write("\n")
+
         for inc_value, inc_path in std_includes:
-            fp.write(f"#include {inc_value}\n")
+            if inc_value == "<concepts>":
+                fp.write("#if JXC_HAVE_CONCEPTS\n")
+                fp.write("#include <concepts>\n")
+                fp.write("#endif\n")
+            else:
+                fp.write(f"#include {inc_value}\n")
         fp.write("\n")
 
         for inc_value, inc_path in dep_includes:
@@ -249,7 +268,7 @@ def amalgamate(jxc_dir: str, deps_dir: str, output_dir: str, jxc_cpp_dir: typing
     if jxc_cpp_dir is not None:
         src_globs.append(os.path.join(jxc_cpp_dir, 'src', '*.cpp'))
 
-    src_data: list[FileData] = []
+    src_data: typing.List[FileData] = []
     for src_glob in src_globs:
         for path in glob.glob(src_glob):
             data = FileData(path)
@@ -300,7 +319,7 @@ def amalgamate(jxc_dir: str, deps_dir: str, output_dir: str, jxc_cpp_dir: typing
 
 
 class Template:
-    def __init__(self, tmpl: str, ctx: typing.Optional[dict[str, typing.Any]] = None):
+    def __init__(self, tmpl: str, ctx: typing.Optional[typing.Dict[str, typing.Any]] = None):
         self.tmpl = tmpl.strip()
         self.ctx = ctx or {}
     

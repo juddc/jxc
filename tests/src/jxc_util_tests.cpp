@@ -187,6 +187,131 @@ TEST(jxc_util, StringViewHelpers)
 }
 
 
+template<typename T>
+struct StackVectorAllocator
+{
+    struct Tracker
+    {
+        std::unordered_map<T*, size_t> map;
+        size_t num_allocs = 0;
+        size_t num_frees = 0;
+    };
+
+    static Tracker& get_tracker()
+    {
+        static Tracker tracker;
+        return tracker;
+    }
+
+    static size_t num_allocations()
+    {
+        return get_tracker().map.size();
+    }
+
+    static inline jxc::detail::FatPointer<T> alloc(size_t num_elements)
+    {
+        jxc::detail::FatPointer<T> result = { static_cast<T*>(::malloc(sizeof(T) * num_elements)), num_elements };
+        result.memzero();
+        get_tracker().num_allocs++;
+        JXC_ASSERT(!get_tracker().map.contains(result.ptr));
+        get_tracker().map.insert_or_assign(result.ptr, num_elements);
+        return result;
+    }
+
+    static inline void free(jxc::detail::FatPointer<T> data)
+    {
+        JXC_ASSERT(get_tracker().map.contains(data.ptr));
+        get_tracker().num_frees++;
+        get_tracker().map.erase(data.ptr);
+        ::free(data.ptr);
+    }
+};
+
+
+template<typename T, uint16_t BufSize = 16>
+using DebugStackVector = jxc::detail::StackVector<T, BufSize, StackVectorAllocator<T>>;
+
+
+TEST(jxc_core, StackVector)
+{
+    {
+        static constexpr int64_t large_arr_size = 100000;
+        EXPECT_EQ(StackVectorAllocator<int64_t>::num_allocations(), 0);
+        DebugStackVector<int64_t> vec;
+        for (int64_t i = 0; i < large_arr_size; i++)
+        {
+            vec.push_back(i);
+        }
+        EXPECT_EQ(StackVectorAllocator<int64_t>::num_allocations(), 1);
+        EXPECT_EQ(vec.size(), large_arr_size);
+        for (int64_t i = 0; i < large_arr_size; i++)
+        {
+            EXPECT_EQ(vec[i], i);
+        }
+
+        DebugStackVector<int64_t> vec_moved = std::move(vec);
+        EXPECT_EQ(vec_moved.size(), large_arr_size);
+        for (int64_t i = 0; i < large_arr_size; i++)
+        {
+            EXPECT_EQ(vec_moved[i], i);
+        }
+    }
+
+    EXPECT_EQ(StackVectorAllocator<int64_t>::get_tracker().num_allocs, StackVectorAllocator<int64_t>::get_tracker().num_frees);
+
+    {
+        DebugStackVector<int32_t> vec;
+        EXPECT_EQ(StackVectorAllocator<int32_t>::num_allocations(), 0);
+        vec.push_back(1234);
+        EXPECT_EQ(StackVectorAllocator<int32_t>::num_allocations(), 0);
+        vec.push_back(1234);
+        EXPECT_EQ(StackVectorAllocator<int32_t>::num_allocations(), 0);
+        vec.resize(32, 1);
+        EXPECT_EQ(StackVectorAllocator<int32_t>::num_allocations(), 1);
+        vec.clear(true);
+        EXPECT_EQ(StackVectorAllocator<int32_t>::num_allocations(), 0);
+    }
+
+    EXPECT_EQ(StackVectorAllocator<int32_t>::num_allocations(), 0);
+
+    // store weak pointers to all values so we can verify they're all invalid later
+    std::vector<std::weak_ptr<int32_t>> allocated_values;
+
+    {
+        DebugStackVector<std::shared_ptr<int32_t>> vec;
+        for (int32_t i = 0; i < 32; i++)
+        {
+            auto value = std::make_shared<int32_t>(i);
+            vec.push_back(value);
+            allocated_values.push_back(value);
+        }
+        EXPECT_EQ(StackVectorAllocator<std::shared_ptr<int32_t>>::num_allocations(), 1);
+        DebugStackVector<std::shared_ptr<int32_t>> vec_copy = vec;
+        EXPECT_EQ(StackVectorAllocator<std::shared_ptr<int32_t>>::num_allocations(), 2);
+        EXPECT_EQ(vec[30].get(), vec_copy[30].get()); // compare by pointer
+        EXPECT_EQ(*vec[30], *vec_copy[30]); // compare by value
+        *vec[30] = -10;
+        EXPECT_EQ(*vec_copy[30], -10);
+
+        size_t idx = 0;
+        for (const auto& value : vec)
+        {
+            EXPECT_EQ(allocated_values.at(idx).lock().get(), value.get()); // compare by pointer
+            ++idx;
+        }
+    }
+
+    EXPECT_EQ(StackVectorAllocator<std::shared_ptr<int32_t>>::num_allocations(), 0);
+
+    // all allocated values should have been destroyed
+    for (const std::weak_ptr<int32_t>& value_weak : allocated_values)
+    {
+        std::shared_ptr<int32_t> value_shared = value_weak.lock();
+        EXPECT_EQ(value_shared.get(), nullptr);
+    }
+}
+
+
 TEST(jxc_core, TokenLists)
 {
     using namespace jxc;

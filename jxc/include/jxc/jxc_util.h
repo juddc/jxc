@@ -12,6 +12,7 @@
 #include "jxc/jxc_string.h"
 #include "jxc/jxc_bytes.h"
 #include "jxc/jxc_array.h"
+#include "jxc/jxc_stack_vector.h"
 
 
 JXC_BEGIN_NAMESPACE(jxc)
@@ -623,7 +624,7 @@ struct TokenList
 {
     friend struct TokenView;
 
-    detail::ArrayBuffer<Token, 16> tokens;
+    detail::StackVector<Token, 16> tokens;
     FlexString src;
 
 private:
@@ -633,7 +634,7 @@ private:
         tokens.clear();
         for (size_t i = 0; i < rhs.size(); i++)
         {
-            tokens.push(rhs[i].copy());
+            tokens.push_back(rhs[i].copy());
         }
         src = rhs.source(true);
     }
@@ -666,7 +667,7 @@ public:
     {
         TokenList result;
         JXC_ASSERT(is_valid_identifier(identifier));
-        result.tokens.push(Token(TokenType::Identifier, 0, identifier.size() - 1, FlexString::make_owned(identifier)));
+        result.tokens.emplace_back(TokenType::Identifier, 0, identifier.size() - 1, FlexString::make_owned(identifier));
         return result;
     }
 
@@ -800,10 +801,10 @@ struct DebugTypeName<FixedArray<T, MaxSize>>
     static constexpr const char* name() { return jxc::format("FixedArray<{}, {}>", get_type_name<T>(), MaxSize); }
 };
 
-template<typename T, uint16_t MaxSize>
-struct DebugTypeName<ArrayBuffer<T, MaxSize>>
+template<typename T, uint16_t BufSize, typename Alloc>
+struct DebugTypeName<StackVector<T, BufSize, Alloc>>
 {
-    static constexpr const char* name() { return jxc::format("ArrayBuffer<{}, {}>", get_type_name<T>(), MaxSize); }
+    static constexpr const char* name() { return jxc::format("StackVector<{}, {}>", get_type_name<T>(), BufSize); }
 };
 
 template<typename T, uint16_t MaxSize>

@@ -258,10 +258,10 @@ bool JumpParser::next()
 
 #define JP_PARSE_DOTTED_IDENT() do { \
         while (tok.type == TokenType::Identifier) { \
-            annotation_buffer.push(tok); \
+            annotation_buffer.push_back(tok); \
             JP_ADVANCE_SKIP_COMMENTS(); \
             if (tok.type != TokenType::Period) { goto JP_MAKE_GOTO(jp_post_parse_dotted_indent); } \
-            annotation_buffer.push(tok); \
+            annotation_buffer.push_back(tok); \
             JP_ADVANCE_SKIP_COMMENTS(); \
         } \
         JP_ERROR("Annotations may not end with a period"); \
@@ -323,7 +323,7 @@ JP_MAKE_GOTO(jp_post_parse_dotted_indent):
 
             if (tok.type == TokenType::ExclamationPoint)
             {
-                annotation_buffer.push(tok);
+                annotation_buffer.push_back(tok);
                 JP_ADVANCE_SKIP_COMMENTS();
 
                 // if the token after the `!` is not an identifier, then it's not part of the annotation, so we must be done.
@@ -344,7 +344,7 @@ JP_MAKE_GOTO(jp_post_parse_dotted_indent):
 
             int32_t angle_bracket_depth = 1;
             int32_t paren_depth = 0;
-            annotation_buffer.push(tok);
+            annotation_buffer.push_back(tok);
 
             while (angle_bracket_depth > 0)
             {
@@ -366,7 +366,7 @@ jp_handle_annotation_type:
                 case TokenType::QuestionMark:
                 case TokenType::Pipe:
                 case TokenType::Ampersand:
-                    annotation_buffer.push(tok);
+                    annotation_buffer.push_back(tok);
                     break;
 
                     // allow more angle brackets, but track depth
@@ -376,7 +376,7 @@ jp_handle_annotation_type:
                     {
                         JP_ERROR("Reached max limit for angle bracket depth while parsing annotation");
                     }
-                    annotation_buffer.push(tok);
+                    annotation_buffer.push_back(tok);
                     break;
 
                 case TokenType::AngleBracketClose:
@@ -385,7 +385,7 @@ jp_handle_annotation_type:
                     {
                         JP_ERROR("Unmatched angle brackets while parsing annotation");
                     }
-                    annotation_buffer.push(tok);
+                    annotation_buffer.push_back(tok);
                     break;
 
                     // allow parens, but track depth
@@ -395,7 +395,7 @@ jp_handle_annotation_type:
                     {
                         JP_ERROR("Reached max limit for parentheses depth while parsing annotation");
                     }
-                    annotation_buffer.push(tok);
+                    annotation_buffer.push_back(tok);
                     break;
 
                 case TokenType::ParenClose:
@@ -404,12 +404,12 @@ jp_handle_annotation_type:
                     {
                         JP_ERROR("Unmatched parentheses while parsing annotation");
                     }
-                    annotation_buffer.push(tok);
+                    annotation_buffer.push_back(tok);
                     break;
 
                 case TokenType::Equals:
                 case TokenType::Comma:
-                    annotation_buffer.push(tok);
+                    annotation_buffer.push_back(tok);
                     break;
 
                     // value types
@@ -420,7 +420,7 @@ jp_handle_annotation_type:
                 case TokenType::String:
                 case TokenType::ByteString:
                 case TokenType::DateTime:
-                    annotation_buffer.push(tok);
+                    annotation_buffer.push_back(tok);
                     break;
 
                 default:

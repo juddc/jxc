@@ -644,7 +644,7 @@ struct Converter<std::tuple<TArgs...>>
 
         parser.require(ElementType::BeginArray);
 
-        detail::ArrayBuffer<TokenList, 8> value_annotations;
+        detail::StackVector<TokenList, 8> value_annotations;
 
         if (TokenView tuple_anno = parser.get_value_annotation(generic_anno))
         {
@@ -663,7 +663,7 @@ struct Converter<std::tuple<TArgs...>>
                 {
                     anno_parser.require(TokenType::Comma);
                 }
-                value_annotations.push(TokenList(anno_parser.skip_over_generic_value()));
+                value_annotations.push_back(TokenList(anno_parser.skip_over_generic_value()));
             }
 
             anno_parser.require_then_advance(TokenType::AngleBracketClose);

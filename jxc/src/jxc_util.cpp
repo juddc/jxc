@@ -1653,7 +1653,7 @@ static inline bool parse_internal(std::string_view source, TokenList& out_tokens
     Token tok;
     while (lex.next(tok))
     {
-        out_tokens.tokens.push(tok);
+        out_tokens.tokens.push_back(tok);
     }
 
     if (lex.has_error())
