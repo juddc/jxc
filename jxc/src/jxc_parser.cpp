@@ -226,7 +226,7 @@ bool JumpParser::next()
         current_value.token = tok; \
         current_value.annotation.num_tokens = annotation_buffer.size(); \
         current_value.annotation.start = (current_value.annotation.num_tokens > 0) ? &annotation_buffer.front() : nullptr; \
-        current_value.annotation.source_view = get_annotation_buffer_source_view(); \
+        current_value.annotation.src = FlexString::make_view(get_annotation_buffer_source_view()); \
         return (ELEMENT_TYPE) != ElementType::Invalid; \
     } while(0)
 
@@ -859,7 +859,7 @@ bool AnnotationParser::require(TokenType tok_type, std::string_view tok_value)
 {
     if (done())
     {
-        set_error(jxc::format("Unexpected end of stream while parsing annotation {}", detail::debug_string_repr(anno.source().as_view())));
+        set_error(jxc::format("Unexpected end of stream while parsing annotation {}", detail::debug_string_repr(anno.source())));
         return false;
     }
     else if (anno[idx].type != tok_type)
@@ -966,8 +966,7 @@ bool decimal_integer_string_less_than_or_equal(std::string_view lhs, std::string
     // rhs = 9 1 3 0
     // First digits (lhs=9, rhs=9) are equal, so continue.
     // Second digits (lhs=2, rhs=1), 2 > 1, so the whole lhs value must be smaller than rhs, and we return false.
-
-    for (size_t i = num_digits - 1; i < num_digits; i++)
+    for (size_t i = 0; i < num_digits; i++)
     {
         JXC_DEBUG_ASSERT(util::is_decimal_digit(lhs[i]) && util::is_decimal_digit(rhs[i]));
         if (lhs[i] == rhs[i])

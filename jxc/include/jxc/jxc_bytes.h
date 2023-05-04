@@ -7,7 +7,7 @@ JXC_BEGIN_NAMESPACE(jxc)
 
 
 // similar to string_view, but for byte arrays
-class BytesView
+class JXC_EXPORT BytesView
 {
 public:
     using value_type = uint8_t;

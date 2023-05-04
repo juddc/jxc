@@ -484,6 +484,44 @@ bool is_valid_identifier(std::string_view value)
 }
 
 
+bool is_valid_dotted_identifier(std::string_view value)
+{
+    if (value.size() == 0)
+    {
+        return false;
+    }
+
+    size_t idx = 0;
+    size_t ident_len = 0;
+    while (idx < value.size())
+    {
+        const char ch = value[idx];
+        if (ch == '.')
+        {
+            if (ident_len == 0 || idx == value.size() - 1)
+            {
+                // Dots must be between identifiers, so if we don't have an identifier (eg. this is the first char,
+                // this is the last char, or the char before this one was another dot), then this can't be valid.
+                return false;
+            }
+            ident_len = 0;
+        }
+        else
+        {
+            ++ident_len;
+            if ((ident_len == 1 && !is_valid_identifier_first_char(ch)) || (ident_len > 1 && !is_valid_identifier_char(ch)))
+            {
+                return false;
+            }
+        }
+
+        ++idx;
+    }
+
+    return true;
+}
+
+
 bool is_valid_object_key(std::string_view key, bool allow_separators)
 {
     // ([a-zA-Z_$*][a-zA-Z0-9_$*]*)([\.][a-zA-Z_$*][a-zA-Z0-9_$*]*)*')
@@ -1048,35 +1086,66 @@ std::string Token::to_string() const
 
 JXC_BEGIN_NAMESPACE(detail)
 
-static inline void clamp_token_slice_indices(size_t num_tokens, size_t start_idx, size_t& inout_length)
+template<typename T>
+static inline bool token_list_slice(const T& tokens, size_t start_idx, size_t length, size_t& out_start_idx, size_t& out_length, FlexString& out_source)
 {
+    static_assert(std::is_same_v<T, TokenView> || std::is_same_v<T, TokenList>, "token_list_slice requires a TokenView or TokenList type");
+
+    out_start_idx = invalid_idx;
+    out_length = 0;
+    out_source = FlexString();
+
+    const size_t num_tokens = tokens.size();
+    if (num_tokens == 0 || start_idx >= num_tokens)
+    {
+        // we can return "success" here only if the requested slice is length-0 starting from the first index
+        return start_idx == 0 && length == 0;
+    }
+
+    const Token* first_token = &tokens[0];
+
     if (start_idx < num_tokens)
     {
+        out_start_idx = start_idx;
+        first_token = &tokens[start_idx];
         const size_t tokens_remaining = num_tokens - start_idx;
-        inout_length = (inout_length > tokens_remaining) ? tokens_remaining : inout_length;
+        out_length = (length > tokens_remaining) ? tokens_remaining : length;
     }
-    else
-    {
-        inout_length = 0;
-    }
-}
 
-static inline std::string_view token_source_slice(std::string_view orig_source, size_t orig_source_base_idx, const Token& first_token, const Token& last_token)
-{
-    size_t start_idx = first_token.start_idx;
-    size_t end_idx = last_token.end_idx;
-    if (start_idx >= orig_source_base_idx && end_idx >= orig_source_base_idx && end_idx >= start_idx)
+    // get the source string for these tokens
+    FlexString source_data = tokens.source();
+    std::string_view source_view = source_data.as_view();
+
+    // determine the slice of source_view that this token slice represents
+    if (out_length > 0 && source_view.size() > 0)
     {
-        start_idx -= orig_source_base_idx;
-        end_idx -= orig_source_base_idx;
-        if (start_idx < orig_source.size() && end_idx < orig_source.size())
+        const size_t base_idx = tokens[0].start_idx;
+        size_t start_idx = first_token[0].start_idx;
+        size_t end_idx = first_token[out_length - 1].end_idx;
+        if (start_idx >= base_idx && end_idx >= base_idx && end_idx >= start_idx)
         {
-            return orig_source.substr(start_idx, end_idx - start_idx);
+            start_idx -= base_idx;
+            end_idx -= base_idx;
+            if (start_idx < source_view.size() && end_idx < source_view.size())
+            {
+                std::string_view result_view = source_view.substr(start_idx, end_idx - start_idx);
+                if (!source_data.is_view())
+                {
+                    // if source_data is a constructed string instead of a view, we have to return it as an owned string
+                    out_source = FlexString(result_view);
+                }
+                else
+                {
+                    // original data is a view, there's no point in taking ownership here
+                    out_source = FlexString::make_view(result_view);
+                }
+            }
         }
     }
 
-    return std::string_view{};
+    return out_length > 0;
 }
+
 
 JXC_END_NAMESPACE(detail)
 
@@ -1084,7 +1153,7 @@ JXC_END_NAMESPACE(detail)
 TokenView::TokenView(const TokenList& rhs)
     : start(const_cast<Token*>(rhs.tokens.data()))
     , num_tokens(rhs.size())
-    , source_view(rhs.source().as_view())
+    , src(FlexString::make_view(rhs.src.as_view()))
 {
 }
 
@@ -1116,24 +1185,11 @@ bool TokenView::operator==(std::string_view rhs) const
 
 TokenView TokenView::slice(size_t start_idx, size_t length) const
 {
-    TokenView result;
-
-    detail::clamp_token_slice_indices(num_tokens, start_idx, length);
-    if (length == 0)
+    TokenView result{};
+    size_t result_start_idx = 0;
+    if (detail::token_list_slice<TokenView>(*this, start_idx, length, result_start_idx, result.num_tokens, result.src))
     {
-        return TokenView{};
-    }
-
-    result.start = &start[start_idx];
-    result.num_tokens = length;
-
-    JXC_DEBUG_ASSERT(start_idx < num_tokens);
-    JXC_DEBUG_ASSERT(start_idx + length <= num_tokens);
-
-    // determine the slice of source_view that this token slice represents
-    if (result.num_tokens > 0 && source_view.size() > 0)
-    {
-        result.source_view = detail::token_source_slice(source_view, start->start_idx, result.front(), result.back());
+        result.start = &start[result_start_idx];
     }
     return result;
 }
@@ -1249,9 +1305,9 @@ FlexString TokenView::source(bool force_owned) const
     }
 
     // if we have an explicit source string view, we can return that
-    if (source_view.size() > 0)
+    if (src.size() > 0)
     {
-        return force_owned ? FlexString(source_view) : FlexString::make_view(source_view);
+        return force_owned ? FlexString(src.as_view()) : FlexString::make_view(src.as_view());
     }
 
     // we can fake a view when we have exactly one token and it's a non-value type (token_type_to_symbol returns a static string)
@@ -1715,31 +1771,27 @@ void TokenList::serialize(Serializer& doc) const
 }
 
 
-TokenList TokenList::slice_copy(size_t start_idx, size_t length) const
+TokenList TokenList::slice_copy(size_t desired_start_idx, size_t desired_length) const
 {
     TokenList result;
-    detail::clamp_token_slice_indices(tokens.size(), start_idx, length);
-    if (length > 0)
+    size_t slice_start_idx = 0;
+    size_t slice_length = 0;
+
+    if (!detail::token_list_slice(*this, desired_start_idx, desired_length, slice_start_idx, slice_length, result.src))
     {
-        JXC_DEBUG_ASSERT(start_idx < tokens.size());
-        JXC_DEBUG_ASSERT(start_idx + length <= tokens.size());
+        return result;
+    }
 
-        result.tokens.resize(length);
+    // detail::token_list_slice should return false if the resulting slice is empty or invalid
+    JXC_DEBUG_ASSERT(slice_length > 0);
+    JXC_DEBUG_ASSERT(slice_start_idx < tokens.size());
+    JXC_DEBUG_ASSERT(slice_start_idx + slice_length <= tokens.size());
 
-        size_t dst_index = 0;
-        while (dst_index < length)
-        {
-            const size_t src_index = dst_index + start_idx;
-            JXC_DEBUG_ASSERT(src_index < tokens.size());
-            result.tokens[dst_index] = std::move(tokens[src_index].copy());
-            ++dst_index;
-        }
-
-        // determine the slice of source_view that this token slice represents
-        if (result.tokens.size() > 0 && src.size() > 0)
-        {
-            result.src = FlexString(detail::token_source_slice(src.as_view(), tokens.front().start_idx, result.front(), result.back()));
-        }
+    result.tokens.resize(slice_length);
+    for (size_t dst_index = 0; dst_index < slice_length; dst_index++)
+    {
+        const size_t src_index = slice_start_idx + dst_index;
+        result.tokens[dst_index] = tokens[src_index].copy();
     }
     return result;
 }
@@ -1759,6 +1811,12 @@ FlexString TokenList::source(bool force_owned) const
     {
         return detail::concat_token_values(&tokens.front(), tokens.size());
     }
+}
+
+
+std::string_view TokenList::get_source_view() const
+{
+    return src.as_view();
 }
 
 

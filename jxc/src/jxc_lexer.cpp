@@ -19,16 +19,16 @@ JXC_BEGIN_NAMESPACE(jxc)
 
 bool Lexer::scan_comment(size_t comment_token_len, std::string_view& out_comment)
 {
-    const char* start = reinterpret_cast<const char*>(this->current - comment_token_len);
-    JXC_DEBUG_ASSERT(start[0] == '#');
+    const char* comment_start = reinterpret_cast<const char*>(this->current - comment_token_len);
+    JXC_DEBUG_ASSERT(comment_start[0] == '#');
     while (this->current < this->limit && *this->current != '\n')
     {
         ++this->current;
     }
-    const int64_t comment_len = reinterpret_cast<const char*>(this->current) - start;
+    const int64_t comment_len = reinterpret_cast<const char*>(this->current) - comment_start;
     if (comment_len >= 0)
     {
-        out_comment = std::string_view{ start, static_cast<size_t>(comment_len) };
+        out_comment = std::string_view{ comment_start, static_cast<size_t>(comment_len) };
         return true;
     }
     return false;
@@ -179,7 +179,7 @@ bool Lexer::scan_string(std::string& out_error_message, uint8_t quote_char, std:
 		return true;
 	}
 
-    const char* start = reinterpret_cast<const char*>(this->current - 1);
+    const char* string_start = reinterpret_cast<const char*>(this->current - 1);
 
     while (this->current < this->limit && *this->current != quote_char)
     {
@@ -250,10 +250,10 @@ bool Lexer::scan_string(std::string& out_error_message, uint8_t quote_char, std:
     ++this->current;
 
     const char* end = reinterpret_cast<const char*>(this->current);
-    JXC_DEBUG_ASSERT(end > start);
-    const int64_t len = (end - start);
+    JXC_DEBUG_ASSERT(end > string_start);
+    const int64_t len = (end - string_start);
     JXC_DEBUG_ASSERT(len >= 0);
-    out_string = std::string_view{ start, (size_t)len };
+    out_string = std::string_view{ string_start, (size_t)len };
     return true;
 }
 

@@ -14,7 +14,7 @@ JXC_BEGIN_NAMESPACE(jxc)
 // of extraneous string copies that were not needed. However, any string that needs to be encoded
 // (eg. any string with escapes like '\n') needs to be copied into an owned string.
 //
-class FlexString
+class JXC_EXPORT FlexString
 {
 public:
     static constexpr size_t max_inline_len = 23;

@@ -31,7 +31,7 @@ enum class ElementType : uint8_t
 };
 
 
-const char* element_type_to_string(ElementType type);
+JXC_EXPORT const char* element_type_to_string(ElementType type);
 
 
 inline std::ostream& operator<<(std::ostream& os, ElementType type)
@@ -272,7 +272,7 @@ using Element = TElement<TokenView>;
 using OwnedElement = TElement<TokenList>;
 
 
-class JumpParser
+class JXC_EXPORT JumpParser
 {
 protected:
     enum JumpState : uint8_t
@@ -421,7 +421,7 @@ public:
 
 
 // Utility parser that can be used to simpify parsing annotation TokenView values
-struct AnnotationParser
+struct JXC_EXPORT AnnotationParser
 {
     TokenView anno;
     size_t idx = 0;
@@ -485,7 +485,7 @@ inline T sign_char_to_multiplier(char sign_char)
 // Given two decimal integer strings, returns lhs <= rhs.
 // This function assumes clean inputs: both values must be at least 1 character and with no leading zeroes.
 // Values should have no sign character.
-bool decimal_integer_string_less_than_or_equal(std::string_view lhs, std::string_view rhs);
+JXC_EXPORT bool decimal_integer_string_less_than_or_equal(std::string_view lhs, std::string_view rhs);
 
 // Checks if an integer in string form is less than or equal to the max value for that type.
 // Takes a value without a sign char that is assumed to be positive.
@@ -645,10 +645,10 @@ inline int32_t char_to_int(char ch)
 inline int32_t char_to_int_unchecked(char ch) { return ch - '0'; }
 
 
-bool string_is_number_base_10(std::string_view value);
+JXC_EXPORT bool string_is_number_base_10(std::string_view value);
 
 
-bool string_to_double(std::string_view value, double& out_value);
+JXC_EXPORT bool string_to_double(std::string_view value, double& out_value);
 
 
 template<typename T>
@@ -905,7 +905,7 @@ inline bool is_number_token_negative(const Token& number_token)
 }
 
 
-struct NumberTokenSplitResult
+struct JXC_EXPORT NumberTokenSplitResult
 {
     char sign = '\0';
     std::string_view prefix;
@@ -926,7 +926,7 @@ struct NumberTokenSplitResult
 };
 
 
-bool split_number_token_value(const Token& number_token, NumberTokenSplitResult& out_result, ErrorInfo& out_error);
+JXC_EXPORT bool split_number_token_value(const Token& number_token, NumberTokenSplitResult& out_result, ErrorInfo& out_error);
 
 
 template<typename T>
@@ -1152,10 +1152,10 @@ bool parse_number_object_key(const Token& tok, IntType& out_value, ErrorInfo& ou
 // Returns a string_view representing a string token's inner string data.
 // eg. The string without quote chars, heredoc+parens, etc.
 // This is half of the parsing process for strings - the other half is handling escape characters.
-bool string_token_to_value(const Token& string_token, std::string_view& out_view, bool& out_is_raw_string, ErrorInfo& out_error);
+JXC_EXPORT bool string_token_to_value(const Token& string_token, std::string_view& out_view, bool& out_is_raw_string, ErrorInfo& out_error);
 
 // Checks if a string contains any backslash characters
-bool string_has_escape_chars(std::string_view string_value);
+JXC_EXPORT bool string_has_escape_chars(std::string_view string_value);
 
 // Returns the required buffer size to store a raw string, based on the string's value (see string_token_to_value())
 inline size_t get_raw_string_required_buffer_size(std::string_view string_value) { return string_value.size(); }
@@ -1163,7 +1163,7 @@ inline size_t get_raw_string_required_buffer_size(std::string_view string_value)
 // Returns the required buffer size to store a string, based on the string's value (see string_token_to_value())
 // This scans the string and checks escape characters for how many bytes they require.
 // Note that for strings with a large number of unicode escapes, this can overestimate a bit.
-size_t get_string_required_buffer_size(std::string_view string_value);
+JXC_EXPORT size_t get_string_required_buffer_size(std::string_view string_value);
 
 // Returns the required buffer size to store a string, based on the string's value (see string_token_to_value())
 inline size_t get_string_required_buffer_size(std::string_view string_value, bool is_raw_string)
@@ -1172,16 +1172,16 @@ inline size_t get_string_required_buffer_size(std::string_view string_value, boo
 }
 
 // Returns the required buffer size to store a string.
-bool get_string_token_required_buffer_size(const Token& string_token, size_t& out_buffer_size, ErrorInfo& out_error);
+JXC_EXPORT bool get_string_token_required_buffer_size(const Token& string_token, size_t& out_buffer_size, ErrorInfo& out_error);
 
 // Scans a string value and parses its contents for escape characters, storing them in the output buffer.
 // Use string_token_to_value() to convert a token to a string value, and get_string_required_buffer_size() to compute the buffer size needed.
 // Note that this does not need to be called for raw strings.
-bool parse_string_escapes_to_buffer(std::string_view string_value, size_t string_token_start_idx, size_t string_token_end_idx, char* out_string_buffer,
+JXC_EXPORT bool parse_string_escapes_to_buffer(std::string_view string_value, size_t string_token_start_idx, size_t string_token_end_idx, char* out_string_buffer,
     size_t string_buffer_size, size_t& out_num_chars_written, ErrorInfo& out_error);
 
 // Parses a string token to a string buffer. Use get_string_token_required_buffer_size() to compute the size of the output buffer.
-bool parse_string_token_to_buffer(const Token& string_token, char* out_buffer, size_t buffer_size, size_t& out_num_chars_written, ErrorInfo& out_error);
+JXC_EXPORT bool parse_string_token_to_buffer(const Token& string_token, char* out_buffer, size_t buffer_size, size_t& out_num_chars_written, ErrorInfo& out_error);
 
 // Parses a string token to a resizable character buffer (eg. std::string or std::vector<char>)
 template<JXC_CONCEPT(traits::StringBuffer) T>
@@ -1227,9 +1227,9 @@ bool parse_string_token(const Token& string_token, T& out_string_buffer, ErrorIn
 }
 
 // returns the number of bytes required to store the decoded version of a byte string
-size_t get_byte_buffer_required_size(const char* bytes_token_str, size_t bytes_token_str_len);
+JXC_EXPORT size_t get_byte_buffer_required_size(const char* bytes_token_str, size_t bytes_token_str_len);
 
-bool parse_bytes_token(const Token& bytes_token, uint8_t* out_data_buffer, size_t out_data_buffer_size, size_t& out_num_bytes_written, ErrorInfo& out_error);
+JXC_EXPORT bool parse_bytes_token(const Token& bytes_token, uint8_t* out_data_buffer, size_t out_data_buffer_size, size_t& out_num_bytes_written, ErrorInfo& out_error);
 
 template<JXC_CONCEPT(traits::ByteBuffer) T>
 bool parse_bytes_token(const Token& bytes_token, T& out_data, ErrorInfo& out_error)
@@ -1245,18 +1245,18 @@ bool parse_bytes_token(const Token& bytes_token, T& out_data, ErrorInfo& out_err
 }
 
 // Checks if the given datetime token is just a date (no time data)
-bool datetime_token_is_date(const Token& datetime_token);
+JXC_EXPORT bool datetime_token_is_date(const Token& datetime_token);
 
 // Checks if the given datetime token includes both date and time data
-bool datetime_token_is_datetime(const Token& datetime_token);
+JXC_EXPORT bool datetime_token_is_datetime(const Token& datetime_token);
 
 // Parses a date token into a Date value. This will return an error if the token includes time data.
-bool parse_date_token(const Token& datetime_token, Date& out_date, ErrorInfo& out_error);
+JXC_EXPORT bool parse_date_token(const Token& datetime_token, Date& out_date, ErrorInfo& out_error);
 
 // Parses a date token into a DateTime value.
 // If require_time_data is true, this will return an error if the token does not include time info.
 // If require_time_data is false and the token does not include time data, out_datetime will have a time of 00:00:00Z.
-bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, ErrorInfo& out_error, bool require_time_data = false);
+JXC_EXPORT bool parse_datetime_token(const Token& datetime_token, DateTime& out_datetime, ErrorInfo& out_error, bool require_time_data = false);
 
 JXC_END_NAMESPACE(util)
 
