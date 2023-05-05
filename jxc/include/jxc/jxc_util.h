@@ -796,31 +796,31 @@ constexpr std::string get_type_name()
 template<typename T>
 struct DebugTypeName<std::vector<T>>
 {
-    static constexpr const char* name() { return jxc::format("std::vector<{}>", get_type_name<T>()); }
+    static std::string name() { return jxc::format("std::vector<{}>", get_type_name<T>()); }
 };
 
 template<typename T, size_t MaxSize>
 struct DebugTypeName<std::array<T, MaxSize>>
 {
-    static constexpr const char* name() { return jxc::format("std::array<{}, {}>", get_type_name<T>(), MaxSize); }
+    static std::string name() { return jxc::format("std::array<{}, {}>", get_type_name<T>(), MaxSize); }
 };
 
 template<typename T, uint16_t MaxSize>
 struct DebugTypeName<FixedArray<T, MaxSize>>
 {
-    static constexpr const char* name() { return jxc::format("FixedArray<{}, {}>", get_type_name<T>(), MaxSize); }
+    static std::string name() { return jxc::format("FixedArray<{}, {}>", get_type_name<T>(), MaxSize); }
 };
 
 template<typename T, uint16_t BufSize, typename Alloc>
 struct DebugTypeName<StackVector<T, BufSize, Alloc>>
 {
-    static constexpr const char* name() { return jxc::format("StackVector<{}, {}>", get_type_name<T>(), BufSize); }
+    static std::string name() { return jxc::format("StackVector<{}, {}>", get_type_name<T>(), BufSize); }
 };
 
 template<typename T, uint16_t MaxSize>
 struct DebugTypeName<MiniBuffer<T, MaxSize>>
 {
-    static constexpr const char* name() { return jxc::format("MiniBuffer<{}, {}>", get_type_name<T>(), MaxSize); }
+    static std::string name() { return jxc::format("MiniBuffer<{}, {}>", get_type_name<T>(), MaxSize); }
 };
 
 JXC_END_NAMESPACE(detail)
