@@ -842,7 +842,14 @@ inline bool string_to_number_hex(char sign_char, std::string_view value, T& out_
     }
 #endif
 
-    out_result = static_cast<T>(strtoll(value.data(), nullptr, 16)) * detail::sign_char_to_multiplier<T>(sign_char);
+    if constexpr (std::is_unsigned_v<T>)
+    {
+        out_result = static_cast<T>(strtoull(value.data(), nullptr, 16)) * detail::sign_char_to_multiplier<T>(sign_char);
+    }
+    else
+    {
+        out_result = static_cast<T>(strtoll(value.data(), nullptr, 16)) * detail::sign_char_to_multiplier<T>(sign_char);
+    }
     return true;
 }
 
@@ -865,7 +872,15 @@ inline bool string_to_number_octal(char sign_char, std::string_view value, T& ou
         }
     }
 #endif
-    out_result = static_cast<T>(strtol(value.data(), nullptr, 8)) * detail::sign_char_to_multiplier<T>(sign_char);
+
+    if constexpr (std::is_unsigned_v<T>)
+    {
+        out_result = static_cast<T>(strtoull(value.data(), nullptr, 8)) * detail::sign_char_to_multiplier<T>(sign_char);
+    }
+    else
+    {
+        out_result = static_cast<T>(strtoll(value.data(), nullptr, 8)) * detail::sign_char_to_multiplier<T>(sign_char);
+    }
     return true;
 }
 
@@ -888,7 +903,15 @@ inline bool string_to_number_binary(char sign_char, std::string_view value, T& o
         }
     }
 #endif
-    out_result = static_cast<T>(strtol(value.data(), nullptr, 2)) * detail::sign_char_to_multiplier<T>(sign_char);
+
+    if constexpr (std::is_unsigned_v<T>)
+    {
+        out_result = static_cast<T>(strtoull(value.data(), nullptr, 2)) * detail::sign_char_to_multiplier<T>(sign_char);
+    }
+    else
+    {
+        out_result = static_cast<T>(strtoll(value.data(), nullptr, 2)) * detail::sign_char_to_multiplier<T>(sign_char);
+    }
     return true;
 }
 
