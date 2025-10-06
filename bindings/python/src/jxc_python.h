@@ -146,7 +146,7 @@ public:
     }
 
     // Conversion part 2 (C++ -> Python)
-    // convert an jxc::FlexString instance into a Python object.
+    // convert an jxc::Date instance into a Python object.
     static handle cast(const jxc::Date& src, return_value_policy /* policy */, handle /* parent */)
     {
         // lazy initialization for the PyDateTime API
@@ -154,7 +154,10 @@ public:
         {
             PyDateTime_IMPORT;
         }
-
+        if (src.year < 1)
+        {
+            throw cast_error(jxc::format("Python date objects do not support years less than 1 (got {}-{}-{})", src.year, src.month, src.day));
+        }
         return PyDate_FromDate(src.year, src.month, src.day);
     }
 };
@@ -219,13 +222,18 @@ public:
     }
 
     // Conversion part 2 (C++ -> Python)
-    // convert an jxc::FlexString instance into a Python object.
+    // convert an jxc::DateTime instance into a Python object.
     static handle cast(const jxc::DateTime& src, return_value_policy /* policy */, handle /* parent */)
     {
         // lazy initialization for the PyDateTime API
         if (!PyDateTimeAPI)
         {
             PyDateTime_IMPORT;
+        }
+
+        if (src.year < 1)
+        {
+            throw cast_error(jxc::format("Python datetime objects do not support years less than 1 (got {}-{}-{})", src.year, src.month, src.day));
         }
 
         if (src.is_timezone_local())
