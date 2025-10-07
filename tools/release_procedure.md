@@ -8,9 +8,9 @@
 
 ### Compile Native Binaries
 * Build debug binaries.
-    * `premake5 gmake2 && make config=debug_linux64 -j16`
+    * `premake5 gmake && make config=debug_linux64 -j16`
 * Build release binaries.
-    * `premake5 gmake2 && make config=release_linux64 -j16`
+    * `premake5 gmake && make config=release_linux64 -j16`
         - NB. This command auto-updates the Python bindings interface file, which needs to be done _before_ building the Python wheels. _Technically_, this is only required if the `_pyjxc` API or docstrings have any changes, but it's best practice to just make sure it always gets run for every release.
 
 * Build the Python wheel.

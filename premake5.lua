@@ -180,7 +180,7 @@ project "test_jxc"
 
 
 function find_python_include_dir()
-    local versions = { '3.12', '3.11', '3.10', '3.9', '3.8', '3.7' }
+    local versions = { '3.16', '3.15', '3.14', '3.13', '3.12', '3.11', '3.10', '3.9' }
     for i, ver in ipairs(versions) do
         local py = os.findheader('python' .. ver .. '/Python.h')
         if py ~= nil then
