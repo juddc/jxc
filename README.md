@@ -7,7 +7,7 @@
 
 JXC is a structured data language similar to JSON, but with a focus on being expressive, extensible, and human-friendly. It's fantastic in many use-cases that can be awkward in other data formats. It's a perfect fit for config files, especially ones with more complex needs. It also does not sacrifice speed - benchmarks show that the reference implementation is about as fast as many commonly used C++ JSON libraries.
 
-**Important Note**: JXC has not yet reached version 1.0. The current goal is to ship a 1.0 release in early 2023. **The 1.0 release will come with a strong commitment to backwards compatibility for the language syntax.** Along with this, the reference implementation will switch to semantic versioning - no breaking changes allowed except for major version bumps. The version numbers for the language and reference libraries will also likely be decoupled at this time, so they can evolve independently.
+**Important Note**: JXC has not yet reached version 1.0. The current goal is to ship a 1.0 release in early 2026. **The 1.0 release will come with a strong commitment to backwards compatibility for the language syntax.** Along with this, the reference implementation will switch to semantic versioning - no breaking changes allowed except for major version bumps. The version numbers for the language and reference libraries will also likely be decoupled at this time, so they can evolve independently.
 
 If you have feedback on the language syntax or semantics, now is the best time to offer them, while breaking changes are still allowed.
 
@@ -21,7 +21,7 @@ Until 1.0 is released, expect a few language and API changes.
     integers: [ -2, -1, 0, 1, 2, 4e6, 0xff, 0o644, 0b011011 ]
     floats: [ 3.141, -2.5, 1e-4, nan, +inf, -inf ]
     annotations: vec3[ 0.1, -0.4, 3.141 ]
-    numeric_suffixes: [ 4px, 25%, 5mm, 22.3cm ]
+    numeric_suffixes: [ 4_px, 25%, 5_mm, 22.3_cm, 0xFF_i16 ]
     dates_and_datetimes: [ dt'2023-02-09', dt'2017-11-22T11:45:02Z' ]
     strings: [
         'Single-quoted string'
@@ -47,7 +47,7 @@ Until 1.0 is released, expect a few language and API changes.
 
 - **JSON**. JXC is a superset of JSON. All valid JSON syntax is also valid JXC syntax. If you're already using JSON for your config files and want more flexibility, it's easy to migrate to JXC. If you find any valid JSON that JXC does not handle, please submit a bug report!
 
-- **Numeric Suffixes**. JXC allows custom suffixes on numeric types, such as `10px`, `20.5%`, or `2.34_f32`. These suffixes can be evaluated at runtime and handled by your application however is needed, such as for conversion, storage, or data validation.
+- **Numeric Suffixes**. JXC allows custom suffixes on numeric types, such as `10_px`, `20.5%`, or `2.34_f32`. These suffixes can be evaluated at runtime and handled by your application however is needed, such as for conversion, storage, or data validation.
 
 - **Annotations**. JXC allows annotations at the beginning of any value (eg. `vec3[0,0,1]`). The annotation syntax is flexible and you can use it for whatever purpose you need for your application - there are no built-in or reserved annotations. While their primary purpose is to store type information, they can also be used to store arbitrary metadata. This data can be read as a string, or, for more complex use-cases, it can be read as a list of tokens you can parse yourself (for example, to implement generics).
 
