@@ -158,10 +158,6 @@ contexts:
         5: punctuation.definition.string.end.jxc
         6: punctuation.definition.string.end.jxc
 
-    # error highlighting for raw strings without parens
-    - match: (r)(["'])(.*)(\2)
-      scope: invalid.illegal.jxc
-
   string_raw_multi_line:
     - meta_scope: meta.string_raw.jxc
     - meta_include_prototype: false
@@ -362,10 +358,10 @@ contexts:
     - include: constant_inf
     - include: number_integer
     - include: number_float
-    - include: string_raw_single_line
     - include: string_bytes_single_line
     - include: string_single_line
     - include: string_datetime
+    - include: string_raw
     - include: expr_operator
     - include: expr_identifier
 

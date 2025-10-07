@@ -11,7 +11,7 @@
         0xff, 0x0011ffbb
     ]
     number_suffixes: [
-        42px
+        42_px
         50.25%
     ]
     floats: [

@@ -25,7 +25,6 @@ inf
 -1.0E+2
 0xFF
 0xff
-0XFF
 -0xaa
 0b110011
 0o777
@@ -64,20 +63,44 @@ r"heredoc(
     multi-line string data
 )heredoc"
 
-r'html(
-<!doctype html>
-<html>
-<head>
-    <title>Neat</title>
-</head>
-<body id="body-i-guess">
-    <h1 class="header-or-something">Sup?</h1>
-</body>
-</html>
-)html'
+# Embedded language syntax highlighting based on the heredoc identifier
+[
+    r'bat(
+        @echo off
+        echo Hello world
+    )bat'
 
-r'css(
-body {
+    r'c(
+        #include <stdio.h>
+        int main(int argc, char** argv)
+        {
+            printf("Hello world\n");
+            return 0;
+        }
+    )c'
+
+    r'cpp(
+        #include <iostream>
+        int main(int argc, char** argv)
+        {
+            std::cout << "Hello world" << std::endl;
+            return 0;
+        }
+    )cpp'
+
+    r'csharp(
+        using System;
+        class Program
+        {
+            static void Main()
+            {
+                Console.WriteLine("Hello, World!");
+            }
+        }
+    )csharp'
+
+    r'css(
+        body {
             background-color: purple;
             color: yellow;
             font-size: 100px;
@@ -87,23 +110,190 @@ body {
         /* css comment */
         .header-or-something {
             font-size: 200px;
-}
-)css'
+        }
+    )css'
 
-r'python(
-import os
-import sys
+    r'go(
+        package main
+        import "fmt"
+        func main() {
+            fmt.Println("hello world")
+        }
+    )go'
 
-if os.path.exists("./neat.txt"):
-    print('yup')
+    r'html(
+        <!doctype html>
+        <html>
+        <head>
+            <title>Neat</title>
+        </head>
+        <body id="body-i-guess">
+            <h1 class="header-or-something">Sup?</h1>
+        </body>
+        </html>
+    )html'
 
-def add(x: int, y: int) -> int:
-    """ adds two ints together """
-    return x + y
+    r'ini(
+        ; ini comment
+        [section1]
+        key1 = This is a value
+        key2 = 123.45
+        [section2]
+        key3 = Some text ; another comment
+    )ini'
 
-if __name__ == "__main__":
-    print(add(10, 20))
-)python'
+    r'java(
+        public class HelloWorld {
+            public static void main(String[] args) {
+                System.out.println("Hello, World!");
+            }
+        }
+    )java'
+
+    r'js(
+        // Comment
+        console.log("Hello world");
+    )js'
+
+    r'json(
+        {
+            "key1": "value",
+            "key2": 123.456
+        }
+    )json'
+
+    r'lua(
+        local function fn(a, b, c)
+            for i = 1, 10 do
+                if i + a == 5 then
+                    print(i * a * b / c)
+                end
+            end
+        end
+    )lua'
+
+    r'markdown(
+# Title
+
+Paragraph
+
+## Subtitle
+
+- First bullet
+- Second bullet
+
+)markdown'
+
+    r'perl(
+        # Comment
+        print "Hello, World!\n";
+    )perl'
+
+    r'php(
+        function func(int $value): int
+        {
+            return $value + 5;
+        }
+        // Comment
+        echo 'Result: ' . func(1995);
+    )php'
+
+    r'phphtml(
+        <h1>Header</h1>
+        <p>
+            <?php
+                echo "Hello, World!";
+            ?>
+        </p>
+    )phphtml'
+
+    r'powershell(
+        Write-Output "Hello, World!"
+    )powershell'
+
+    r'python(
+        import os
+
+        class A:
+            """
+            Docstring
+            """
+            def __init__(self):
+                self.a = 123.456
+
+        if __name__ == "__main__":
+            # Comment
+            a = A()
+            print(a.a)
+            if os.path.exists("./file.txt"):
+                print('Exists')
+    )python'
+
+    r'regexp(([a-zA-Z]*)?)regexp'
+
+    r'ruby(
+        # Comment
+        puts "Hello, World!"
+    )ruby'
+
+    r'rust(
+        // Comment
+        fn main() {
+            println!("Hello, World!");
+        }
+    )rust'
+
+    r'shell(
+        #!/bin/bash
+        set -e
+        # Comment
+        echo "Hello, World!"
+        sleep 25
+    )shell'
+
+    r'sql(
+        -- Example borrowed from Wikipedia
+        SELECT Book.title AS Title,
+            count(*) AS Authors
+        FROM  Book
+        JOIN  Book_author
+        ON  Book.isbn = Book_author.isbn
+        GROUP BY Book.title;
+    )sql'
+
+    r'ts(
+        // Comment
+        console.log("Hello, World!");
+    )ts'
+
+    r'vb(
+        Module Module1
+            Sub Main()
+                ' This is a comment
+                Console.WriteLine("Hello, World!")
+            End Sub
+        End Module
+    )vb'
+
+    r'xml(
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root>
+            <!-- comment -->
+            <node>data</node>
+        </root>
+    )xml'
+
+    r'yaml(
+        --- # The Smiths
+        - {key1: Unquoted string value, key2: 42}
+        - name: Some Name
+        value: 1234
+        list_of_stuff:
+        - Another unquoted string value
+        - 'Quoted string value'
+        - 123.456
+    )yaml'
+]
 
 # dates
 dt'1997-04-22'
@@ -158,6 +348,7 @@ b64"(
     'abc',
     -0xff_i32,
 ]
+[ x 5, y 10 ]
 
 # expressions
 ()
@@ -190,7 +381,7 @@ b64"(
 (2*x^2 + 4*x^2 - 3)
 # expressions as data
 (Core.Voxel.Air)
-(StaticMesh '/Game/CoreArt/Environment/Trees/TreeExperiment02.TreeExperiment02')
+(StaticMesh'/Game/CoreArt/Environment/Trees/TreeExperiment02.TreeExperiment02')
 (FVoxel(14).With('Phase', 3))
 # multi-line expressions
 (
@@ -238,26 +429,17 @@ b64"(
 
 # type annotations
 {
-    anno1: !vec.vec<vec.int<1, 2, 3>, 'abc', vec.int>[
-        1,
-        2,
-        3,
-    ]
-    anno2: !vec.vec<vec.int<1_px, 2_px, 3_px>, 'abc', vec.int>[1_px, 2_px, 3_px]
-    anno3: vec3[1, 2, 3]
+    anno1: vec.vec<vec.int<1, 2, 3>, 'abc', vec.int>[1, 2, 3],
+    anno2: !vec.vec<vec.int<1_px, 2_px, 3_px>, 'abc', vec.int>[1_px, 2_px, 3_px],
     w: !vec<int, int, int>[1, 2, 3]
     q: rgb[0, 50, 22]
     z: !color b64"/xEiu/8="   # huh
     z: color b64"/xEiu/8="
-    $qq$: { x: !val 5, y: val 2, z: val 10 }
+    qq: { x: !val 5, y: val 2, z: val 10 }
     0xff11: tag(a=5)
     0xff11: tag +5.2
-    true: ahhhh 5
-    "string key": tag "neat"
 
     values: [
-        Std.Array [ 1, 2, 3, 4, 5 ]
-        Something b64"/xEiu/8="
         Array<Math.Vector3<int32_t>> [ [0,1,2], [4,5,6] ]
         Array<Math.Vector3<int32_t>> [ {x:0,y:1,z:2}, {x:4,y:5,z:6} ]
         Array<Vector3> [ Vector3{ x: 0, y: 1, z: 2 }, Vector3{ x: 4, y: 5, z: 6 } ]
@@ -268,7 +450,7 @@ b64"(
     ]
 }
 
-# json document
+# json document (jxc is a superset of json, so all valid json should be valid jxc)
 {
     "name": "Example Color Scheme",
     "variables":

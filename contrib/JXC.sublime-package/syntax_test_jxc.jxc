@@ -8,6 +8,14 @@ null
 true
 false
 
+# not a number
+nan
+
+# infinity
+inf
++inf
+-inf
+
 # numbers
 123
 -123
@@ -32,6 +40,9 @@ false
 123.456_px
 -123_px
 -123.456_px
+50.25%
+25%_width
+75%vh
 
 # strings
 ""
@@ -52,17 +63,260 @@ r"heredoc(
     multi-line string data
 )heredoc"
 
-r'html(
-<!doctype html>
-<html>
-<head>
-    <title>Neat</title>
-</head>
-<body>
-    <h1>Sup?</h1>
-</body>
-</html>
-)html'
+# Embedded language syntax highlighting based on the heredoc identifier
+[
+    r'bat(
+        @echo off
+        echo Hello world
+    )bat'
+
+    r'c(
+        #include <stdio.h>
+        int main(int argc, char** argv)
+        {
+            printf("Hello world\n");
+            return 0;
+        }
+    )c'
+
+    r'cpp(
+        #include <iostream>
+        int main(int argc, char** argv)
+        {
+            std::cout << "Hello world" << std::endl;
+            return 0;
+        }
+    )cpp'
+
+    r'csharp(
+        using System;
+        class Program
+        {
+            static void Main()
+            {
+                Console.WriteLine("Hello, World!");
+            }
+        }
+    )csharp'
+
+    r'css(
+        body {
+            background-color: purple;
+            color: yellow;
+            font-size: 100px;
+            font-weight: bold;
+            font-family: 'Comic Sans MS';
+        }
+        /* css comment */
+        .header-or-something {
+            font-size: 200px;
+        }
+    )css'
+
+    r'go(
+        package main
+        import "fmt"
+        func main() {
+            fmt.Println("hello world")
+        }
+    )go'
+
+    r'html(
+        <!doctype html>
+        <html>
+        <head>
+            <title>Neat</title>
+        </head>
+        <body id="body-i-guess">
+            <h1 class="header-or-something">Sup?</h1>
+        </body>
+        </html>
+    )html'
+
+    r'ini(
+        ; ini comment
+        [section1]
+        key1 = This is a value
+        key2 = 123.45
+        [section2]
+        key3 = Some text ; another comment
+    )ini'
+
+    r'java(
+        public class HelloWorld {
+            public static void main(String[] args) {
+                System.out.println("Hello, World!");
+            }
+        }
+    )java'
+
+    r'js(
+        // Comment
+        console.log("Hello world");
+    )js'
+
+    r'json(
+        {
+            "key1": "value",
+            "key2": 123.456
+        }
+    )json'
+
+    r'lua(
+        local function fn(a, b, c)
+            for i = 1, 10 do
+                if i + a == 5 then
+                    print(i * a * b / c)
+                end
+            end
+        end
+    )lua'
+
+    r'markdown(
+# Title
+
+Paragraph
+
+## Subtitle
+
+- First bullet
+- Second bullet
+
+    )markdown'
+
+    r'perl(
+        # Comment
+        print "Hello, World!\n";
+    )perl'
+
+    r'php(
+        function func(int $value): int
+        {
+            return $value + 5;
+        }
+        // Comment
+        echo 'Result: ' . func(1995);
+    )php'
+
+    r'phphtml(
+        <h1>Header</h1>
+        <p>
+            <?php
+                echo "Hello, World!";
+            ?>
+        </p>
+    )phphtml'
+
+    r'powershell(
+        Write-Output "Hello, World!"
+    )powershell'
+
+    r'python(
+        import os
+
+        class A:
+            """
+            Docstring
+            """
+            def __init__(self):
+                self.a = 123.456
+
+        if __name__ == "__main__":
+            # Comment
+            a = A()
+            print(a.a)
+            if os.path.exists("./file.txt"):
+                print('Exists')
+    )python'
+
+    r'regexp(([a-zA-Z]*)?)regexp'
+
+    r'ruby(
+        # Comment
+        puts "Hello, World!"
+    )ruby'
+
+    r'rust(
+        // Comment
+        fn main() {
+            println!("Hello, World!");
+        }
+    )rust'
+
+    r'shell(
+        #!/bin/bash
+        set -e
+        # Comment
+        echo "Hello, World!"
+        sleep 25
+    )shell'
+
+    r'sql(
+        -- Example borrowed from Wikipedia
+        SELECT Book.title AS Title,
+            count(*) AS Authors
+        FROM  Book
+        JOIN  Book_author
+        ON  Book.isbn = Book_author.isbn
+        GROUP BY Book.title;
+    )sql'
+
+    r'ts(
+        // Comment
+        console.log("Hello, World!");
+    )ts'
+
+    r'vb(
+        Module Module1
+            Sub Main()
+                ' This is a comment
+                Console.WriteLine("Hello, World!")
+            End Sub
+        End Module
+    )vb'
+
+    r'xml(
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root>
+            <!-- comment -->
+            <node>data</node>
+        </root>
+    )xml'
+
+    r'yaml(
+        --- # The Smiths
+        - {key1: Unquoted string value, key2: 42}
+        - name: Some Name
+        value: 1234
+        list_of_stuff:
+        - Another unquoted string value
+        - 'Quoted string value'
+        - 123.456
+    )yaml'
+]
+
+# dates
+dt'1997-04-22'
+dt'-0042-11-02'
+dt'4999-10-28'
+dt'2023-02-14'
+
+# datetimes
+dt"1970-01-01T00:00:00Z"
+dt"1970-01-01T00:00:00Z"
+dt"-0001-01-01T00:00:00Z"
+dt"0000-01-01T00:00:00Z"
+dt"0001-01-01T01:01:01.000000001Z"
+dt"-10000-01-01T00:00:00Z"
+dt"-10000-12-31T00:00:00Z"
+dt"2012-12-12T00:00:00Z"
+dt"2007-11-22T12:21:49.332Z"
+dt"2000-01-01T12:35:22.250"
+dt"2023-02-10T08:22:59.777"
+dt"-0050-12-31T14:49:10.205"
+dt"1999-08-21T08:30:42.205+00:15"
+dt"1999-08-21T08:30:42.205-08:00"
+dt"1999-08-21T08:30:42.205+11:45"
 
 # byte strings
 b64"anhjIGZvcm1hdA=="
@@ -115,7 +369,7 @@ b64"(
 (math.max(10, 20) + 3.141) # with the default parser, this is equivalent to ['math', '.', 'max', '(', 10, ',', 20, ')', '+', 3.141]
 # boolean-style expressions
 (5 <= 4)
-(5 < 3 || abc + 5 > 10 || qqq == null || false)
+(5 < 3 || abc + 5 > 10 || qqq == null || false || 42 > inf)
 (true || false)
 (true === false or true)
 # math-style expressions
@@ -129,6 +383,32 @@ b64"(
 (Core.Voxel.Air)
 (StaticMesh'/Game/CoreArt/Environment/Trees/TreeExperiment02.TreeExperiment02')
 (FVoxel(14).With('Phase', 3))
+# multi-line expressions
+(
+    local i = 0
+    while (i < 10) do
+        print(i)
+        i += 1
+    end
+)
+(
+    null
+    | 22_mm
+    | inf
+    | nan
+    | dt'1992-04-02'
+    | r'HEREDOC(
+        this is a multi-line raw string
+        inside a multi-line expression
+        )HEREDOC'
+    | r'cpp(
+        #include <iostream>
+        int main(int argc, char** argv)
+        {
+            return 0;
+        }
+        )cpp'
+)
 
 # objects
 {}
@@ -177,7 +457,7 @@ b64"(
     ]
 }
 
-# json document
+# json document (jxc is a superset of json, so all valid json should be valid jxc)
 {
     "name": "Example Color Scheme",
     "variables":
