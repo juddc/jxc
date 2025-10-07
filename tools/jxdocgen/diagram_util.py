@@ -11,6 +11,35 @@ import _pyjxc
 from jxc import Token, TokenType
 
 
+def format_syntax_error(path: str, buf: str, info: jxc.ErrorInfo):
+    info.get_line_and_col_from_buffer(buf)
+    if info.line == 0:
+        return ''
+    lines: list[str] = [
+        info.message,
+        f'{path}:{info.line}:{info.col}',
+    ]
+    with open(path, 'r') as fp:
+        for i, line in enumerate(fp):
+            line_num = i + 1
+            if line_num >= info.line - 2 and line_num <= info.line + 2:
+                prefix = ' -> ' if line_num == info.line else '    '
+                lines.append(f'{prefix}[{line_num}] {line.rstrip()}')
+            if line_num >= info.line + 2:
+                break
+    return '\n'.join(lines)
+
+
+class DiagramParseError(ValueError):
+    def __init__(self, msg, token: jxc.Token):
+        super().__init__(msg)
+        self.error_info = jxc.ErrorInfo(msg, token.start_idx, token.end_idx)
+        self.token = token
+
+    def __str__(self):
+        return f'{super().__str__()} [token: {self.token!r}]'
+
+
 def char_repr(ch: str, quote_char='`') -> str:
     if not isinstance(ch, str) or len(ch) != 1:
         raise ValueError(f"Expected single character, got {ch!r}")
@@ -127,7 +156,6 @@ class CharRange:
             raise TypeError(f'Expected list or dict, got {value!r}')
 
 
-
 class TokenParser:
     def __init__(self, tokens: _pyjxc.TokenList):
         self.tokens = tokens
@@ -156,20 +184,20 @@ class TokenParser:
     def require_advance(self):
         self.idx += 1
         if self.idx >= self.num_tokens:
-            raise ValueError(f'Unexpected end of stream')
+            raise ValueError('Unexpected end of stream')
     
     def require_done(self):
         if self.idx < self.num_tokens - 1:
             remainder = [ self.tokens[i] for i in range(self.idx, self.num_tokens) ]
-            raise ValueError(f'Expected end of tokens, but still have unparsed remainder {remainder!r}')
+            raise DiagramParseError(f'Expected end of tokens, but still have unparsed remainder {remainder!r}', remainder[0])
 
     def require_token(self, ty: TokenType, val: typing.Optional[str] = None):
         if self.idx >= self.num_tokens:
             raise ValueError(f'Expected {ty}, got end of stream')
         if not self.tokens[self.idx].type == ty:
-            raise ValueError(f'Expected {ty}, got {self.tokens[self.idx].type}')
+            raise DiagramParseError(f'Expected {ty}, got {self.tokens[self.idx].type}', self.tokens[self.idx])
         if val is not None and self.tokens[self.idx].value != val:
-            raise ValueError(f'Expected {val}, got {self.tokens[self.idx].value}')
+            raise DiagramParseError(f'Expected {val}, got {self.tokens[self.idx].value}', self.tokens[self.idx])
 
     def check_token(self, ty: TokenType, val: typing.Optional[str] = None) -> bool:
         if self.idx >= self.num_tokens:
@@ -440,9 +468,10 @@ class Match:
 
 
 class SyntaxParser:
-    def __init__(self, buf: str):
-        self.buf = buf
-        self.parser = jxc.Parser(buf)
+    def __init__(self, path: str, buf: str):
+        self.path: str = path
+        self.buf: str = buf
+        self.parser: jxc.Parser = jxc.Parser(buf)
         self.parser.set_find_construct_from_annotation_callback(self.parse_annotation)
         self._refs = set()
 
@@ -471,8 +500,11 @@ class SyntaxParser:
         return None
 
     def parse(self):
-        return self.parser.parse()
-
+        try:
+            return self.parser.parse()
+        except DiagramParseError as e:
+            print(format_syntax_error(self.path, self.buf, e.error_info))
+            raise
 
 
 def match_tree_iter(root: Match, depth=0) -> typing.Iterable[tuple[Match, int]]:
@@ -505,7 +537,7 @@ def validate_match_group_ref_names(all_groups: dict[str, Match]):
 
 def parse_syntax_defs(syntax_file: str) -> list[tuple[str, railroad.Diagram]]:
     with open(syntax_file, 'r') as fp:
-        parser = SyntaxParser(fp.read())
+        parser = SyntaxParser(syntax_file, fp.read())
         groups: dict[str, Match] = parser.parse()
     
     validate_match_group_ref_names(groups)
