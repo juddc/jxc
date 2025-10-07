@@ -11,7 +11,7 @@ What does it look like?
     integers: [ -2, -1, 0, 1, 2, 4e6, 0xff, 0o644, 0b011011 ]
     floats: [ 3.141, -2.5, 1e-4, nan, +inf, -inf ]
     annotations: vec3[ 0.1, -0.4, 3.141 ]
-    numeric_suffixes: [ 4px, 25%, 5mm, 22.3cm ]
+    numeric_suffixes: [ 4_px, 25%, 5_mm, 22.3_cm ]
     dates_and_datetimes: [ dt'2023-02-09', dt'2017-11-22T11:45:02Z' ]
     strings: [
         'Single-quoted string'
@@ -72,7 +72,7 @@ All value types supported by JXC
 * **Lists**
     - `[]`
     - `[0, 1, 2]`
-    - `[true, null, 1.25rem]`
+    - `[true, null, 1.25_rem]`
 * **Objects**
     - `{}`
     - `{"x": 0, "y": 2, "z": 3}`
@@ -80,7 +80,7 @@ All value types supported by JXC
 * **Expressions**
     - `()`
     - `(1 + 2)`
-    - `(unquoted_identifier = 24px + 17%, "string value")`
+    - `(unquoted_identifier = 24_px + 17%, "string value")`
 
 ## Container Types
 
@@ -102,8 +102,8 @@ If you need to support different kinds of numeric values, JXC support numeric su
 ```jxc
 {
     width: 50%
-    height: 25.7px
-    angle: 47.002deg
+    height: 25.7_px
+    angle: 47.002_deg
 }
 ```
 
@@ -112,7 +112,7 @@ Number suffixes can be 1-15 characters long. The first character must be `a-z`, 
 More examples:
 
 ```jxc
-10in
+10_in
 20.52%
 0xFF_px
 0o677_perm
@@ -143,7 +143,7 @@ vec3 null
 More annotation examples:
 ```jxc
 hsva{ h: 1.0, s: 0.5, v: 0.5, a: 0.95 }
-box{ top: 20%, left: 25%, width: 200px, height: 200px }
+box{ top: 20%, left: 25%, width: 200_px, height: 200_px }
 ```
 
 Single-value types must have a space between the annotation and the value. Container types may omit the space.
@@ -268,7 +268,7 @@ More examples:
 (null)
 (1 + 2 - 3)  # (parsed as [1, '+', 2, '-', 3])
 (a, b, c=5)  # (parsed as ['a', ',', 'b', ',', 'c', '=', 5])
-(40px + 20%)
+(40_px + 20%)
 ((5 < 3) or (3 > -1))
 (FileType "/a/b/asset.ext")
 asset(FileType "/a/b/asset.ext")
@@ -313,7 +313,7 @@ Expressions can contain line breaks and comments as well, so they're a great fit
     local i = 0
     while (i < 10) do
         print(i)
-        i += 1
+        i = i + 1
     end
 )
 ```

@@ -1161,6 +1161,10 @@ bool split_number_token_value(const Token& number_token, NumberTokenSplitResult&
             out_result.prefix = value.substr(0, 2);
             value = value.substr(2);
             break;
+        case '_':
+        case '%':
+            // These are valid start characters for the numeric suffix, which means this is a literal decimal zero with a suffix
+            break;
         default:
             out_error = ErrorInfo{ jxc::format("Invalid syntax for number literal. Expected prefix like '0x', got '0{}'", ch),
                 number_token.start_idx, number_token.end_idx };

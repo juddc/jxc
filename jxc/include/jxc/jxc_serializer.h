@@ -313,6 +313,8 @@ class JXC_EXPORT Serializer
         return len;
     }
 
+    size_t write_numeric_suffix(std::string_view suffix);
+
     size_t pre_write_token(TokenType type, std::string_view post_annotation_suffix = " ");
     void post_write_token();
 

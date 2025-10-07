@@ -116,7 +116,7 @@ TEST(jxc_cpp_value, ValueNumberBehavior)
 
     // number + suffix constructor
     Value val5(25.3, "px");
-    EXPECT_EQ(val5.to_string(), "25.3px");
+    EXPECT_EQ(val5.to_string(), "25.3_px");
 }
 
 
@@ -147,14 +147,14 @@ TEST(jxc_cpp_value, CustomNumberLiterals)
         Value val = 50_px;
         EXPECT_EQ(val.as_integer(), 50);
         EXPECT_EQ(val.get_number_suffix(), "px");
-        EXPECT_EQ(val.to_string(), "50px");
+        EXPECT_EQ(val.to_string(), "50_px");
     }
 
     {
         Value val = -50_px;
         EXPECT_EQ(val.as_integer(), -50);
         EXPECT_EQ(val.get_number_suffix(), "px");
-        EXPECT_EQ(val.to_string(), "-50px");
+        EXPECT_EQ(val.to_string(), "-50_px");
     }
 
     {
@@ -162,7 +162,7 @@ TEST(jxc_cpp_value, CustomNumberLiterals)
         assert(val.as_float() == 50.25);
         EXPECT_EQ(val.as_float(), 50.25);
         EXPECT_EQ(val.get_number_suffix(), "px");
-        EXPECT_EQ(val.to_string(), "50.25px");
+        EXPECT_EQ(val.to_string(), "50.25_px");
     }
 
     {
@@ -188,7 +188,7 @@ TEST(jxc_cpp_value, SerializeWithAnnotationsSimple)
 
     {
         jxc::Value val = jxc::annotated("int", 5, "px");
-        EXPECT_EQ(val.to_string(), "int 5px");
+        EXPECT_EQ(val.to_string(), "int 5_px");
     }
 
     {
@@ -231,15 +231,30 @@ TEST(jxc_cpp_value, Parsing)
     }
 
     {
+        Value val = jxc::parse("0xFF_u8");
+        EXPECT_TRUE(val.is_integer());
+        EXPECT_EQ(val.as_integer(), 255);
+        EXPECT_EQ(val.get_number_suffix(), "u8");
+    }
+
+    {
         Value val = jxc::parse("123.456");
         EXPECT_TRUE(val.is_float());
         EXPECT_EQ(val.as_float(), 123.456);
     }
 
     {
-        Value val = jxc::parse("-123.456");
+        Value val = jxc::parse("-123.456_float32");
         EXPECT_TRUE(val.is_float());
         EXPECT_EQ(val.as_float(), -123.456);
+        EXPECT_EQ(val.get_number_suffix(), "float32");
+    }
+
+    {
+        Value val = jxc::parse("25.751%width");
+        EXPECT_TRUE(val.is_float());
+        EXPECT_EQ(val.as_float(), 25.751);
+        EXPECT_EQ(val.get_number_suffix(), "%width");
     }
 
     {

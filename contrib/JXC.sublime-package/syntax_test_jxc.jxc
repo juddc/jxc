@@ -22,17 +22,16 @@ false
 0o777
 
 # numbers with unit/type suffixes
-# NB. hex values require the suffix to have a leading underscore to avoid ambiguity
 0xffaabb77_aaa
 -0xaa44cc_i32
-+0b001100u64
--0o777perm
--123px
++0b001100_u64
+-0o777_perm
+-123_px
 +444e+2_px
-123px
-123.456px
--123px
--123.456px
+123_px
+123.456_px
+-123_px
+-123.456_px
 
 # strings
 ""
@@ -103,7 +102,7 @@ b64"(
 # supported inner values - all non-container value types without annotations
 (1)
 (3.141)
-(25px)
+(25_px)
 ("abc")
 (b64"/xEiu/8=")
 (true)
@@ -111,7 +110,7 @@ b64"(
 (null)
 # expressions with operators
 (1, 2, 3, 4)
-(40px + 20%)
+(40_px + 20%)
 (arr[0] + arr[2] - arr<3>)
 (math.max(10, 20) + 3.141) # with the default parser, this is equivalent to ['math', '.', 'max', '(', 10, ',', 20, ')', '+', 3.141]
 # boolean-style expressions
@@ -124,7 +123,7 @@ b64"(
 (5 - -3)
 (1 + (2 * 3) // 4 % 5)
 (arr[0] + arr[1])
-(min(1, 2) <=> max<int<px>>(-10px, 20px); x <=y; --x)
+(min(1, 2) <=> max<int<px>>(-10_px, 20_px); x <=y; --x)
 (2*x^2 + 4*x^2 - 3)
 # expressions as data
 (Core.Voxel.Air)
@@ -151,14 +150,14 @@ b64"(
     null: 111.2
     123: 456
     false: 0%
-    "\tabc\n": 222.2f32
+    "\tabc\n": 222.2_f32
     'zzz'  :   null
 }
 
 # type annotations
 {
     anno1: vec.vec<vec.int<1, 2, 3>, 'abc', vec.int>[1, 2, 3],
-    anno2: !vec.vec<vec.int<1px, 2px, 3px>, 'abc', vec.int>[1px, 2px, 3px],
+    anno2: !vec.vec<vec.int<1_px, 2_px, 3_px>, 'abc', vec.int>[1_px, 2_px, 3_px],
     w: !vec<int, int, int>[1, 2, 3]
     q: rgb[0, 50, 22]
     z: !color b64"/xEiu/8="   # huh

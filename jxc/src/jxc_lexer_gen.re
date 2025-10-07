@@ -36,13 +36,9 @@
     integer = zero | (digit_1_9 digit*);
     frac = decimal_pt digit+;
     exponent = ("e" | "E") (minus | plus)? digit+;
-    number_type_suffix = "_"? [a-zA-Z%] [a-zA-Z0-9_%]{0,15};
-    hex_number_type_suffix = "_" [a-zA-Z%] [a-zA-Z0-9_%]{0,15};
-
+    number_suffix = ("_" | "%") [a-zA-Z0-9_%]{0,15};
     identifier = [a-zA-Z_$][a-zA-Z0-9_$]*;
-
     quote = ['"];
-
     str_prefix_raw = "r";
 
     str_base64 = "b64\"(" | "b64'(" | "b64\"" | "b64'";
@@ -61,12 +57,12 @@
     object_key = object_key_identifier (object_key_sep object_key_identifier)*;
 
     unsigned_number_value = (
-          ("0x" hex_digit+ hex_number_type_suffix?)
-        | ("0b" bin_digit+ number_type_suffix?)
-        | ("0o" oct_digit+ number_type_suffix?)
-        | (integer number_type_suffix?)
-        | (integer exponent number_type_suffix?)
-        | (integer frac exponent? number_type_suffix?)
+          ("0x" hex_digit+ number_suffix?)
+        | ("0b" bin_digit+ number_suffix?)
+        | ("0o" oct_digit+ number_suffix?)
+        | (integer number_suffix?)
+        | (integer exponent number_suffix?)
+        | (integer frac exponent? number_suffix?)
     );
 
     number_value = (minus | plus)? unsigned_number_value;

@@ -29,10 +29,10 @@ static const char* s_default_config = R"JXC(
     listen_port: 8080
 
     worker_threads: 8
-    read_timeout: 5s
-    write_timeout: 5s
-    idle_interval: 100ms
-    payload_max_length: 16mb
+    read_timeout: 5_s
+    write_timeout: 5_s
+    idle_interval: 100_ms
+    payload_max_length: 16_mb
 
     # The logging configuration uses JXC expressions as a format function. The syntax used here is as follows:
     # - Identifiers starting with a `$` are builtin variables ($remote_addr, $status, and $path)

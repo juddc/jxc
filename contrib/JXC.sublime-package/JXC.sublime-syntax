@@ -8,8 +8,7 @@ scope: source.jxc
 
 variables:
   hex_digit: '[0-9a-fA-F]+'
-  number_type_suffix: '([a-zA-Z_%][a-zA-Z0-9_%]{0,15})?'
-  hex_number_type_suffix: '(_[a-zA-Z_%][a-zA-Z0-9_%]{0,15})?'
+  number_type_suffix: '([_%][a-zA-Z0-9_%]{0,15})?'
   number_prefix: '[\-\+]?'
 
   constant_value: 'true|false|null|nan|inf'
@@ -87,7 +86,7 @@ contexts:
   number_integer:
     - meta_scope: meta.number.jxc
 
-    - match: '({{number_prefix}})(0x|0X)({{hex_digit}})({{hex_number_type_suffix}})'
+    - match: '({{number_prefix}})(0x|0X)({{hex_digit}})({{number_type_suffix}})'
       captures:
         0: constant.numeric.value.jxc
         1: keyword.operator.arithmetic.jxc

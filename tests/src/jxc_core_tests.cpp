@@ -582,6 +582,12 @@ TEST(jxc_core, NumberParsing)
 
     EXPECT_PARSE_NUMBER("0", '+', "", "0", 0, "");
     EXPECT_PARSE_NUMBER("-1", '-', "", "1", 0, "");
+    EXPECT_PARSE_NUMBER("0_x", '+', "", "0", 0, "x");
+    EXPECT_PARSE_NUMBER("0_mm", '+', "", "0", 0, "mm");
+    EXPECT_PARSE_NUMBER("0_abcdefghijklmn", '+', "", "0", 0, "abcdefghijklmn");
+    EXPECT_PARSE_NUMBER("0%abcdefghijklmn", '+', "", "0", 0, "%abcdefghijklmn");
+    EXPECT_PARSE_NUMBER("0%_______________", '+', "", "0", 0, "%_______________");
+    EXPECT_PARSE_NUMBER("0________________", '+', "", "0", 0, "_______________");
     EXPECT_PARSE_NUMBER("1e20", '+', "", "1", 20, "");
     EXPECT_PARSE_NUMBER("-0x4f_px", '-', "0x", "4f", 0, "px");
     EXPECT_PARSE_NUMBER("0x0", '+', "0x", "0", 0, "");
@@ -589,12 +595,12 @@ TEST(jxc_core, NumberParsing)
     EXPECT_PARSE_NUMBER("0b1", '+', "0b", "1", 0, "");
     EXPECT_PARSE_NUMBER("0o0", '+', "0o", "0", 0, "");
     EXPECT_PARSE_NUMBER("0o567", '+', "0o", "567", 0, "");
-    EXPECT_PARSE_NUMBER("-0o567px", '-', "0o", "567", 0, "px");
+    EXPECT_PARSE_NUMBER("-0o567_px", '-', "0o", "567", 0, "px");
     EXPECT_PARSE_NUMBER("0b01101100%", '+', "0b", "01101100", 0, "%");
 
     EXPECT_PARSE_NUMBER("0.0", '+', "", "0.0", 0, "");
     EXPECT_PARSE_NUMBER("-0.0", '-', "", "0.0", 0, "");
-    EXPECT_PARSE_NUMBER("-1.25555555555551f", '-', "", "1.25555555555551", 0, "f");
+    EXPECT_PARSE_NUMBER("-1.25555555555551_f", '-', "", "1.25555555555551", 0, "f");
 
     EXPECT_PARSE_FLOAT_LITERAL("nan", '+', FloatLiteralType::NotANumber);
     EXPECT_PARSE_FLOAT_LITERAL("inf", '+', FloatLiteralType::PosInfinity);
@@ -908,6 +914,9 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(0); }), "0");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(42); }), "42");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(-42); }), "-42");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(0, "i32"); }), "0_i32");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(0, "%"); }), "0%");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int(0, "%%%%%%%%%%%%%%%%"); }), "0%%%%%%%%%%%%%%%%");
 
     // signed integers (bin)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(0); }), "0b0");
@@ -919,6 +928,8 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(-2); }), "-0b10");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(-3); }), "-0b11");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(-4); }), "-0b100");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(0, "i32"); }), "0b0_i32");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_bin(0, "%"); }), "0b0%");
 
     // signed integers (oct)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(0); }), "0o0");
@@ -932,6 +943,10 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-8); }), "-0o10");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-9); }), "-0o11");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-10); }), "-0o12");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(0, "i32"); }), "0o0_i32");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(0, "%"); }), "0o0%");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(8, "i16"); }), "0o10_i16");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_oct(-8, "mm"); }), "-0o10_mm");
 
     // signed integers (hex)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(0); }), "0x0");
@@ -943,6 +958,10 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(-16); }), "-0x10");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(255); }), "0xff");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(-255); }), "-0xff");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(0, "bitflag_value"); }), "0x0_bitflag_value");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(0, "%"); }), "0x0%");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(16, "u16"); }), "0x10_u16");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_int_hex(-16, "i16"); }), "-0x10_i16");
 
     // unsigned ints
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint(0); }), "0");
@@ -950,6 +969,7 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint_bin(42); }), "0b101010");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint_oct(42); }), "0o52");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint_hex(42); }), "0x2a");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_uint_hex(42, "u32"); }), "0x2a_u32");
 
     // floats
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(0); }), "0.0");
@@ -957,6 +977,8 @@ TEST(jxc_core, SerializerSimple)
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(-1); }), "-1.0");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, {}, 4, false); }), "1.5");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, {}, 4, true); }), "1.5000");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.5, "f32", 4, true); }), "1.5000_f32");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(1.75, "%", 4, true); }), "1.7500%");
 
     // float literals
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_float(std::numeric_limits<float>::quiet_NaN()); }), "nan");
@@ -1018,7 +1040,7 @@ TEST(jxc_core, SerializerSimple)
     // expressions
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().expression_end(); }), "()");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_uint(1).op("+").value_uint(2).expression_end(); }), "(1+2)");
-    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_float(1.5, "cm", 2, true).op("+").value_inf().expression_end(); }), "(1.50cm+inf)");
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.expression_begin().value_float(1.5, "cm", 2, true).op("+").value_inf().expression_end(); }), "(1.50_cm+inf)");
 
     // annotations
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.annotation("list<int>").value_null(); }), "list<int> null");

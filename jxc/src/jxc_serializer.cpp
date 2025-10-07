@@ -130,6 +130,29 @@ void Serializer::set_settings(const SerializerSettings& new_settings)
 }
 
 
+size_t Serializer::write_numeric_suffix(std::string_view suffix)
+{
+    if (suffix.empty())
+    {
+        return 0;
+    }
+
+    const size_t max_suffix_size = (suffix[0] == '%') ? 16 : 15;
+    JXC_ASSERTF(suffix.size() <= max_suffix_size,
+        "Numeric suffix length (including the '_' or '%' separator) must be <= 16 (got suffix of length {})", suffix.size());
+
+    if (suffix[0] == '%')
+    {
+        return output.write(suffix);
+    }
+
+    size_t len = 0;
+    len += output.write('_');
+    len += output.write(suffix);
+    return len;
+}
+
+
 size_t Serializer::pre_write_token(TokenType type, std::string_view post_annotation_suffix)
 {
     auto& vars = container_stack_top();
@@ -270,7 +293,8 @@ Serializer& Serializer::value_bool(bool value)
 Serializer& Serializer::value_int(int64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
-    last_token_size += output.write(jxc::format("{}{}", value, suffix));
+    last_token_size += output.write(jxc::format("{}", value));
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -285,12 +309,7 @@ Serializer& Serializer::value_int_hex(int64_t value, std::string_view suffix)
         value = -value;
     }
     last_token_size += output.write(jxc::format("0x{:x}", value));
-    if (suffix.size() > 0)
-    {
-        // hex values require an underscore before the suffix
-        last_token_size += output.write('_');
-        last_token_size += output.write(suffix);
-    }
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -304,7 +323,8 @@ Serializer& Serializer::value_int_oct(int64_t value, std::string_view suffix)
         last_token_size += output.write('-');
         value = -value;
     }
-    last_token_size += output.write(jxc::format("0o{:o}{}", value, suffix));
+    last_token_size += output.write(jxc::format("0o{:o}", value));
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -318,7 +338,8 @@ Serializer& Serializer::value_int_bin(int64_t value, std::string_view suffix)
         last_token_size += output.write('-');
         value = -value;
     }
-    last_token_size += output.write(jxc::format("0b{:b}{}", value, suffix));
+    last_token_size += output.write(jxc::format("0b{:b}", value));
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -327,7 +348,8 @@ Serializer& Serializer::value_int_bin(int64_t value, std::string_view suffix)
 Serializer& Serializer::value_uint(uint64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
-    last_token_size += output.write(jxc::format("{}{}", value, suffix));
+    last_token_size += output.write(jxc::format("{}", value));
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -336,7 +358,8 @@ Serializer& Serializer::value_uint(uint64_t value, std::string_view suffix)
 Serializer& Serializer::value_uint_hex(uint64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
-    last_token_size += output.write(jxc::format("0x{:x}{}", value, suffix));
+    last_token_size += output.write(jxc::format("0x{:x}", value));
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -345,7 +368,8 @@ Serializer& Serializer::value_uint_hex(uint64_t value, std::string_view suffix)
 Serializer& Serializer::value_uint_oct(uint64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
-    last_token_size += output.write(jxc::format("0o{:o}{}", value, suffix));
+    last_token_size += output.write(jxc::format("0o{:o}", value));
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -354,7 +378,8 @@ Serializer& Serializer::value_uint_oct(uint64_t value, std::string_view suffix)
 Serializer& Serializer::value_uint_bin(uint64_t value, std::string_view suffix)
 {
     last_token_size = pre_write_token(TokenType::Number);
-    last_token_size += output.write(jxc::format("0b{:b}{}", value, suffix));
+    last_token_size += output.write(jxc::format("0b{:b}", value));
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }
@@ -400,8 +425,6 @@ Serializer& Serializer::value_float(double value, std::string_view suffix, int32
         break;
     }
 
-    JXC_ASSERTF(suffix.size() <= 15, "Numeric suffix length must be <= 15 (got suffix of length {})", suffix.size());
-
     last_token_size = pre_write_token(TokenType::Number);
 
     if (precision < 0)
@@ -437,7 +460,7 @@ Serializer& Serializer::value_float(double value, std::string_view suffix, int32
     }
 
     last_token_size += output.write(buf);
-    last_token_size += output.write(suffix);
+    last_token_size += write_numeric_suffix(suffix);
     post_write_token();
     return *this;
 }

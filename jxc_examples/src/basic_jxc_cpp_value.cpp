@@ -4,7 +4,7 @@
 
 void example_parse()
 {
-    std::string jxc_value = "[true, 'abc', 12px, annotated null]";
+    std::string jxc_value = "[true, 'abc', 12_px, annotated null]";
     jxc::Value result = jxc::parse(jxc_value);
     assert(result.get_type() == jxc::ValueType::Array);
     assert(result.size() == 4);

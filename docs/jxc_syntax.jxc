@@ -313,17 +313,17 @@ string_escape_sequence: Sequence[
         Sequence[ Character 't', Comment 'horizontal tab' ]
         Sequence[
             Character 'x'
-            MatchGroupRef<OneOrMore>[ repeat(2x), 'hex_digit' ]
+            MatchGroupRef<OneOrMore>[ repeat(2_x), 'hex_digit' ]
             Comment 'one-byte character'
         ]
         Sequence[
             Character 'u'
-            MatchGroupRef<OneOrMore>[ repeat(4x), 'hex_digit' ]
+            MatchGroupRef<OneOrMore>[ repeat(4_x), 'hex_digit' ]
             Comment 'utf16-be codepoint'
         ]
         Sequence[
             Character 'U'
-            MatchGroupRef<OneOrMore>[ repeat(8x), 'hex_digit' ]
+            MatchGroupRef<OneOrMore>[ repeat(8_x), 'hex_digit' ]
             Comment 'utf32-be codepoint'
         ]
     ]
@@ -363,7 +363,7 @@ heredoc: Sequence[
         CharacterRange[ 'A', 'Z' ]
         Character '_'
     ]
-    Choice<ZeroOrMore>[repeat(1x, 14x), [
+    Choice<ZeroOrMore>[repeat(1_x, 14_x), [
         CharacterRange[ 'a', 'z' ]
         CharacterRange[ 'A', 'Z' ]
         CharacterRange[ '0', '9' ]
@@ -440,7 +440,7 @@ date: Sequence[
                 Character '+'
                 Character '-'
             ]
-            Sequence<OneOrMore>[repeat(4x, 5x), [ CharacterRange[ '0', '9' ] ]]
+            Sequence<OneOrMore>[repeat(4_x, 5_x), [ CharacterRange[ '0', '9' ] ]]
         ]
     }
     Character '-'
@@ -474,7 +474,7 @@ time: Sequence[
     ]
     Sequence<Optional>[
         Character '.'
-        Sequence<OneOrMore>[repeat(1x, 12x), [ CharacterRange[ '0', '9' ] ]]
+        Sequence<OneOrMore>[repeat(1_x, 12_x), [ CharacterRange[ '0', '9' ] ]]
     ]
 ]
 
@@ -577,14 +577,14 @@ number_unsigned_oct: Sequence[
 
 number_suffix: Sequence[
     Choice[
-        CharacterRange['a', 'z']
-        CharacterRange['A', 'Z']
+        Character '_'
         Character '%'
     ]
     Choice<ZeroOrMore>[
         CharacterRange['a', 'z']
         CharacterRange['A', 'Z']
         CharacterRange['0', '9']
+        Character '_'
         Character '%'
     ]
     Comment "15 chars max"
