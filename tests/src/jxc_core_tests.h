@@ -85,6 +85,15 @@ struct BytesValue
     {
     }
 
+    template<typename T>
+    static BytesValue from_vector(const std::vector<T>& v)
+    {
+        BytesValue result{};
+        result.data.resize(v.size() * sizeof(T));
+        memcpy((void*)result.data.data(), (const void*)v.data(), result.data.size());
+        return result;
+    }
+
     inline operator jxc::BytesView() const
     {
         return jxc::BytesView(data.data(), data.size());

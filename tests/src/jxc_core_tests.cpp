@@ -135,10 +135,10 @@ testing::AssertionResult _jxc_expect_jump_parse_error(
 
 
 template<typename Lambda>
-std::string test_serialize(Lambda&& callback)
+std::string test_serialize(Lambda&& callback, const jxc::SerializerSettings& settings = jxc::SerializerSettings::make_compact())
 {
     jxc::StringOutputBuffer output;
-    jxc::Serializer doc(&output, jxc::SerializerSettings::make_compact());
+    jxc::Serializer doc(&output, settings);
     callback(doc);
     doc.flush();
     return output.to_string();
@@ -898,6 +898,17 @@ TEST(jxc_core, DateTimeParsing)
     EXPECT_PARSE_DATETIME("dt'2025-08-21T10:25:05.4Z'", jxc::DateTime::make_utc(2025, 8, 21, 10, 25, 5, 400000000));
 }
 
+static std::vector<int32_t> make_int32_array(size_t len, int32_t start)
+{
+    std::vector<int32_t> result{};
+    result.resize(len);
+    int32_t val = start;
+    for (size_t i = 0; i < len; i++)
+    {
+        result[i] = val++;
+    }
+    return result;
+}
 
 TEST(jxc_core, SerializerSimple)
 {
@@ -1009,6 +1020,13 @@ TEST(jxc_core, SerializerSimple)
     // base64 strings
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesView(), StringQuoteMode::Single); }), "b64''");
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesValue{ 'j','x','c',' ','f','o','r','m','a','t' }, StringQuoteMode::Single); }), "b64'anhjIGZvcm1hdA=='");
+    // test multi-line base64 string when pretty-printing is enabled
+    EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_bytes_base64(BytesValue::from_vector(make_int32_array(32, 0)), StringQuoteMode::Single); }, jxc::SerializerSettings{}),
+R"BASE64(b64'(
+    AAAAAAEAAAACAAAAAwAAAAQAAAAFAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0AAAAO
+    AAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAAGAAAABkAAAAaAAAAGwAAABwA
+    AAAdAAAAHgAAAB8AAAA=
+)')BASE64");
 
     // date
     EXPECT_EQ(test_serialize([](Serializer& doc) { doc.value_date(jxc::Date(1970, 1, 1), StringQuoteMode::Single); }), "dt'1970-01-01'");

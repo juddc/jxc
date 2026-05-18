@@ -568,7 +568,7 @@ Serializer& Serializer::value_bytes_base64(const uint8_t* data, size_t data_len,
 
         size_t chars_remaining = buf.size();
         size_t offset = 0;
-        while (chars_remaining > buf.size())
+        while (chars_remaining > 0)
         {
             last_token_size += output.write(settings.linebreak);
             last_token_size += write_indent(1);
