@@ -99,7 +99,7 @@ TokenType Lexer::expr_next(ErrorInfo& out_error, size_t& out_start_idx, size_t& 
     };
 
 expr_start:
-    if (this->current > this->limit)
+    if (this->current >= this->limit)
     {
         goto expr_end_of_stream;
     }
@@ -231,7 +231,7 @@ TokenType Lexer::next(ErrorInfo& out_error, size_t& out_start_idx, size_t& out_e
     };
 
 regular:
-    if (this->current > this->limit)
+    if (this->current >= this->limit)
     {
         return TokenType::EndOfStream;
     }

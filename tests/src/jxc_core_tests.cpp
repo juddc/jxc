@@ -1,6 +1,10 @@
 #include "jxc_core_tests.h"
 
 
+struct TestSkipStringCopy {};
+static constexpr TestSkipStringCopy test_skip_string_copy{};
+
+
 struct TestJumpParser
 {
     std::string jxc_string;
@@ -14,6 +18,15 @@ struct TestJumpParser
     {
     }
 
+    // Constructor that passes the string view directly to the parser without copying it.
+    // This is only useful for bounds-check tests.
+    // The caller must ensure the lifetime of the string data outlives the parser.
+    TestJumpParser(std::string_view buf, TestSkipStringCopy)
+        : jxc_string(std::string(buf))
+        , parser(std::make_shared<jxc::JumpParser>(buf))
+    {
+    }
+
     ~TestJumpParser()
     {
         if (parser && !done && parser->next())
@@ -23,6 +36,15 @@ struct TestJumpParser
         }
     }
 
+private:
+    testing::AssertionResult make_parse_error() const
+    {
+        jxc::ErrorInfo err = parser->get_error();
+        return testing::AssertionFailure() << "Error parsing " << jxc::detail::debug_string_repr(jxc_string, '`')
+            << ": " << err.to_string(jxc_string);
+    }
+
+public:
     testing::AssertionResult next(const jxc::OwnedElement& expected_element)
     {
         using namespace jxc;
@@ -31,13 +53,6 @@ struct TestJumpParser
         {
             return testing::AssertionFailure() << "Parsing already done";
         }
-
-        auto make_parse_error = [this]()
-        {
-            ErrorInfo err = parser->get_error();
-            return testing::AssertionFailure() << "Error parsing " << detail::debug_string_repr(jxc_string, '`')
-                << ": " << err.to_string(jxc_string);
-        };
 
         if (parser->next())
         {
@@ -74,6 +89,32 @@ struct TestJumpParser
             }
         }
     }
+
+    testing::AssertionResult expect_done()
+    {
+        if (done)
+        {
+            return testing::AssertionSuccess();
+        }
+
+        if (!parser->next())
+        {
+            done = true;
+            return testing::AssertionSuccess();
+        }
+
+        if (parser->has_error())
+        {
+            return make_parse_error();
+        }
+        else
+        {
+            return testing::AssertionFailure()
+                << "Expected parser to be done, but there is remaining data (next element has type "
+                << jxc::element_type_to_string(parser->value().type)
+                << ")";
+        }
+    }
 };
 
 
@@ -84,8 +125,15 @@ testing::AssertionResult _jxc_expect_jump_parse_next(
     return parser.next(expected_element);
 }
 
-
 #define EXPECT_PARSE_NEXT(PARSER, EXPECTED_ELEMENT) EXPECT_PRED_FORMAT2(_jxc_expect_jump_parse_next, (PARSER), (EXPECTED_ELEMENT))
+
+
+testing::AssertionResult _jxc_expect_jump_parse_done(const char* parser_str, TestJumpParser& parser)
+{
+    return parser.expect_done();
+}
+
+#define EXPECT_PARSE_DONE(PARSER) EXPECT_PRED_FORMAT1(_jxc_expect_jump_parse_done, (PARSER))
 
 
 #define EXPECT_PARSE_SINGLE(JXC_VALUE, EXPECTED_ELEMENT) do { \
@@ -489,6 +537,29 @@ TEST(jxc_core, JumpParserAnnotations)
         make_token(TokenType::String, "r'(\\w*)'"),
         make_token(TokenType::AngleBracketClose),
     }));
+}
+
+
+TEST(jxc_core, LexerStringViewBounds)
+{
+    using namespace jxc;
+
+    // If there is data remaining at the end of the source string (which is NOT passed to JumpParser in the string_view),
+    // make sure we're not parsing it by mistake.
+
+    std::string data = "{x:1,y:2 }3    ";
+    std::string_view data_view = std::string_view(data).substr(0, 10);
+
+    {
+        TestJumpParser parser(data_view, test_skip_string_copy);
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::BeginObject, make_token(TokenType::BraceOpen)));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::Identifier, "x")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "1")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::ObjectKey, make_token(TokenType::Identifier, "y")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::Number, make_token(TokenType::Number, "2")));
+        EXPECT_PARSE_NEXT(parser, make_element(ElementType::EndObject, make_token(TokenType::BraceClose)));
+        EXPECT_PARSE_DONE(parser);
+    }
 }
 
 
