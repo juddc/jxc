@@ -1523,7 +1523,6 @@ bool parse_string_escapes_to_buffer(std::string_view value, size_t token_start_i
     }
 
     std::string deserialize_hex_error;
-    std::string_view hex_sequence;
 
     size_t val_idx = 0;
 

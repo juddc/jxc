@@ -87,6 +87,8 @@
 #endif
 #endif
 
+#define JXC_UNUSED(VAR_NAME) (void)(VAR_NAME)
+
 #include "jxc/jxc_memory.h"
 
 #ifndef JXC_LOG

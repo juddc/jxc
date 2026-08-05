@@ -22,7 +22,7 @@ struct FatPointer
     static constexpr size_t npos = std::numeric_limits<size_t>::max();
 
     FatPointer() = default;
-    FatPointer(nullptr_t) : ptr(nullptr), size(0) {}
+    FatPointer(std::nullptr_t) : ptr(nullptr), size(0) {}
     FatPointer(T* ptr, size_t size) : ptr(ptr), size(size) {}
 
     /// allow implicitly constructing from array types
@@ -50,11 +50,11 @@ struct FatPointer
 
     inline bool operator==(FatPointer<T> rhs) const { return ptr == rhs.ptr && size == rhs.size; }
     inline bool operator==(T* rhs) const { return ptr == rhs; }
-    inline bool operator==(nullptr_t) const { return ptr == nullptr; }
+    inline bool operator==(std::nullptr_t) const { return ptr == nullptr; }
 
     inline bool operator!=(FatPointer<T> rhs) const { return !operator==(rhs); }
     inline bool operator!=(T* rhs) const { return ptr != rhs; }
-    inline bool operator!=(nullptr_t) const { return ptr != nullptr; }
+    inline bool operator!=(std::nullptr_t) const { return ptr != nullptr; }
 
     template<typename DestT>
     inline DestT* reinterpret_ptr()
@@ -141,6 +141,7 @@ private:
 
     static inline void memmove_internal(T* dst, size_t dst_size, const T* src, size_t src_size)
     {
+        JXC_UNUSED(dst_size); // dst_size is only passed to memmove on some platforms
         JXC_MEMMOVE((void*)dst, dst_size, (void*)src, src_size);
     }
 
@@ -585,7 +586,7 @@ private:
         }
 
         auto iter = container.begin();
-        init_from_lambda(container_size, [&iter](size_t idx) -> const T&
+        init_from_lambda(container_size, [&iter](size_t /*idx*/) -> const T&
             {
                 const T& result = *iter;
                 ++iter;

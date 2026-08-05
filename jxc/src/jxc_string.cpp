@@ -205,7 +205,7 @@ void FlexString::resize(size_t new_size, char fill_char)
         str_buf[new_size] = '\0';
     };
 
-    auto set_owned_sized = [this, orig_size, new_size, num_chars_to_copy, fill_char](const char* orig_str)
+    auto set_owned_sized = [this, new_size, num_chars_to_copy, fill_char](const char* orig_str)
     {
         char* new_buf = set_owned_empty_buffer_internal(new_size, fill_char);
         JXC_STRNCPY(new_buf, new_size, orig_str, num_chars_to_copy);
