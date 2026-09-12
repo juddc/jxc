@@ -529,7 +529,7 @@ bool is_valid_object_key(std::string_view key, bool allow_separators)
     auto is_valid_char = [](char ch) { return is_valid_identifier_char(ch) || ch == '*'; };
     auto is_separator = [](char ch) { return ch == '.'; };
 
-    if (key.size() == 0 || (!is_valid_first_char(key[0]) && !is_separator(key[0])))
+    if (key.size() == 0)
     {
         return false;
     }
@@ -541,7 +541,7 @@ bool is_valid_object_key(std::string_view key, bool allow_separators)
         const char ch = key[idx];
         if (is_separator(ch))
         {
-            if (!allow_separators)
+            if (!allow_separators || segment_len == 0)
             {
                 return false;
             }
@@ -559,7 +559,7 @@ bool is_valid_object_key(std::string_view key, bool allow_separators)
         ++idx;
     }
 
-    return true;
+    return segment_len > 0;
 }
 
 

@@ -1145,3 +1145,40 @@ R"BASE64(b64'(
         "vec3{x:0,y:1,z:2}");
 
 }
+
+
+TEST(jxc_core, SerializerObjectKeys)
+{
+    using namespace jxc;
+
+    auto serialize_key = [](std::string_view key)
+    {
+        return test_serialize([&key](Serializer& doc)
+        {
+            doc.object_begin().identifier_or_string(key).sep().value_int(0).object_end();
+        });
+    };
+
+    EXPECT_EQ(serialize_key("x"), "{x:0}");
+    EXPECT_EQ(serialize_key("x.y"), "{x.y:0}");
+    EXPECT_EQ(serialize_key("*"), "{*:0}");
+    EXPECT_EQ(serialize_key("x.*"), "{x.*:0}");
+
+    EXPECT_EQ(serialize_key("x y"), "{\"x y\":0}");
+    EXPECT_EQ(serialize_key("."), "{\".\":0}");
+    EXPECT_EQ(serialize_key(".."), "{\"..\":0}");
+    EXPECT_EQ(serialize_key(".x"), "{\".x\":0}");
+    EXPECT_EQ(serialize_key("x."), "{\"x.\":0}");
+    EXPECT_EQ(serialize_key("x..y"), "{\"x..y\":0}");
+
+    for (std::string_view key : { "x", "x.y", "*", "x.*", "x y", ".", "..", ".x", "x.", "x..y" })
+    {
+        const std::string result = serialize_key(key);
+        JumpParser parser(result);
+        while (parser.next())
+        {
+        }
+        EXPECT_FALSE(parser.has_error()) << "Failed to parse " << detail::debug_string_repr(result)
+            << ": " << parser.get_error().to_string(result);
+    }
+}
