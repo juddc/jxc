@@ -7,7 +7,7 @@
 
 JXC is a structured data language similar to JSON, but with a focus on being expressive, extensible, and human-friendly. It's fantastic in many use-cases that can be awkward in other data formats. It's a perfect fit for config files, especially ones with more complex needs. It also does not sacrifice speed - benchmarks show that the reference implementation is about as fast as many commonly used C++ JSON libraries.
 
-**Important Note**: JXC has not yet reached version 1.0. The current goal is to ship a 1.0 release in early 2026. **The 1.0 release will come with a strong commitment to backwards compatibility for the language syntax.** Along with this, the reference implementation will switch to semantic versioning - no breaking changes allowed except for major version bumps. The version numbers for the language and reference libraries will also likely be decoupled at this time, so they can evolve independently.
+**Important Note**: JXC has not yet reached version 1.0. The current goal is to ship a 1.0 release in 2026. **The 1.0 release will come with a strong commitment to backwards compatibility for the language syntax.** Along with this, the reference implementation will switch to semantic versioning - no breaking changes allowed except for major version bumps. The version numbers for the language and reference libraries will also likely be decoupled at this time, so they can evolve independently.
 
 If you have feedback on the language syntax or semantics, now is the best time to offer them, while breaking changes are still allowed.
 
@@ -88,3 +88,9 @@ Copy the directory `contrib/jxc.vscode` into the `extensions` directory in your 
 Copy the directory `contrib/JXC.sublime-package` into the `Packages` directory in your Sublime Text user data directory (on Windows, this is `%APPDATA%/Sublime Text/Packages`). You can open this directory by opening the `Preferences` menu in Sublime Text and clicking `Browse Packages`.
 
 Installing this package for Sublime Text will also enable it in Sublime Merge.
+
+# AI Policy
+
+As JXC is designed to be human-readable and human-writable, this repository was written without AI assistance and does not accept AI-authored contributions.
+
+The only exception to this rule is research. If you identified a bug using AI, you may submit a PR only if you ensure that all submitted code, code comments, documentation, and tests were written and understood by humans.
